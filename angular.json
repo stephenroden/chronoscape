@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "time-guessr-game": {
+    "chronoscape": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -64,10 +64,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "time-guessr-game:build:production"
+              "buildTarget": "chronoscape:build:production"
             },
             "development": {
-              "buildTarget": "time-guessr-game:build:development"
+              "buildTarget": "chronoscape:build:development"
             }
           },
           "defaultConfiguration": "development"

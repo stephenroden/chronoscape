@@ -2,7 +2,7 @@
 
 ## Overview
 
-The TimeGuessr application is a single-page Angular application that presents users with historical photographs and challenges them to guess the year and location. The application uses NgRx for state management, integrates with Wikipedia/Wikimedia Commons APIs for dynamic photo sourcing, and provides an interactive mapping interface for location guessing.
+The Chronoscape application is a single-page Angular application that presents users with historical photographs and challenges them to guess the year and location. The application uses NgRx for state management, integrates with Wikipedia/Wikimedia Commons APIs for dynamic photo sourcing, and provides an interactive mapping interface for location guessing.
 
 ## Architecture
 

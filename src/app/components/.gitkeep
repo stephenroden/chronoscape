@@ -1,6 +1,6 @@
 # Components Directory
 
-This directory contains all Angular components for the TimeGuessr game:
+This directory contains all Angular components for the Chronoscape game:
 - GameComponent - Main game container
 - PhotoDisplayComponent - Photo rendering
 - YearGuessComponent - Year input

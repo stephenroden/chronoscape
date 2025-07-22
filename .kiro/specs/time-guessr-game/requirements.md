@@ -2,7 +2,7 @@
 
 ## Introduction
 
-TimeGuessr is a web-based guessing game where players are presented with historical photographs from around the world and must guess both the year the photo was taken and the location where it was captured. The game dynamically sources photos from Wikipedia or similar services, ensuring a large and varied pool of content. Players earn points based on the accuracy of their guesses across five rounds, with a maximum of 10,000 points per photo (5,000 for year accuracy, 5,000 for location accuracy).
+Chronoscape is a web-based guessing game where players are presented with historical photographs from around the world and must guess both the year the photo was taken and the location where it was captured. The game dynamically sources photos from Wikipedia or similar services, ensuring a large and varied pool of content. Players earn points based on the accuracy of their guesses across five rounds, with a maximum of 10,000 points per photo (5,000 for year accuracy, 5,000 for location accuracy).
 
 ## Requirements
 
