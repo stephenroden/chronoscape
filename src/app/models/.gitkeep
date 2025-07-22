@@ -1,0 +1,7 @@
+# Models Directory
+
+This directory contains TypeScript interfaces and types:
+- Photo interface and related types
+- Game state models
+- Scoring models
+- Coordinate types

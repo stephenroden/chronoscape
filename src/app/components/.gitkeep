@@ -1,0 +1,9 @@
+# Components Directory
+
+This directory contains all Angular components for the TimeGuessr game:
+- GameComponent - Main game container
+- PhotoDisplayComponent - Photo rendering
+- YearGuessComponent - Year input
+- MapGuessComponent - Interactive map
+- ResultsComponent - Answer display
+- ScoreSummaryComponent - Final results

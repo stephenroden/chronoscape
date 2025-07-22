@@ -1,0 +1,6 @@
+# State Directory
+
+This directory contains NgRx state management:
+- game/ - Game flow state (actions, reducers, effects, selectors)
+- photos/ - Photo loading state
+- scoring/ - Score calculation state

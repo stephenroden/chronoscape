@@ -1,0 +1,6 @@
+# Services Directory
+
+This directory contains all Angular services:
+- PhotoService - Wikipedia/Wikimedia API integration
+- MapService - Leaflet map functionality
+- ScoringService - Point calculation logic
