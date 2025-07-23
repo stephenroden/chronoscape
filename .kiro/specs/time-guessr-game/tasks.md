@@ -79,7 +79,7 @@
   - Write unit tests for input validation and form submission
   - _Requirements: 2.1, 2.2_
 
-- [ ] 11. Create interactive map guessing component
+- [x] 11. Create interactive map guessing component
 
   - Build MapGuessComponent that integrates with MapService for pin placement
   - Implement click handlers for map interaction and pin positioning

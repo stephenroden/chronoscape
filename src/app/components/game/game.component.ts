@@ -9,6 +9,7 @@ import * as GameSelectors from '../../state/game/game.selectors';
 import * as PhotosActions from '../../state/photos/photos.actions';
 import { PhotoDisplayComponent } from '../photo-display/photo-display.component';
 import { YearGuessComponent } from '../year-guess/year-guess.component';
+import { MapGuessComponent } from '../map-guess/map-guess.component';
 
 /**
  * Main game container component that orchestrates the overall game flow and state.
@@ -23,7 +24,7 @@ import { YearGuessComponent } from '../year-guess/year-guess.component';
 @Component({
   selector: 'app-game',
   standalone: true,
-  imports: [CommonModule, PhotoDisplayComponent, YearGuessComponent],
+  imports: [CommonModule, PhotoDisplayComponent, YearGuessComponent, MapGuessComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
