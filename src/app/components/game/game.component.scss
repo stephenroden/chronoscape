@@ -1,0 +1,157 @@
+.game-container {
+  display: flex;
+  flex-direction: column;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+  height: 100%;
+  min-height: 80vh;
+}
+
+.game-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 2rem;
+  
+  h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+}
+
+.progress-container {
+  width: 100%;
+  max-width: 500px;
+  margin-top: 1rem;
+  
+  .progress-text {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  
+  .progress-bar {
+    height: 8px;
+    background-color: #e0e0e0;
+    border-radius: 4px;
+    overflow: hidden;
+    
+    .progress-fill {
+      height: 100%;
+      background-color: #4285f4;
+      transition: width 0.3s ease;
+    }
+  }
+}
+
+.game-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-start, .game-completed, .game-error {
+  text-align: center;
+  max-width: 600px;
+  
+  h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    margin-bottom: 2rem;
+    font-size: 1.1rem;
+    line-height: 1.5;
+  }
+}
+
+.game-play {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  
+  .photo-placeholder {
+    width: 100%;
+    height: 300px;
+    background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+  }
+  
+  .guess-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    
+    @media (min-width: 768px) {
+      flex-direction: row;
+    }
+    
+    .year-guess-placeholder, .map-guess-placeholder {
+      flex: 1;
+      min-height: 200px;
+      background-color: #f5f5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+    }
+  }
+  
+  .game-controls {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+}
+
+.primary-button, .secondary-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border: none;
+}
+
+.primary-button {
+  background-color: #4285f4;
+  color: white;
+  
+  &:hover {
+    background-color: #3367d6;
+  }
+}
+
+.secondary-button {
+  background-color: #e0e0e0;
+  color: #333;
+  
+  &:hover {
+    background-color: #d0d0d0;
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 767px) {
+  .game-header h1 {
+    font-size: 2rem;
+  }
+  
+  .game-start h2, .game-completed h2, .game-error h2 {
+    font-size: 1.5rem;
+  }
+}

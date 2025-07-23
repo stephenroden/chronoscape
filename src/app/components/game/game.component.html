@@ -1,0 +1,64 @@
+<div class="game-container">
+  <!-- Game header with progress indicator -->
+  <div class="game-header">
+    <h1>Chronoscape</h1>
+    
+    <!-- Progress indicator showing current photo out of total (Requirement 1.1, 1.3) -->
+    <div class="progress-container" *ngIf="(isGameInProgress$ | async)">
+      <div class="progress-text">
+        Photo {{ (gameProgress$ | async)?.current }} of {{ (gameProgress$ | async)?.total }}
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="(gameProgress$ | async)?.percentage"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game content area -->
+  <div class="game-content">
+    <!-- Not started state -->
+    <div class="game-start" *ngIf="(isGameNotStarted$ | async)">
+      <h2>Welcome to Chronoscape!</h2>
+      <p>Test your knowledge of history and geography by guessing when and where historical photos were taken.</p>
+      <button class="primary-button" (click)="startGame()">Start Game</button>
+    </div>
+
+    <!-- Game in progress state -->
+    <div class="game-play" *ngIf="(isGameInProgress$ | async)">
+      <!-- This is a placeholder for the photo display component -->
+      <div class="photo-placeholder">
+        <p>Photo will be displayed here</p>
+      </div>
+
+      <!-- This is a placeholder for the guessing components -->
+      <div class="guess-container">
+        <div class="year-guess-placeholder">
+          <p>Year guessing component will go here</p>
+        </div>
+        <div class="map-guess-placeholder">
+          <p>Map guessing component will go here</p>
+        </div>
+      </div>
+
+      <!-- Temporary buttons for testing game flow -->
+      <div class="game-controls">
+        <button class="secondary-button" (click)="nextPhoto()">Next Photo (Temporary)</button>
+        <button class="secondary-button" (click)="endGame()">End Game (Temporary)</button>
+      </div>
+    </div>
+
+    <!-- Game completed state (Requirement 1.4, 6.1) -->
+    <div class="game-completed" *ngIf="(isGameCompleted$ | async)">
+      <h2>Game Completed!</h2>
+      <p>You've completed all photos. Your final score will be displayed here.</p>
+      <button class="primary-button" (click)="resetGame()">Play Again</button>
+    </div>
+
+    <!-- Error state -->
+    <div class="game-error" *ngIf="(hasGameError$ | async)">
+      <h2>Oops! Something went wrong</h2>
+      <p>We couldn't load the game properly. Please try again.</p>
+      <button class="primary-button" (click)="resetGame()">Try Again</button>
+    </div>
+  </div>
+</div>
