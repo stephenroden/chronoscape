@@ -9,6 +9,7 @@ import { routes } from './app.routes';
 import { gameReducer } from './state/game/game.reducer';
 import { photosReducer } from './state/photos/photos.reducer';
 import { scoringReducer } from './state/scoring/scoring.reducer';
+import { PhotosEffects } from './state/photos/photos.effects';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -28,6 +29,6 @@ export const appConfig: ApplicationConfig = {
       trace: false,
       traceLimit: 75
     }),
-    provideEffects()
+    provideEffects([PhotosEffects])
   ]
 };

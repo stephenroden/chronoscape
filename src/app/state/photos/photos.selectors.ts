@@ -60,3 +60,45 @@ export const selectIsPhotosReady = createSelector(
   (hasPhotos: boolean, loading: boolean, error: string | null) => 
     hasPhotos && !loading && !error
 );
+
+// Additional selectors for loading indicators and error handling
+export const selectPhotosLoadingState = createSelector(
+  selectPhotosLoading,
+  selectPhotosError,
+  (loading: boolean, error: string | null) => ({
+    loading,
+    error,
+    hasError: !!error
+  })
+);
+
+export const selectCanLoadPhotos = createSelector(
+  selectPhotosLoading,
+  (loading: boolean) => !loading
+);
+
+export const selectPhotosWithValidation = createSelector(
+  selectAllPhotos,
+  (photos: Photo[]) => photos.map(photo => ({
+    ...photo,
+    isValid: photo.year >= 1900 && 
+             photo.coordinates.latitude !== 0 && 
+             photo.coordinates.longitude !== 0 &&
+             !!photo.url
+  }))
+);
+
+export const selectValidPhotosCount = createSelector(
+  selectPhotosWithValidation,
+  (photosWithValidation) => photosWithValidation.filter(p => p.isValid).length
+);
+
+export const selectPhotosProgress = createSelector(
+  selectPhotosCount,
+  selectCurrentPhotoIndex,
+  (totalPhotos: number, currentIndex: number) => ({
+    current: Math.max(0, currentIndex + 1),
+    total: totalPhotos,
+    percentage: totalPhotos > 0 ? Math.round(((currentIndex + 1) / totalPhotos) * 100) : 0
+  })
+);

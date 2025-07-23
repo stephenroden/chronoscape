@@ -30,7 +30,7 @@
   - Write unit tests with mocked API responses
   - _Requirements: 5.1, 5.2, 5.3, 5.5_
 
-- [ ] 5. Create NgRx effects for photo loading
+- [x] 5. Create NgRx effects for photo loading
 
   - Implement effects to handle asynchronous photo fetching from API
   - Add error handling for network failures and invalid photo data
