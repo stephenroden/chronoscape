@@ -71,7 +71,7 @@
   - Write unit tests for component rendering and responsive behavior
   - _Requirements: 1.2, 7.2, 7.4_
 
-- [ ] 10. Build year guessing input component
+- [x] 10. Build year guessing input component
 
   - Create YearGuessComponent with form validation for 4-digit years (1900+)
   - Implement input field with proper validation messages and constraints

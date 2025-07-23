@@ -1,0 +1,50 @@
+<div class="year-guess-container">
+  <div class="year-guess-form">
+    <div class="form-group">
+      <label for="year-slider" class="year-label">
+        When was this photo taken?
+      </label>
+      
+      <div class="selected-year-display">
+        <span class="selected-year">{{ selectedYear }}</span>
+      </div>
+      
+      <div class="slider-container">
+        <div class="slider-track">
+          <input
+            id="year-slider"
+            type="range"
+            [min]="minYear"
+            [max]="currentYear"
+            [value]="selectedYear"
+            (input)="onSliderChange($event)"
+            class="year-slider"
+            step="1"
+            [attr.aria-label]="'Select year between ' + minYear + ' and ' + currentYear"
+          />
+          
+          <!-- Decade tick marks -->
+          <div class="tick-marks">
+            <div 
+              *ngFor="let decade of getDecadeMarks()" 
+              class="tick-mark"
+              [style.left.%]="getDecadePosition(decade)"
+            >
+              <div class="tick-line"></div>
+              <div class="tick-label">{{ decade }}</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="range-labels">
+          <span class="min-label">{{ minYear }}</span>
+          <span class="max-label">{{ currentYear }}</span>
+        </div>
+      </div>
+      
+      <div class="help-text">
+        Drag the slider to select a year between {{ minYear }} and {{ currentYear }}
+      </div>
+    </div>
+  </div>
+</div>

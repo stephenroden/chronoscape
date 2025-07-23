@@ -93,7 +93,19 @@
       flex-direction: row;
     }
     
-    .year-guess-placeholder, .map-guess-placeholder {
+    .year-guess-section {
+      flex: 1;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      background-color: #f9f9f9;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    .map-guess-placeholder {
       flex: 1;
       min-height: 200px;
       background-color: #f5f5f5;

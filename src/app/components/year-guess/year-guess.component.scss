@@ -1,0 +1,255 @@
+.year-guess-container {
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.year-guess-form {
+  width: 100%;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.year-label {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.selected-year-display {
+  text-align: center;
+  margin-bottom: 1rem;
+  
+  .selected-year {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #007bff;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+  }
+}
+
+.slider-container {
+  position: relative;
+  padding: 1rem 0;
+}
+
+.slider-track {
+  position: relative;
+  margin-bottom: 2rem;
+}
+
+.year-slider {
+  width: 100%;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #e0e0e0, #e0e0e0);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  
+  // Webkit (Chrome, Safari)
+  &::-webkit-slider-track {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(to right, #f0f0f0 0%, #007bff 50%, #0056b3 100%);
+    border-radius: 4px;
+  }
+  
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #007bff;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    }
+    
+    &:active {
+      transform: scale(1.2);
+      box-shadow: 0 4px 16px rgba(0, 123, 255, 0.5);
+    }
+  }
+  
+  // Firefox
+  &::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    background: linear-gradient(to right, #f0f0f0 0%, #007bff 50%, #0056b3 100%);
+    border-radius: 4px;
+    border: none;
+  }
+  
+  &::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #007bff;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    }
+    
+    &:active {
+      transform: scale(1.2);
+      box-shadow: 0 4px 16px rgba(0, 123, 255, 0.5);
+    }
+  }
+  
+  &:focus {
+    &::-webkit-slider-thumb {
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2), 0 2px 8px rgba(0, 123, 255, 0.3);
+    }
+    
+    &::-moz-range-thumb {
+      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2), 0 2px 8px rgba(0, 123, 255, 0.3);
+    }
+  }
+}
+
+.tick-marks {
+  position: absolute;
+  top: 20px;
+  left: 0;
+  right: 0;
+  height: 40px;
+  pointer-events: none;
+}
+
+.tick-mark {
+  position: absolute;
+  transform: translateX(-50%);
+  
+  .tick-line {
+    width: 2px;
+    height: 12px;
+    background-color: #999;
+    margin: 0 auto 4px;
+  }
+  
+  .tick-label {
+    font-size: 0.75rem;
+    color: #666;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+.range-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.875rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.help-text {
+  color: #666;
+  font-size: 0.875rem;
+  text-align: center;
+  margin-top: 0.5rem;
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .year-guess-container {
+    padding: 0.5rem;
+  }
+
+  .selected-year-display .selected-year {
+    font-size: 2rem;
+  }
+
+  .year-label {
+    font-size: 1rem;
+  }
+  
+  .tick-mark .tick-label {
+    font-size: 0.7rem;
+  }
+  
+  .year-slider {
+    &::-webkit-slider-thumb {
+      width: 20px;
+      height: 20px;
+    }
+    
+    &::-moz-range-thumb {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .year-slider {
+    &::-webkit-slider-track {
+      background: #000;
+    }
+    
+    &::-webkit-slider-thumb {
+      background: #000;
+      border-color: #fff;
+    }
+    
+    &::-moz-range-track {
+      background: #000;
+    }
+    
+    &::-moz-range-thumb {
+      background: #000;
+      border-color: #fff;
+    }
+  }
+  
+  .tick-line {
+    background-color: #000;
+  }
+  
+  .selected-year {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  .year-slider {
+    &::-webkit-slider-thumb {
+      transition: none;
+    }
+    
+    &::-moz-range-thumb {
+      transition: none;
+    }
+  }
+  
+  .selected-year {
+    text-shadow: none;
+  }
+}
