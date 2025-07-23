@@ -87,7 +87,7 @@
   - Write unit tests for map interactions and pin placement logic
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 12. Implement results display component
+- [x] 12. Implement results display component
 
   - Create ResultsComponent to show correct answers alongside user guesses
   - Display points earned for both year and location accuracy

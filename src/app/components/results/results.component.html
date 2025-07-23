@@ -1,0 +1,136 @@
+<div class="results-container" *ngIf="resultsData$ | async as data">
+  <!-- Results Header -->
+  <div class="results-header">
+    <h2>Results</h2>
+    <div class="photo-info" *ngIf="data.photo">
+      <h3>{{ data.photo.title }}</h3>
+      <p class="photo-description" *ngIf="data.photo.description">
+        {{ data.photo.description }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Results Content -->
+  <div class="results-content" *ngIf="data.photo && data.guess">
+    <!-- Year Results -->
+    <div class="result-section year-results">
+      <h4>Year Guess</h4>
+      <div class="guess-comparison">
+        <div class="guess-item user-guess">
+          <span class="label">Your Guess:</span>
+          <span class="value">{{ data.guess.year }}</span>
+        </div>
+        <div class="guess-item correct-answer">
+          <span class="label">Correct Year:</span>
+          <span class="value">{{ data.photo.year }}</span>
+        </div>
+        <div class="difference">
+          <span class="difference-text">
+            {{ formatYearDifference(data.guess.year, data.photo.year) }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- Year Score Display -->
+      <div class="score-display" *ngIf="data.score">
+        <div class="score-points">
+          <span class="points">{{ data.score.yearScore }}</span>
+          <span class="max-points">/ 5,000 points</span>
+        </div>
+        <div class="performance-badge" [class]="'year-' + getYearPerformance(data.score.yearScore).toLowerCase()">
+          {{ getYearPerformance(data.score.yearScore) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Location Results -->
+    <div class="result-section location-results">
+      <h4>Location Guess</h4>
+      <div class="guess-comparison">
+        <div class="guess-item user-guess">
+          <span class="label">Your Guess:</span>
+          <span class="value">
+            {{ data.guess.coordinates.latitude.toFixed(4) }}°, 
+            {{ data.guess.coordinates.longitude.toFixed(4) }}°
+          </span>
+        </div>
+        <div class="guess-item correct-answer">
+          <span class="label">Correct Location:</span>
+          <span class="value">
+            {{ data.photo.coordinates.latitude.toFixed(4) }}°, 
+            {{ data.photo.coordinates.longitude.toFixed(4) }}°
+          </span>
+        </div>
+        <div class="difference">
+          <span class="difference-text">
+            {{ formatDistance(calculateDistance(data.guess.coordinates, data.photo.coordinates)) }} away
+          </span>
+        </div>
+      </div>
+      
+      <!-- Location Score Display -->
+      <div class="score-display" *ngIf="data.score">
+        <div class="score-points">
+          <span class="points">{{ data.score.locationScore }}</span>
+          <span class="max-points">/ 5,000 points</span>
+        </div>
+        <div class="performance-badge" [class]="'location-' + getLocationPerformance(data.score.locationScore).toLowerCase()">
+          {{ getLocationPerformance(data.score.locationScore) }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Map Display -->
+    <div class="result-section map-results">
+      <h4>Location Comparison</h4>
+      <div class="map-container">
+        <div [id]="mapContainerId" class="results-map"></div>
+        <div class="map-legend">
+          <div class="legend-item">
+            <div class="legend-pin red"></div>
+            <span>Your Guess</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-pin green"></div>
+            <span>Correct Location</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Score for This Photo -->
+    <div class="result-section total-score" *ngIf="data.score">
+      <h4>Photo Score</h4>
+      <div class="total-points">
+        <span class="points">{{ data.score.totalScore }}</span>
+        <span class="max-points">/ 10,000 points</span>
+      </div>
+      <div class="score-breakdown">
+        <div class="breakdown-item">
+          <span class="category">Year:</span>
+          <span class="score">{{ data.score.yearScore }}</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="category">Location:</span>
+          <span class="score">{{ data.score.locationScore }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation -->
+  <div class="results-actions">
+    <button 
+      class="next-photo-btn"
+      (click)="onNextPhoto()"
+      type="button">
+      Next Photo
+    </button>
+  </div>
+</div>
+
+<!-- Loading State -->
+<div class="results-loading" *ngIf="!(resultsData$ | async)">
+  <div class="loading-spinner"></div>
+  <p>Loading results...</p>
+</div>

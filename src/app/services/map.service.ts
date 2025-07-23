@@ -3,6 +3,17 @@ import * as L from 'leaflet';
 import { Coordinates } from '../models/coordinates.model';
 
 /**
+ * Pin options for customizing marker appearance
+ */
+export interface PinOptions {
+  color?: string;
+  label?: string;
+  title?: string;
+  alt?: string;
+  icon?: L.Icon;
+}
+
+/**
  * Service for managing Leaflet map interactions and functionality
  */
 @Injectable({
@@ -11,6 +22,7 @@ import { Coordinates } from '../models/coordinates.model';
 export class MapService {
   private map: L.Map | null = null;
   private currentPin: L.Marker | null = null;
+  private markers: L.Marker[] = [];
 
   /**
    * Initialize a Leaflet map with OpenStreetMap tiles
@@ -56,10 +68,10 @@ export class MapService {
   /**
    * Add or update a pin at the specified coordinates
    * @param coordinates - The coordinates where to place the pin
-   * @param options - Optional marker options (color, icon, etc.)
+   * @param options - Optional pin customization options
    * @returns The created marker
    */
-  addPin(coordinates: Coordinates, options?: L.MarkerOptions): L.Marker {
+  addPin(coordinates: Coordinates, options?: PinOptions): L.Marker {
     if (!this.map) {
       throw new Error('Map must be initialized before adding pins');
     }
@@ -69,9 +81,30 @@ export class MapService {
       this.map.removeLayer(this.currentPin);
     }
 
+    // Create marker options with custom icon if color is specified
+    const markerOptions: L.MarkerOptions = {};
+    if (options?.icon) {
+      markerOptions.icon = options.icon;
+    } else if (options?.color) {
+      markerOptions.icon = this.createColoredIcon(options.color);
+    }
+    
+    // Add title and alt attributes if provided
+    if (options?.title) {
+      markerOptions.title = options.title;
+    }
+    if (options?.alt) {
+      markerOptions.alt = options.alt;
+    }
+
     // Create new pin
-    this.currentPin = L.marker([coordinates.latitude, coordinates.longitude], options)
+    this.currentPin = L.marker([coordinates.latitude, coordinates.longitude], markerOptions)
       .addTo(this.map);
+
+    // Add label if provided
+    if (options?.label) {
+      this.currentPin.bindPopup(options.label);
+    }
 
     return this.currentPin;
   }
@@ -177,39 +210,74 @@ export class MapService {
   }
 
   /**
-   * Fit the map view to show both pins (user guess and correct answer)
-   * @param coordinates1 - First coordinate point
-   * @param coordinates2 - Second coordinate point
+   * Fit the map view to show multiple coordinate points
+   * @param coordinates - Array of coordinate points or single coordinate pair
    * @param padding - Optional padding around the bounds
    */
-  fitBounds(coordinates1: Coordinates, coordinates2: Coordinates, padding?: L.FitBoundsOptions): void {
+  fitBounds(coordinates: Coordinates[] | [Coordinates, Coordinates], padding?: L.FitBoundsOptions): void {
     if (!this.map) {
       throw new Error('Map must be initialized before fitting bounds');
     }
 
-    const bounds = L.latLngBounds([
-      [coordinates1.latitude, coordinates1.longitude],
-      [coordinates2.latitude, coordinates2.longitude]
-    ]);
+    const coordArray = Array.isArray(coordinates[0]) ? coordinates as [Coordinates, Coordinates] : coordinates as Coordinates[];
+    
+    const latLngs = coordArray.map(coord => [coord.latitude, coord.longitude] as [number, number]);
+    const bounds = L.latLngBounds(latLngs);
 
-    this.map.fitBounds(bounds, padding);
+    this.map.fitBounds(bounds, padding || { padding: [20, 20] });
   }
 
   /**
-   * Add a second pin (typically for showing correct answer)
-   * @param coordinates - The coordinates for the second pin
-   * @param options - Optional marker options
+   * Add multiple pins to the map (for results display)
+   * @param coordinates - The coordinates for the additional pin
+   * @param options - Optional pin customization options
    * @returns The created marker
    */
-  addSecondPin(coordinates: Coordinates, options?: L.MarkerOptions): L.Marker {
+  addAdditionalPin(coordinates: Coordinates, options?: PinOptions): L.Marker {
     if (!this.map) {
       throw new Error('Map must be initialized before adding pins');
     }
 
-    const marker = L.marker([coordinates.latitude, coordinates.longitude], options)
+    // Create marker options with custom icon if color is specified
+    const markerOptions: L.MarkerOptions = {};
+    if (options?.icon) {
+      markerOptions.icon = options.icon;
+    } else if (options?.color) {
+      markerOptions.icon = this.createColoredIcon(options.color);
+    }
+    
+    // Add title and alt attributes if provided
+    if (options?.title) {
+      markerOptions.title = options.title;
+    }
+    if (options?.alt) {
+      markerOptions.alt = options.alt;
+    }
+
+    const marker = L.marker([coordinates.latitude, coordinates.longitude], markerOptions)
       .addTo(this.map);
 
+    // Add label if provided
+    if (options?.label) {
+      marker.bindPopup(options.label);
+    }
+
+    // Keep track of additional markers
+    this.markers.push(marker);
+
     return marker;
+  }
+
+  /**
+   * Clear all additional markers from the map
+   */
+  clearAdditionalMarkers(): void {
+    if (this.map) {
+      this.markers.forEach(marker => {
+        this.map!.removeLayer(marker);
+      });
+      this.markers = [];
+    }
   }
 
   /**
@@ -217,10 +285,27 @@ export class MapService {
    */
   destroy(): void {
     if (this.map) {
+      this.clearAdditionalMarkers();
       this.map.remove();
       this.map = null;
       this.currentPin = null;
     }
+  }
+
+  /**
+   * Create a colored icon for map markers
+   * @param color - The color for the icon (red, green, blue, etc.)
+   * @returns A Leaflet icon with the specified color
+   */
+  private createColoredIcon(color: string): L.Icon {
+    return L.icon({
+      iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-${color}.png`,
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
   }
 
   /**

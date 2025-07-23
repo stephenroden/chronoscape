@@ -295,7 +295,7 @@ describe('MapService', () => {
       const map = service['map'] as L.Map;
       const fitBoundsSpy = spyOn(map, 'fitBounds');
       
-      service.fitBounds(coord1, coord2);
+      service.fitBounds([coord1, coord2]);
       
       expect(fitBoundsSpy).toHaveBeenCalled();
       const bounds = fitBoundsSpy.calls.argsFor(0)[0] as L.LatLngBounds;
@@ -308,21 +308,21 @@ describe('MapService', () => {
       const coord1: Coordinates = { latitude: 40.7128, longitude: -74.0060 };
       const coord2: Coordinates = { latitude: 51.5074, longitude: -0.1278 };
       
-      expect(() => service.fitBounds(coord1, coord2)).toThrowError('Map must be initialized before fitting bounds');
+      expect(() => service.fitBounds([coord1, coord2])).toThrowError('Map must be initialized before fitting bounds');
     });
   });
 
-  describe('addSecondPin', () => {
+  describe('addAdditionalPin', () => {
     beforeEach(() => {
       service.initializeMap('test-map');
     });
 
-    it('should add a second pin without removing the first pin', () => {
+    it('should add an additional pin without removing the first pin', () => {
       const coord1: Coordinates = { latitude: 40.7128, longitude: -74.0060 };
       const coord2: Coordinates = { latitude: 51.5074, longitude: -0.1278 };
       
       service.addPin(coord1);
-      const secondMarker = service.addSecondPin(coord2);
+      const secondMarker = service.addAdditionalPin(coord2);
       
       expect(secondMarker).toBeTruthy();
       expect(secondMarker instanceof L.Marker).toBe(true);
@@ -342,7 +342,7 @@ describe('MapService', () => {
       service.destroy();
       const coordinates: Coordinates = { latitude: 40.7128, longitude: -74.0060 };
       
-      expect(() => service.addSecondPin(coordinates)).toThrowError('Map must be initialized before adding pins');
+      expect(() => service.addAdditionalPin(coordinates)).toThrowError('Map must be initialized before adding pins');
     });
   });
 
