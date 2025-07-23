@@ -6,22 +6,22 @@ export const selectPhotosState = createFeatureSelector<PhotoState>('photos');
 
 export const selectAllPhotos = createSelector(
   selectPhotosState,
-  (state: PhotoState) => state.photos
+  (state: PhotoState) => state?.photos || []
 );
 
 export const selectCurrentPhoto = createSelector(
   selectPhotosState,
-  (state: PhotoState) => state.currentPhoto
+  (state: PhotoState) => state?.currentPhoto || null
 );
 
 export const selectPhotosLoading = createSelector(
   selectPhotosState,
-  (state: PhotoState) => state.loading
+  (state: PhotoState) => state?.loading || false
 );
 
 export const selectPhotosError = createSelector(
   selectPhotosState,
-  (state: PhotoState) => state.error
+  (state: PhotoState) => state?.error || null
 );
 
 export const selectPhotosCount = createSelector(

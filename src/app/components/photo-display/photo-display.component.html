@@ -1,0 +1,91 @@
+<div class="photo-display-container" [attr.aria-label]="getLoadingAriaLabel()">
+  <!-- Loading state with skeleton placeholder -->
+  <div 
+    class="photo-loading" 
+    *ngIf="(photosLoading$ | async) || imageLoading"
+    role="status"
+    aria-label="Loading photograph">
+    <div class="skeleton-image"></div>
+    <div class="loading-text">
+      <div class="loading-spinner"></div>
+      <span>Loading photograph...</span>
+    </div>
+  </div>
+
+  <!-- Error state for photo service errors -->
+  <div 
+    class="photo-error service-error" 
+    *ngIf="(photosError$ | async) && !(photosLoading$ | async)"
+    role="alert"
+    aria-live="polite">
+    <div class="error-icon">⚠️</div>
+    <h3>Unable to Load Photos</h3>
+    <p>{{ photosError$ | async }}</p>
+    <p>Please check your internet connection and try again.</p>
+  </div>
+
+  <!-- Error state for individual image loading failures -->
+  <div 
+    class="photo-error image-error" 
+    *ngIf="imageError && photo && !(photosLoading$ | async)"
+    role="alert"
+    aria-live="polite">
+    <div class="error-icon">🖼️</div>
+    <h3>Image Failed to Load</h3>
+    <p>We couldn't display this photograph.</p>
+    <button 
+      class="retry-button" 
+      (click)="retryImageLoad()"
+      aria-label="Retry loading the photograph">
+      Try Again
+    </button>
+  </div>
+
+  <!-- Photo display when loaded successfully -->
+  <div 
+    class="photo-content" 
+    *ngIf="photo && !imageError && !(photosLoading$ | async)"
+    [class.loaded]="imageLoaded">
+    
+    <!-- Main photo container with responsive sizing -->
+    <div class="photo-container">
+      <img 
+        [src]="photo.url"
+        [alt]="getImageAltText()"
+        class="photo-image"
+        [class.loading]="imageLoading"
+        [class.loaded]="imageLoaded"
+        (load)="onImageLoad()"
+        (error)="onImageError()"
+        loading="eager"
+        decoding="async">
+      
+      <!-- Loading overlay for smooth transition -->
+      <div class="image-loading-overlay" *ngIf="imageLoading">
+        <div class="loading-spinner small"></div>
+      </div>
+    </div>
+
+    <!-- Photo metadata (only shown when showMetadata is true, for testing) -->
+    <div class="photo-metadata" *ngIf="showMetadata && imageLoaded">
+      <h3>{{ photo.title }}</h3>
+      <p *ngIf="photo.description" class="photo-description">{{ photo.description }}</p>
+      <div class="photo-details">
+        <span class="photo-year">Year: {{ photo.year }}</span>
+        <span class="photo-source">Source: {{ photo.source }}</span>
+        <span *ngIf="photo.metadata.photographer" class="photo-photographer">
+          Photographer: {{ photo.metadata.photographer }}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- No photo state -->
+  <div 
+    class="no-photo" 
+    *ngIf="!photo && !(photosLoading$ | async) && !(photosError$ | async)"
+    role="status">
+    <div class="no-photo-icon">📷</div>
+    <p>No photograph to display</p>
+  </div>
+</div>

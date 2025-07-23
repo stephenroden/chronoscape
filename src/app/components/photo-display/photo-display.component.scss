@@ -1,0 +1,370 @@
+.photo-display-container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  
+  // Responsive container sizing
+  @media (max-width: 768px) {
+    margin: 0 1rem;
+    border-radius: 8px;
+  }
+}
+
+// Loading states
+.photo-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 2rem;
+  
+  @media (max-width: 768px) {
+    min-height: 300px;
+    padding: 1.5rem;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: 250px;
+    padding: 1rem;
+  }
+}
+
+.skeleton-image {
+  width: 100%;
+  height: 300px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  
+  @media (max-width: 768px) {
+    height: 250px;
+  }
+  
+  @media (max-width: 480px) {
+    height: 200px;
+  }
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.loading-text {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: #666;
+  font-size: 1rem;
+  
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #e0e0e0;
+  border-top: 3px solid #4285f4;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  
+  &.small {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Error states
+.photo-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3rem 2rem;
+  min-height: 400px;
+  
+  @media (max-width: 768px) {
+    padding: 2rem 1.5rem;
+    min-height: 300px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 1.5rem 1rem;
+    min-height: 250px;
+  }
+  
+  .error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    
+    @media (max-width: 480px) {
+      font-size: 2.5rem;
+    }
+  }
+  
+  h3 {
+    color: #d32f2f;
+    margin-bottom: 0.5rem;
+    font-size: 1.25rem;
+    
+    @media (max-width: 480px) {
+      font-size: 1.1rem;
+    }
+  }
+  
+  p {
+    color: #666;
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+    
+    @media (max-width: 480px) {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+.retry-button {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 1rem;
+  
+  &:hover {
+    background-color: #3367d6;
+  }
+  
+  &:focus {
+    outline: 2px solid #4285f4;
+    outline-offset: 2px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.9rem;
+  }
+}
+
+// Photo content
+.photo-content {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  
+  &.loaded {
+    opacity: 1;
+  }
+}
+
+.photo-container {
+  position: relative;
+  width: 100%;
+  background-color: #000;
+  
+  // Maintain aspect ratio while being responsive
+  &::before {
+    content: '';
+    display: block;
+    padding-top: 66.67%; // 3:2 aspect ratio
+    
+    @media (max-width: 768px) {
+      padding-top: 75%; // 4:3 aspect ratio on mobile for better fit
+    }
+  }
+}
+
+.photo-image {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  transition: opacity 0.3s ease;
+  
+  &.loading {
+    opacity: 0;
+  }
+  
+  &.loaded {
+    opacity: 1;
+  }
+  
+  // Ensure images are accessible
+  &:focus {
+    outline: 3px solid #4285f4;
+    outline-offset: 2px;
+  }
+}
+
+.image-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+// Photo metadata (for testing/debugging)
+.photo-metadata {
+  padding: 1.5rem;
+  background-color: #fff;
+  border-top: 1px solid #e0e0e0;
+  
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+  
+  h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    color: #333;
+    
+    @media (max-width: 480px) {
+      font-size: 1.1rem;
+    }
+  }
+  
+  .photo-description {
+    color: #666;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+    
+    @media (max-width: 480px) {
+      font-size: 0.9rem;
+    }
+  }
+  
+  .photo-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 0.9rem;
+    color: #888;
+    
+    @media (max-width: 768px) {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    @media (max-width: 480px) {
+      font-size: 0.8rem;
+    }
+    
+    span {
+      &::before {
+        content: '• ';
+        margin-right: 0.25rem;
+        
+        @media (max-width: 768px) {
+          display: none;
+        }
+      }
+      
+      &:first-child::before {
+        display: none;
+      }
+    }
+  }
+}
+
+// No photo state
+.no-photo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  min-height: 400px;
+  color: #666;
+  
+  @media (max-width: 768px) {
+    padding: 2rem 1.5rem;
+    min-height: 300px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 1.5rem 1rem;
+    min-height: 250px;
+  }
+  
+  .no-photo-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+    
+    @media (max-width: 480px) {
+      font-size: 2.5rem;
+    }
+  }
+  
+  p {
+    font-size: 1rem;
+    
+    @media (max-width: 480px) {
+      font-size: 0.9rem;
+    }
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .photo-display-container {
+    border: 2px solid #000;
+  }
+  
+  .photo-error h3 {
+    color: #000;
+  }
+  
+  .retry-button {
+    background-color: #000;
+    border: 2px solid #000;
+    
+    &:hover {
+      background-color: #333;
+    }
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-image,
+  .loading-spinner,
+  .photo-content,
+  .photo-image {
+    animation: none;
+    transition: none;
+  }
+}

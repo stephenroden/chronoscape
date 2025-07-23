@@ -7,6 +7,7 @@ import { GameStatus } from '../../models/game-state.model';
 import * as GameActions from '../../state/game/game.actions';
 import * as GameSelectors from '../../state/game/game.selectors';
 import * as PhotosActions from '../../state/photos/photos.actions';
+import { PhotoDisplayComponent } from '../photo-display/photo-display.component';
 
 /**
  * Main game container component that orchestrates the overall game flow and state.
@@ -21,7 +22,7 @@ import * as PhotosActions from '../../state/photos/photos.actions';
 @Component({
   selector: 'app-game',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PhotoDisplayComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })

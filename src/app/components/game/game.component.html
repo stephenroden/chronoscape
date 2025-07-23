@@ -25,10 +25,8 @@
 
     <!-- Game in progress state -->
     <div class="game-play" *ngIf="(isGameInProgress$ | async)">
-      <!-- This is a placeholder for the photo display component -->
-      <div class="photo-placeholder">
-        <p>Photo will be displayed here</p>
-      </div>
+      <!-- Photo display component -->
+      <app-photo-display></app-photo-display>
 
       <!-- This is a placeholder for the guessing components -->
       <div class="guess-container">
