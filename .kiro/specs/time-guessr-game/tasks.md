@@ -38,7 +38,7 @@
   - Write unit tests for effects and selectors
   - _Requirements: 5.1, 5.6, 7.1_
 
-- [ ] 6. Implement scoring service and logic
+- [x] 6. Implement scoring service and logic
 
   - Create ScoringService with methods to calculate year and location accuracy points
   - Implement distance calculation between coordinates using Haversine formula
@@ -46,7 +46,7 @@
   - Write comprehensive unit tests for all scoring scenarios
   - _Requirements: 2.3, 2.4, 2.5, 2.6, 2.7, 3.4, 3.5, 3.6, 3.7, 3.8, 3.9_
 
-- [ ] 7. Create map service with Leaflet integration
+- [x] 7. Create map service with Leaflet integration
 
   - Implement MapService to initialize Leaflet maps with OpenStreetMap tiles
   - Add methods for pin placement, coordinate retrieval, and distance calculation
