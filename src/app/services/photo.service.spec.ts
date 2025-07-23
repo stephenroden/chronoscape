@@ -23,11 +23,11 @@ describe('PhotoService', () => {
 
   describe('fetchRandomPhotos', () => {
     it('should fetch and process photos successfully', () => {
-      const mockSearchResponse = {
+      const mockGeosearchResponse = {
         query: {
-          search: [
-            { title: 'File:Historical_Photo_1.jpg', pageid: 1, snippet: 'test' },
-            { title: 'File:Historical_Photo_2.jpg', pageid: 2, snippet: 'test' }
+          geosearch: [
+            { title: 'File:Historical_Photo_1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Historical_Photo_2.jpg', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 }
           ]
         }
       };
@@ -72,11 +72,12 @@ describe('PhotoService', () => {
         expect(photos[1].year).toBe(1960);
       });
 
-      // Handle search request
-      const searchReq = httpMock.expectOne(req => 
-        req.url === API_BASE_URL && req.params.get('action') === 'query' && req.params.get('list') === 'search'
+      // Handle geosearch requests (there will be 2 for 2 locations)
+      const geosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('action') === 'query' && req.params.get('list') === 'geosearch'
       );
-      searchReq.flush(mockSearchResponse);
+      expect(geosearchReqs.length).toBe(2);
+      geosearchReqs.forEach(req => req.flush(mockGeosearchResponse));
 
       // Handle image info request
       const imageInfoReq = httpMock.expectOne(req => 
@@ -86,14 +87,22 @@ describe('PhotoService', () => {
     });
 
     it('should handle empty search results', () => {
-      const mockEmptyResponse = { query: { search: [] } };
+      const mockEmptyResponse = { query: { geosearch: [] } };
 
       service.fetchRandomPhotos(5).subscribe(photos => {
         expect(photos.length).toBe(0);
       });
 
-      const req = httpMock.expectOne(req => req.url === API_BASE_URL);
-      req.flush(mockEmptyResponse);
+      // Handle all geosearch requests (there will be 5 for 5 locations)
+      const geosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs.length).toBe(5);
+      geosearchReqs.forEach(req => {
+        if (!req.cancelled) {
+          req.flush(mockEmptyResponse);
+        }
+      });
     });
 
     it('should handle API errors gracefully', () => {
@@ -101,8 +110,12 @@ describe('PhotoService', () => {
         expect(photos.length).toBe(0);
       });
 
-      const req = httpMock.expectOne(req => req.url === API_BASE_URL);
-      req.error(new ErrorEvent('Network error'));
+      // Handle geosearch requests (there will be 2 for 2 locations)
+      const geosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs.length).toBe(2);
+      geosearchReqs.forEach(req => req.error(new ErrorEvent('Network error')));
     });
   });
 
@@ -402,11 +415,11 @@ describe('PhotoService', () => {
 
   describe('filtering logic', () => {
     it('should filter out photos with invalid years through fetchRandomPhotos', () => {
-      const mockSearchResponse = {
+      const mockGeosearchResponse = {
         query: {
-          search: [
-            { title: 'File:Old_Photo.jpg', pageid: 1, snippet: 'test' },
-            { title: 'File:Valid_Photo.jpg', pageid: 2, snippet: 'test' }
+          geosearch: [
+            { title: 'File:Old_Photo.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Valid_Photo.jpg', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 }
           ]
         }
       };
@@ -447,13 +460,16 @@ describe('PhotoService', () => {
         expect(photos[0].year).toBe(1950);
       });
 
-      const searchReq = httpMock.expectOne(req => 
-        req.url === API_BASE_URL && req.params.get('list') === 'search'
+      // Handle geosearch requests (there will be 2 for 2 locations)
+      const geosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('action') === 'query' && req.params.get('list') === 'geosearch'
       );
-      searchReq.flush(mockSearchResponse);
+      expect(geosearchReqs.length).toBe(2);
+      geosearchReqs.forEach(req => req.flush(mockGeosearchResponse));
 
+      // Handle image info request
       const imageInfoReq = httpMock.expectOne(req => 
-        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+        req.url === API_BASE_URL && req.params.get('action') === 'query' && req.params.get('prop') === 'imageinfo'
       );
       imageInfoReq.flush(mockImageInfoResponse);
     });

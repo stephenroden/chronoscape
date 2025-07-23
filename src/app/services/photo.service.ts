@@ -2,22 +2,12 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { map, switchMap, catchError, filter } from 'rxjs/operators';
-import { Photo, PhotoMetadata, validatePhotoMetadata } from '../models/photo.model';
+import { Photo, validatePhotoMetadata } from '../models/photo.model';
 import { Coordinates } from '../models/coordinates.model';
 
 /**
  * Raw response structure from Wikimedia Commons API
  */
-interface WikimediaSearchResponse {
-  query: {
-    search: Array<{
-      title: string;
-      pageid: number;
-      snippet: string;
-    }>;
-  };
-}
-
 interface WikimediaImageInfoResponse {
   query: {
     pages: {
@@ -56,21 +46,25 @@ export class PhotoService {
   constructor(private http: HttpClient) { }
 
   /**
-   * Fetches random historical photos from Wikimedia Commons
+   * Fetches random historical photos from Wikimedia Commons using geosearch
    * @param count - Number of photos to fetch
    * @returns Observable of Photo array
    */
   fetchRandomPhotos(count: number): Observable<Photo[]> {
-    return this.searchHistoricalPhotos(count * 3) // Fetch more than needed for filtering
-      .pipe(
-        switchMap(searchResults => this.getPhotoDetails(searchResults)),
-        map(photos => this.filterValidPhotos(photos)),
-        map(photos => photos.slice(0, count)), // Take only the requested count
-        catchError(error => {
-          console.error('Error fetching photos:', error);
-          return of([]);
-        })
-      );
+    const locations = this.getRandomLocations(count);
+
+    return forkJoin(
+      locations.map(location => this.searchPhotosByLocation(location))
+    ).pipe(
+      map(locationResults => locationResults.flat()),
+      switchMap(searchResults => this.getPhotoDetails(searchResults)),
+      map(photos => this.filterValidPhotos(photos)),
+      map(photos => this.selectDiversePhotos(photos, count)),
+      catchError(error => {
+        console.error('Error fetching photos:', error);
+        return of([]);
+      })
+    );
   }
 
   /**
@@ -131,34 +125,81 @@ export class PhotoService {
   }
 
   /**
-   * Searches for historical photos with geographic and temporal metadata
+   * Gets diverse geographic locations for photo searching
    */
-  private searchHistoricalPhotos(limit: number): Observable<any[]> {
+  private getRandomLocations(count: number): Coordinates[] {
+    const allLocations: Coordinates[] = [
+      { latitude: 40.7589, longitude: -73.9851 }, // New York City
+      { latitude: 51.5074, longitude: -0.1278 },  // London
+      { latitude: 48.8566, longitude: 2.3522 },   // Paris
+      { latitude: 35.6762, longitude: 139.6503 }, // Tokyo
+      { latitude: -33.8688, longitude: 151.2093 }, // Sydney
+      { latitude: 37.7749, longitude: -122.4194 }, // San Francisco
+      { latitude: 52.5200, longitude: 13.4050 },  // Berlin
+      { latitude: 41.9028, longitude: 12.4964 },  // Rome
+      { latitude: 55.7558, longitude: 37.6176 },  // Moscow
+      { latitude: 39.9042, longitude: 116.4074 }, // Beijing
+      { latitude: -22.9068, longitude: -43.1729 }, // Rio de Janeiro
+      { latitude: 19.4326, longitude: -99.1332 }, // Mexico City
+      { latitude: 30.0444, longitude: 31.2357 },  // Cairo
+      { latitude: -26.2041, longitude: 28.0473 }, // Johannesburg
+      { latitude: 28.6139, longitude: 77.2090 },  // New Delhi
+    ];
+
+    // Shuffle and take the requested count
+    const shuffled = [...allLocations].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  }
+
+  /**
+   * Searches for photos near a specific location using geosearch
+   */
+  private searchPhotosByLocation(location: Coordinates): Observable<any[]> {
     const params = new HttpParams()
       .set('action', 'query')
-      .set('list', 'search')
-      .set('srnamespace', '6') // File namespace
-      .set('srsearch', 'historical photograph GPS coordinates filetype:jpg OR filetype:jpeg')
-      .set('srlimit', limit.toString())
+      .set('list', 'geosearch')
+      .set('gscoord', `${location.latitude}|${location.longitude}`)
+      .set('gsradius', '10000') // 10km radius
+      .set('gslimit', '20') // Get more results per location
+      .set('gsnamespace', '6') // File namespace
       .set('format', 'json')
       .set('origin', '*');
 
-    return this.http.get<WikimediaSearchResponse>(this.API_BASE_URL, { params })
+    return this.http.get<any>(this.API_BASE_URL, { params })
       .pipe(
-        map(response => response.query?.search || []),
+        map(response => response.query?.geosearch || []),
+        filter(results => results.length > 0),
         catchError(error => {
-          console.error('Search error:', error);
+          console.error('Geosearch error for location:', location, error);
           return of([]);
         })
       );
   }
 
   /**
-   * Gets detailed information for multiple photos
+   * Gets detailed information for multiple photos, chunking requests to respect API limits
    */
   private getPhotoDetails(searchResults: any[]): Observable<Photo[]> {
     if (!searchResults.length) return of([]);
 
+    // Chunk the results to respect the API limit of 50 titles per request
+    const chunks = this.chunkArray(searchResults, 50);
+
+    return forkJoin(
+      chunks.map(chunk => this.getPhotoDetailsChunk(chunk))
+    ).pipe(
+      map(chunkResults => chunkResults.flat()),
+      catchError(error => {
+        console.error('Photo details error:', error);
+        return of([]);
+      })
+    );
+  }
+
+  /**
+   * Gets photo details for a single chunk of results
+   */
+  private getPhotoDetailsChunk(searchResults: any[]): Observable<Photo[]> {
     const titles = searchResults.map(result => result.title).join('|');
     const params = new HttpParams()
       .set('action', 'query')
@@ -184,10 +225,21 @@ export class PhotoService {
           return photos;
         }),
         catchError(error => {
-          console.error('Photo details error:', error);
+          console.error('Photo details chunk error:', error);
           return of([]);
         })
       );
+  }
+
+  /**
+   * Utility function to chunk an array into smaller arrays
+   */
+  private chunkArray<T>(array: T[], chunkSize: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += chunkSize) {
+      chunks.push(array.slice(i, i + chunkSize));
+    }
+    return chunks;
   }
 
   /**
@@ -202,6 +254,37 @@ export class PhotoService {
         photo.coordinates.latitude !== 0 &&
         photo.coordinates.longitude !== 0;
     });
+  }
+
+  /**
+   * Selects diverse photos from the filtered results
+   */
+  private selectDiversePhotos(photos: Photo[], count: number): Photo[] {
+    if (photos.length <= count) return photos;
+
+    // Sort by year to get temporal diversity
+    const sortedPhotos = [...photos].sort((a, b) => a.year - b.year);
+
+    // Select photos with good temporal and spatial distribution
+    const selected: Photo[] = [];
+    const step = Math.floor(sortedPhotos.length / count);
+
+    for (let i = 0; i < count && i * step < sortedPhotos.length; i++) {
+      const index = i * step;
+      selected.push(sortedPhotos[index]);
+    }
+
+    // If we don't have enough, fill with remaining photos
+    while (selected.length < count && selected.length < photos.length) {
+      const remaining = photos.filter(p => !selected.includes(p));
+      if (remaining.length > 0) {
+        selected.push(remaining[0]);
+      } else {
+        break;
+      }
+    }
+
+    return selected;
   }
 
   /**

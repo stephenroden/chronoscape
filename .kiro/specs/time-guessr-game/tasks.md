@@ -63,7 +63,7 @@
   - Write unit tests for game flow logic and state transitions
   - _Requirements: 1.1, 1.3, 1.4, 6.1_
 
-- [x] 9. Implement photo display component
+- [ ] 9. Implement photo display component
 
   - Create PhotoDisplayComponent to render current photograph with loading states
   - Add responsive image display that works across desktop, tablet, and mobile
