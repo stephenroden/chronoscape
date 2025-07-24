@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Store } from '@ngrx/store';
+import { select, Store } from '@ngrx/store';
 import { of } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
@@ -7,6 +7,7 @@ import { ScoreSummary, PerformanceCategory } from './score-summary';
 import { Score } from '../../models/scoring.model';
 import { resetGame } from '../../state/game/game.actions';
 import { resetScores } from '../../state/scoring/scoring.actions';
+import { selectAllScores } from '../../state/scoring';
 
 describe('ScoreSummary', () => {
   let component: ScoreSummary;
@@ -43,7 +44,13 @@ describe('ScoreSummary', () => {
 
     // Setup default store selectors
     mockStore.select.and.callFake((selector: any) => {
-      return of(mockScoreBreakdown.total); // Default return for all selectors
+      if (selector == selectAllScores) {
+        return of(mockScores);
+      }
+      else {
+          return of(mockScoreBreakdown.total); // Default return for all selectors
+
+      }
     });
 
     fixture = TestBed.createComponent(ScoreSummary);

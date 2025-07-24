@@ -61,12 +61,8 @@ describe('ResultsComponent', () => {
       ]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(ResultsComponent);
-    component = fixture.componentInstance;
-    mockStore = TestBed.inject(Store) as jasmine.SpyObj<Store<AppState>>;
-    mockMapService = TestBed.inject(MapService) as jasmine.SpyObj<MapService>;
-
     // Setup default store selectors
+    mockStore = TestBed.inject(Store) as jasmine.SpyObj<Store<AppState>>;
     mockStore.select.and.callFake((selector: any) => {
       const selectorStr = selector.toString();
       if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
@@ -80,6 +76,11 @@ describe('ResultsComponent', () => {
       }
       return of(null);
     });
+
+    fixture = TestBed.createComponent(ResultsComponent);
+    component = fixture.componentInstance;
+    mockMapService = TestBed.inject(MapService) as jasmine.SpyObj<MapService>;
+
   });
 
   it('should create', () => {
