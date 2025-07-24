@@ -1,0 +1,89 @@
+<div class="score-summary-container">
+  <div class="score-summary-header">
+    <h1>Game Complete!</h1>
+    <div class="performance-badge" *ngIf="performanceCategory$ | async as category" 
+         [style.background-color]="category.color">
+      <h2>{{ category.name }}</h2>
+      <p>{{ category.description }}</p>
+    </div>
+  </div>
+
+  <div class="score-overview" *ngIf="scoreBreakdown$ | async as breakdown">
+    <div class="total-score">
+      <h3>Final Score</h3>
+      <div class="score-display">
+        <span class="score-number">{{ breakdown.total | number }}</span>
+        <span class="score-max">/ 50,000</span>
+      </div>
+      <div class="score-percentage">
+        {{ getScorePercentage(breakdown.total, 50000) }}% accuracy
+      </div>
+    </div>
+
+    <div class="score-breakdown">
+      <h3>Score Breakdown</h3>
+      <div class="breakdown-item">
+        <span class="category">Year Guesses:</span>
+        <span class="score">{{ breakdown.year | number }} points</span>
+        <div class="progress-bar">
+          <div class="progress-fill year-progress" 
+               [style.width.%]="getScorePercentage(breakdown.year, breakdown.maxPossible / 2)"></div>
+        </div>
+      </div>
+      <div class="breakdown-item">
+        <span class="category">Location Guesses:</span>
+        <span class="score">{{ breakdown.location | number }} points</span>
+        <div class="progress-bar">
+          <div class="progress-fill location-progress" 
+               [style.width.%]="getScorePercentage(breakdown.location, breakdown.maxPossible / 2)"></div>
+        </div>
+      </div>
+      <div class="breakdown-item average">
+        <span class="category">Average per Photo:</span>
+        <span class="score">{{ breakdown.average | number }} points</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detailed-scores" *ngIf="scores$ | async as scores">
+    <h3>Photo-by-Photo Results</h3>
+    <div class="scores-grid">
+      <div class="score-item" *ngFor="let score of scores; let i = index">
+        <div class="photo-number">Photo {{ i + 1 }}</div>
+        <div class="score-details">
+          <div class="score-component">
+            <span class="label">Year:</span>
+            <span class="value">{{ score.yearScore | number }}</span>
+          </div>
+          <div class="score-component">
+            <span class="label">Location:</span>
+            <span class="value">{{ score.locationScore | number }}</span>
+          </div>
+          <div class="score-total">
+            <span class="label">Total:</span>
+            <span class="value">{{ score.totalScore | number }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="game-stats" *ngIf="gameDuration$ | async as duration">
+    <h3>Game Statistics</h3>
+    <div class="stat-item">
+      <span class="stat-label">Time Played:</span>
+      <span class="stat-value">{{ formatDuration(duration) }}</span>
+    </div>
+    <div class="stat-item" *ngIf="scores$ | async as scores">
+      <span class="stat-label">Photos Completed:</span>
+      <span class="stat-value">{{ scores.length }} / 10</span>
+    </div>
+  </div>
+
+  <div class="action-buttons">
+    <button class="new-game-btn" (click)="startNewGame()">
+      <span class="btn-icon">🔄</span>
+      New Game
+    </button>
+  </div>
+</div>
