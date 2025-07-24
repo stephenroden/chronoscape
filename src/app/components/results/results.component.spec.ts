@@ -53,6 +53,9 @@ describe('ResultsComponent', () => {
       'calculateDistance'
     ]);
 
+    // Setup default return value for calculateDistance
+    mapServiceSpy.calculateDistance.and.returnValue(123.456);
+
     await TestBed.configureTestingModule({
       imports: [ResultsComponent],
       providers: [
@@ -63,19 +66,7 @@ describe('ResultsComponent', () => {
 
     // Setup default store selectors
     mockStore = TestBed.inject(Store) as jasmine.SpyObj<Store<AppState>>;
-    mockStore.select.and.callFake((selector: any) => {
-      const selectorStr = selector.toString();
-      if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
-        return of(null);
-      }
-      if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
-        return of(null);
-      }
-      if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
-        return of(null);
-      }
-      return of(null);
-    });
+    mockStore.select.and.returnValue(of(null));
 
     fixture = TestBed.createComponent(ResultsComponent);
     component = fixture.componentInstance;
@@ -102,19 +93,13 @@ describe('ResultsComponent', () => {
 
   describe('Results Data Display', () => {
     beforeEach(() => {
-      // Mock store selectors to return test data
-      mockStore.select.and.callFake((selector: any) => {
-        const selectorStr = selector.toString();
-        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
-          return of(mockPhoto);
-        }
-        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
-          return of(mockGuess);
-        }
-        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
-          return of(mockScore);
-        }
-        return of(null);
+      // Directly override the component's observables
+      component.currentPhoto$ = of(mockPhoto);
+      component.currentGuess$ = of(mockGuess);
+      component.resultsData$ = of({
+        photo: mockPhoto,
+        guess: mockGuess,
+        score: mockScore
       });
     });
 
@@ -125,7 +110,7 @@ describe('ResultsComponent', () => {
       const compiled = fixture.nativeElement;
       const titleElement = compiled.querySelector('h3');
       const descriptionElement = compiled.querySelector('.photo-description');
-      
+
       if (titleElement) {
         expect(titleElement.textContent).toContain(mockPhoto.title);
       }
@@ -163,6 +148,23 @@ describe('ResultsComponent', () => {
       await fixture.whenStable();
 
       const compiled = fixture.nativeElement;
+
+      // Check for year score
+      const yearScoreElement = compiled.querySelector('.year-results .score-points .points');
+      expect(yearScoreElement).toBeTruthy();
+      expect(yearScoreElement.textContent?.trim()).toBe(mockScore.yearScore.toString());
+
+      // Check for location score
+      const locationScoreElement = compiled.querySelector('.location-results .score-points .points');
+      expect(locationScoreElement).toBeTruthy();
+      expect(locationScoreElement.textContent?.trim()).toBe(mockScore.locationScore.toString());
+
+      // Check for total score
+      const totalScoreElement = compiled.querySelector('.total-score .points');
+      expect(totalScoreElement).toBeTruthy();
+      expect(totalScoreElement.textContent?.trim()).toBe(mockScore.totalScore.toString());
+
+      // Verify scores appear in the content
       const content = compiled.textContent || '';
       expect(content).toContain(mockScore.yearScore.toString());
       expect(content).toContain(mockScore.locationScore.toString());
@@ -286,7 +288,7 @@ describe('ResultsComponent', () => {
   describe('Navigation', () => {
     it('should dispatch nextPhoto action when next photo button is clicked', () => {
       const button = fixture.nativeElement.querySelector('.next-photo-btn');
-      
+
       if (button) {
         button.click();
         expect(mockStore.dispatch).toHaveBeenCalledWith(nextPhoto());
@@ -305,7 +307,7 @@ describe('ResultsComponent', () => {
       mockStore.select.and.callFake((selector: any) => {
         return of(null);
       });
-      
+
       fixture.detectChanges();
       await fixture.whenStable();
 
