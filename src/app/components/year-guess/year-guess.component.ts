@@ -143,4 +143,69 @@ export class YearGuessComponent implements OnInit, OnDestroy {
     const control = this.yearControl;
     return control ? control.invalid && control.touched : false;
   }
+
+  /**
+   * Enhanced keyboard navigation for the year slider
+   * Supports arrow keys, Shift+arrow for larger jumps, Home/End keys
+   */
+  onKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLInputElement;
+    let newYear = this.selectedYear;
+    let handled = false;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+      case 'ArrowDown':
+        newYear = event.shiftKey ? 
+          Math.max(this.minYear, this.selectedYear - 10) : 
+          Math.max(this.minYear, this.selectedYear - 1);
+        handled = true;
+        break;
+        
+      case 'ArrowRight':
+      case 'ArrowUp':
+        newYear = event.shiftKey ? 
+          Math.min(this.currentYear, this.selectedYear + 10) : 
+          Math.min(this.currentYear, this.selectedYear + 1);
+        handled = true;
+        break;
+        
+      case 'Home':
+        newYear = this.minYear;
+        handled = true;
+        break;
+        
+      case 'End':
+        newYear = this.currentYear;
+        handled = true;
+        break;
+        
+      case 'PageUp':
+        newYear = Math.min(this.currentYear, this.selectedYear + 10);
+        handled = true;
+        break;
+        
+      case 'PageDown':
+        newYear = Math.max(this.minYear, this.selectedYear - 10);
+        handled = true;
+        break;
+    }
+
+    if (handled) {
+      event.preventDefault();
+      this.selectedYear = newYear;
+      target.value = newYear.toString();
+      this.yearForm.patchValue({ year: newYear });
+      
+      // Update the store with the new year
+      if (validateYearGuess(newYear)) {
+        this.store.dispatch(setCurrentGuess({
+          guess: {
+            year: newYear,
+            coordinates: { latitude: 0, longitude: 0 }
+          }
+        }));
+      }
+    }
+  }
 }

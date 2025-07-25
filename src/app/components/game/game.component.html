@@ -1,29 +1,42 @@
 <div class="game-container">
+  <!-- Skip to main content link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  
   <!-- Game header with progress indicator -->
-  <div class="game-header">
-    <h1>Chronoscape</h1>
+  <header class="game-header" role="banner">
+    <h1 id="game-title">Chronoscape</h1>
     
     <!-- Progress indicator showing current photo out of total (Requirement 1.1, 1.3) -->
-    <div class="progress-container" *ngIf="(isGameInProgress$ | async)">
-      <div class="progress-text">
+    <div class="progress-container" 
+         *ngIf="(isGameInProgress$ | async)"
+         role="progressbar"
+         [attr.aria-valuenow]="(gameProgress$ | async)?.current"
+         [attr.aria-valuemin]="1"
+         [attr.aria-valuemax]="(gameProgress$ | async)?.total"
+         [attr.aria-label]="'Game progress: photo ' + (gameProgress$ | async)?.current + ' of ' + (gameProgress$ | async)?.total">
+      <div class="progress-text" aria-hidden="true">
         Photo {{ (gameProgress$ | async)?.current }} of {{ (gameProgress$ | async)?.total }}
       </div>
       <div class="progress-bar">
         <div class="progress-fill" [style.width.%]="(gameProgress$ | async)?.percentage"></div>
       </div>
     </div>
-  </div>
+  </header>
 
   <!-- Game content area -->
-  <div class="game-content">
+  <main class="game-content" id="main-content" role="main">
     <!-- Not started state -->
-    <div class="game-start" *ngIf="(isGameNotStarted$ | async)">
-      <h2>Welcome to Chronoscape!</h2>
+    <section class="game-start" *ngIf="(isGameNotStarted$ | async)" aria-labelledby="welcome-heading">
+      <h2 id="welcome-heading">Welcome to Chronoscape!</h2>
       <p>Test your knowledge of history and geography by guessing when and where historical photos were taken.</p>
       
       <!-- Loading state for game initialization -->
-      <div class="loading-container" *ngIf="(gameLoading$ | async) || (photosLoading$ | async)">
-        <div class="loading-spinner"></div>
+      <div class="loading-container" 
+           *ngIf="(gameLoading$ | async) || (photosLoading$ | async)"
+           role="status"
+           aria-live="polite"
+           aria-label="Loading game">
+        <div class="loading-spinner" aria-hidden="true"></div>
         <p>Loading game...</p>
       </div>
       
@@ -31,97 +44,150 @@
       <button 
         class="primary-button" 
         (click)="startGame()"
-        [disabled]="(gameLoading$ | async) || (photosLoading$ | async)">
+        [disabled]="(gameLoading$ | async) || (photosLoading$ | async)"
+        [attr.aria-describedby]="(gameLoading$ | async) || (photosLoading$ | async) ? 'loading-status' : null"
+        type="button">
         <span *ngIf="!(gameLoading$ | async) && !(photosLoading$ | async)">Start Game</span>
-        <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)">Loading...</span>
+        <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)" id="loading-status">Loading...</span>
       </button>
-    </div>
+    </section>
 
     <!-- Game in progress state -->
-    <div class="game-play" *ngIf="(isGameInProgress$ | async)">
+    <section class="game-play" *ngIf="(isGameInProgress$ | async)" aria-labelledby="game-play-heading">
+      <h2 id="game-play-heading" class="sr-only">Game in Progress</h2>
+      
       <!-- Photo display component -->
-      <app-photo-display></app-photo-display>
+      <div class="photo-section" role="region" aria-labelledby="photo-heading">
+        <h3 id="photo-heading" class="sr-only">Historical Photograph</h3>
+        <app-photo-display></app-photo-display>
+      </div>
 
       <!-- Guessing components -->
-      <div class="guess-container">
-        <div class="year-guess-section">
+      <div class="guess-container" role="region" aria-labelledby="guessing-heading">
+        <h3 id="guessing-heading" class="sr-only">Make Your Guesses</h3>
+        
+        <div class="year-guess-section" role="region" aria-labelledby="year-guess-heading">
+          <h4 id="year-guess-heading" class="sr-only">Year Guess</h4>
           <app-year-guess></app-year-guess>
         </div>
-        <div class="map-guess-section">
+        
+        <div class="map-guess-section" role="region" aria-labelledby="location-guess-heading">
+          <h4 id="location-guess-heading" class="sr-only">Location Guess</h4>
           <app-map-guess></app-map-guess>
         </div>
       </div>
 
       <!-- Temporary buttons for testing game flow -->
-      <div class="game-controls">
-        <button class="secondary-button" (click)="nextPhoto()">Next Photo (Temporary)</button>
-        <button class="secondary-button" (click)="endGame()">End Game (Temporary)</button>
+      <div class="game-controls" role="region" aria-label="Game controls">
+        <button class="secondary-button" 
+                (click)="nextPhoto()" 
+                type="button"
+                aria-label="Advance to next photo (temporary testing button)">
+          Next Photo (Temporary)
+        </button>
+        <button class="secondary-button" 
+                (click)="endGame()" 
+                type="button"
+                aria-label="End current game (temporary testing button)">
+          End Game (Temporary)
+        </button>
       </div>
-    </div>
+    </section>
 
     <!-- Game completed state (Requirement 1.4, 6.1) -->
-    <div class="game-completed" *ngIf="(isGameCompleted$ | async)">
-      <h2>Game Completed!</h2>
+    <section class="game-completed" 
+             *ngIf="(isGameCompleted$ | async)" 
+             aria-labelledby="game-completed-heading"
+             role="region">
+      <h2 id="game-completed-heading">Game Completed!</h2>
       <p>You've completed all photos. Your final score will be displayed here.</p>
-      <button class="primary-button" (click)="resetGame()">Play Again</button>
-    </div>
+      <button class="primary-button" 
+              (click)="resetGame()" 
+              type="button"
+              aria-label="Start a new game">
+        Play Again
+      </button>
+    </section>
 
     <!-- Error states -->
-    <div class="game-error" *ngIf="(hasGameError$ | async) || (photosError$ | async) || (scoringError$ | async)">
-      <div class="error-icon">⚠️</div>
-      <h2>Oops! Something went wrong</h2>
+    <section class="game-error" 
+             *ngIf="(hasGameError$ | async) || (photosError$ | async) || (scoringError$ | async)"
+             role="alert"
+             aria-labelledby="error-heading">
+      <div class="error-icon" aria-hidden="true">⚠️</div>
+      <h2 id="error-heading">Oops! Something went wrong</h2>
       
       <!-- Game error -->
       <div *ngIf="gameError$ | async as gameError" class="error-message">
         <p>{{ getErrorMessage(gameError) }}</p>
-        <button 
-          class="primary-button" 
-          (click)="clearGameError()"
-          *ngIf="isRetryableError(gameError)">
-          Try Again
-        </button>
-        <button 
-          class="secondary-button" 
-          (click)="resetGame()">
-          Restart Game
-        </button>
+        <div class="error-actions">
+          <button 
+            class="primary-button" 
+            (click)="clearGameError()"
+            *ngIf="isRetryableError(gameError)"
+            type="button"
+            aria-label="Try to resolve the game error">
+            Try Again
+          </button>
+          <button 
+            class="secondary-button" 
+            (click)="resetGame()"
+            type="button"
+            aria-label="Restart the entire game">
+            Restart Game
+          </button>
+        </div>
       </div>
       
       <!-- Photos error -->
       <div *ngIf="photosError$ | async as photosError" class="error-message">
         <p>{{ getErrorMessage(photosError) }}</p>
-        <button 
-          class="primary-button" 
-          (click)="retryLoadPhotos()"
-          *ngIf="isRetryableError(photosError)">
-          Retry Loading Photos
-        </button>
-        <button 
-          class="secondary-button" 
-          (click)="resetGame()">
-          Restart Game
-        </button>
+        <div class="error-actions">
+          <button 
+            class="primary-button" 
+            (click)="retryLoadPhotos()"
+            *ngIf="isRetryableError(photosError)"
+            type="button"
+            aria-label="Retry loading photos from the server">
+            Retry Loading Photos
+          </button>
+          <button 
+            class="secondary-button" 
+            (click)="resetGame()"
+            type="button"
+            aria-label="Restart the entire game">
+            Restart Game
+          </button>
+        </div>
       </div>
       
       <!-- Scoring error -->
       <div *ngIf="scoringError$ | async as scoringError" class="error-message">
         <p>{{ getErrorMessage(scoringError) }}</p>
-        <button 
-          class="secondary-button" 
-          (click)="resetGame()">
-          Restart Game
-        </button>
+        <div class="error-actions">
+          <button 
+            class="secondary-button" 
+            (click)="resetGame()"
+            type="button"
+            aria-label="Restart the entire game">
+            Restart Game
+          </button>
+        </div>
       </div>
-    </div>
+    </section>
 
     <!-- Loading overlay for ongoing operations -->
-    <div class="loading-overlay" *ngIf="(gameLoading$ | async) || (photosLoading$ | async) || (scoringLoading$ | async)">
+    <div class="loading-overlay" 
+         *ngIf="(gameLoading$ | async) || (photosLoading$ | async) || (scoringLoading$ | async)"
+         role="status"
+         aria-live="polite"
+         [attr.aria-label]="getLoadingMessage()">
       <div class="loading-content">
-        <div class="loading-spinner"></div>
+        <div class="loading-spinner large" aria-hidden="true"></div>
         <p *ngIf="photosLoading$ | async">Loading photos...</p>
         <p *ngIf="scoringLoading$ | async">Calculating score...</p>
         <p *ngIf="gameLoading$ | async">Loading game...</p>
       </div>
     </div>
-  </div>
+  </main>
 </div>

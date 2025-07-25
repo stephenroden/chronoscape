@@ -1,12 +1,15 @@
-<div class="year-guess-container">
+<div class="year-guess-container" role="region" aria-labelledby="year-guess-heading">
   <div class="year-guess-form">
     <div class="form-group">
-      <label for="year-slider" class="year-label">
+      <h3 id="year-guess-heading" class="year-label">
         When was this photo taken?
-      </label>
+      </h3>
       
-      <div class="selected-year-display">
-        <span class="selected-year">{{ selectedYear }}</span>
+      <div class="selected-year-display" role="status" aria-live="polite">
+        <span class="selected-year" 
+              [attr.aria-label]="'Selected year: ' + selectedYear">
+          {{ selectedYear }}
+        </span>
       </div>
       
       <div class="slider-container">
@@ -18,13 +21,16 @@
             [max]="currentYear"
             [value]="selectedYear"
             (input)="onSliderChange($event)"
+            (keydown)="onKeyDown($event)"
             class="year-slider"
             step="1"
-            [attr.aria-label]="'Select year between ' + minYear + ' and ' + currentYear"
+            [attr.aria-label]="'Select year between ' + minYear + ' and ' + currentYear + '. Current selection: ' + selectedYear"
+            [attr.aria-describedby]="'year-help-text year-range-labels'"
+            aria-orientation="horizontal"
           />
           
           <!-- Decade tick marks -->
-          <div class="tick-marks">
+          <div class="tick-marks" aria-hidden="true">
             <div 
               *ngFor="let decade of getDecadeMarks()" 
               class="tick-mark"
@@ -36,14 +42,22 @@
           </div>
         </div>
         
-        <div class="range-labels">
+        <div class="range-labels" id="year-range-labels" aria-hidden="true">
           <span class="min-label">{{ minYear }}</span>
           <span class="max-label">{{ currentYear }}</span>
         </div>
       </div>
       
-      <div class="help-text">
-        Drag the slider to select a year between {{ minYear }} and {{ currentYear }}
+      <div class="help-text" id="year-help-text">
+        Use the slider or arrow keys to select a year between {{ minYear }} and {{ currentYear }}. 
+        Press Shift + arrow keys for larger jumps.
+      </div>
+      
+      <!-- Additional keyboard instructions for screen readers -->
+      <div class="sr-only">
+        Use left and right arrow keys to adjust the year by 1. 
+        Hold Shift while using arrow keys to adjust by 10 years. 
+        Use Home key to go to {{ minYear }}, End key to go to {{ currentYear }}.
       </div>
     </div>
   </div>

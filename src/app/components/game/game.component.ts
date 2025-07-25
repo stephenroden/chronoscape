@@ -172,4 +172,12 @@ export class GameComponent implements OnInit, OnDestroy {
            error.includes('Too many requests') ||
            error.includes('No suitable photos found');
   }
+
+  /**
+   * Gets appropriate loading message for accessibility
+   */
+  getLoadingMessage(): string {
+    // This method will be called by the template to provide accessible loading messages
+    return 'Loading game content, please wait';
+  }
 }

@@ -366,6 +366,67 @@ export class MapService {
   }
 
   /**
+   * Get the current map center coordinates
+   * @returns The center coordinates of the current map view
+   */
+  getMapCenter(): Coordinates | null {
+    if (!this.map) {
+      return null;
+    }
+    
+    const center = this.map.getCenter();
+    return {
+      latitude: center.lat,
+      longitude: center.lng
+    };
+  }
+
+  /**
+   * Pan the map in a specific direction
+   * @param direction - The direction to pan ('up', 'down', 'left', 'right')
+   */
+  panMap(direction: 'up' | 'down' | 'left' | 'right'): void {
+    if (!this.map) {
+      return;
+    }
+
+    const panDistance = 50; // pixels
+    
+    switch (direction) {
+      case 'up':
+        this.map.panBy([0, -panDistance]);
+        break;
+      case 'down':
+        this.map.panBy([0, panDistance]);
+        break;
+      case 'left':
+        this.map.panBy([-panDistance, 0]);
+        break;
+      case 'right':
+        this.map.panBy([panDistance, 0]);
+        break;
+    }
+  }
+
+  /**
+   * Zoom in the map by one level
+   */
+  zoomIn(): void {
+    if (this.map) {
+      this.map.zoomIn();
+    }
+  }
+
+  /**
+   * Zoom out the map by one level
+   */
+  zoomOut(): void {
+    if (this.map) {
+      this.map.zoomOut();
+    }
+  }
+
+  /**
    * Clean up the map instance and remove all event listeners
    */
   destroy(): void {

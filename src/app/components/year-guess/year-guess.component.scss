@@ -1,7 +1,13 @@
 .year-guess-container {
   max-width: 500px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: var(--spacing-md);
+  width: 100%;
+  
+  @media (min-width: 768px) {
+    max-width: 600px;
+    padding: var(--spacing-lg);
+  }
 }
 
 .year-guess-form {
@@ -11,59 +17,92 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .year-label {
-  font-size: 1.1rem;
+  font-size: var(--font-size-lg);
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   text-align: center;
-  margin-bottom: 0.5rem;
+  margin: 0 0 var(--spacing-sm) 0;
+  
+  @media (min-width: 768px) {
+    font-size: var(--font-size-xl);
+  }
 }
 
 .selected-year-display {
   text-align: center;
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--background-secondary);
+  border-radius: var(--border-radius);
+  border: 2px solid var(--primary-color);
   
   .selected-year {
     font-size: 2.5rem;
     font-weight: 700;
-    color: #007bff;
-    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: var(--primary-color);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    text-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+    text-shadow: 0 2px 4px rgba(66, 133, 244, 0.1);
+    display: block;
+    
+    @media (min-width: 768px) {
+      font-size: 3rem;
+    }
+    
+    @media (max-width: 480px) {
+      font-size: 2rem;
+    }
   }
 }
 
 .slider-container {
   position: relative;
-  padding: 1rem 0;
+  padding: var(--spacing-lg) 0;
+  
+  @media (min-width: 768px) {
+    padding: var(--spacing-xl) 0;
+  }
 }
 
 .slider-track {
   position: relative;
-  margin-bottom: 2rem;
+  margin-bottom: var(--spacing-xl);
+  
+  @media (min-width: 768px) {
+    margin-bottom: 3rem;
+  }
 }
 
 .year-slider {
   width: 100%;
   height: 8px;
-  border-radius: 4px;
-  background: linear-gradient(to right, #e0e0e0, #e0e0e0);
+  border-radius: var(--border-radius-small);
+  background: linear-gradient(to right, var(--border-color), var(--border-color));
   outline: none;
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
   
+  @media (min-width: 768px) {
+    height: 10px;
+  }
+  
   // Webkit (Chrome, Safari)
   &::-webkit-slider-track {
     width: 100%;
     height: 8px;
-    background: linear-gradient(to right, #f0f0f0 0%, #007bff 50%, #0056b3 100%);
-    border-radius: 4px;
+    background: linear-gradient(to right, var(--background-tertiary) 0%, var(--primary-color) 50%, var(--primary-hover) 100%);
+    border-radius: var(--border-radius-small);
+    
+    @media (min-width: 768px) {
+      height: 10px;
+    }
   }
   
   &::-webkit-slider-thumb {
@@ -72,20 +111,25 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #007bff;
-    border: 3px solid #fff;
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    background: var(--primary-color);
+    border: 3px solid var(--background-primary);
+    box-shadow: var(--shadow-small);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
+    
+    @media (min-width: 768px) {
+      width: 28px;
+      height: 28px;
+    }
     
     &:hover {
       transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+      box-shadow: var(--shadow-medium);
     }
     
     &:active {
       transform: scale(1.2);
-      box-shadow: 0 4px 16px rgba(0, 123, 255, 0.5);
+      box-shadow: var(--shadow-large);
     }
   }
   
@@ -93,39 +137,51 @@
   &::-moz-range-track {
     width: 100%;
     height: 8px;
-    background: linear-gradient(to right, #f0f0f0 0%, #007bff 50%, #0056b3 100%);
-    border-radius: 4px;
+    background: linear-gradient(to right, var(--background-tertiary) 0%, var(--primary-color) 50%, var(--primary-hover) 100%);
+    border-radius: var(--border-radius-small);
     border: none;
+    
+    @media (min-width: 768px) {
+      height: 10px;
+    }
   }
   
   &::-moz-range-thumb {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: #007bff;
-    border: 3px solid #fff;
-    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+    background: var(--primary-color);
+    border: 3px solid var(--background-primary);
+    box-shadow: var(--shadow-small);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-fast);
+    
+    @media (min-width: 768px) {
+      width: 28px;
+      height: 28px;
+    }
     
     &:hover {
       transform: scale(1.1);
-      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+      box-shadow: var(--shadow-medium);
     }
     
     &:active {
       transform: scale(1.2);
-      box-shadow: 0 4px 16px rgba(0, 123, 255, 0.5);
+      box-shadow: var(--shadow-large);
     }
   }
   
   &:focus {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+    
     &::-webkit-slider-thumb {
-      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2), 0 2px 8px rgba(0, 123, 255, 0.3);
+      box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2), var(--shadow-small);
     }
     
     &::-moz-range-thumb {
-      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2), 0 2px 8px rgba(0, 123, 255, 0.3);
+      box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2), var(--shadow-small);
     }
   }
 }
@@ -137,6 +193,11 @@
   right: 0;
   height: 40px;
   pointer-events: none;
+  
+  @media (min-width: 768px) {
+    top: 25px;
+    height: 45px;
+  }
 }
 
 .tick-mark {
@@ -146,62 +207,82 @@
   .tick-line {
     width: 2px;
     height: 12px;
-    background-color: #999;
-    margin: 0 auto 4px;
+    background-color: var(--text-muted);
+    margin: 0 auto var(--spacing-xs);
+    
+    @media (min-width: 768px) {
+      height: 15px;
+    }
   }
   
   .tick-label {
-    font-size: 0.75rem;
-    color: #666;
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
     text-align: center;
     white-space: nowrap;
+    
+    @media (min-width: 768px) {
+      font-size: var(--font-size-sm);
+    }
+    
+    @media (max-width: 480px) {
+      font-size: 0.65rem;
+    }
   }
 }
 
 .range-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.5rem;
-  font-size: 0.875rem;
-  color: #666;
+  margin-top: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
   font-weight: 500;
+  
+  @media (min-width: 768px) {
+    font-size: var(--font-size-base);
+  }
 }
 
 .help-text {
-  color: #666;
-  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
   text-align: center;
-  margin-top: 0.5rem;
+  margin-top: var(--spacing-sm);
+  line-height: var(--line-height-normal);
+  padding: var(--spacing-sm);
+  background: var(--background-secondary);
+  border-radius: var(--border-radius-small);
+  border-left: 3px solid var(--primary-color);
+  
+  @media (min-width: 768px) {
+    font-size: var(--font-size-base);
+    padding: var(--spacing-md);
+  }
 }
 
-// Responsive design
-@media (max-width: 768px) {
-  .year-guess-container {
-    padding: 0.5rem;
-  }
-
-  .selected-year-display .selected-year {
-    font-size: 2rem;
-  }
-
-  .year-label {
-    font-size: 1rem;
-  }
-  
-  .tick-mark .tick-label {
-    font-size: 0.7rem;
-  }
-  
+// Touch-friendly adjustments for mobile
+@media (max-width: 767px) {
   .year-slider {
     &::-webkit-slider-thumb {
-      width: 20px;
-      height: 20px;
+      width: 32px;
+      height: 32px;
+      border-width: 4px;
     }
     
     &::-moz-range-thumb {
-      width: 20px;
-      height: 20px;
+      width: 32px;
+      height: 32px;
+      border-width: 4px;
     }
+  }
+  
+  .slider-container {
+    padding: var(--spacing-xl) 0;
+  }
+  
+  .tick-marks {
+    top: 30px;
   }
 }
 

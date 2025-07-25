@@ -224,4 +224,94 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     }
     return 'Click anywhere on the map to place your location guess.';
   }
+
+  /**
+   * Gets accessible pin status description
+   */
+  getPinStatusAriaLabel(): string {
+    if (this.hasValidPin) {
+      return `Location pin placed at coordinates ${this.pinDisplayText}`;
+    }
+    return 'No location pin placed yet';
+  }
+
+  /**
+   * Enhanced keyboard navigation for the map
+   * Supports arrow keys for navigation, Enter/Space for pin placement
+   */
+  onMapKeyDown(event: KeyboardEvent): void {
+    if (!this.isMapInitialized) {
+      return;
+    }
+
+    let handled = false;
+
+    switch (event.key) {
+      case 'Enter':
+      case ' ':
+        // Place pin at current map center
+        const center = this.mapService.getMapCenter();
+        if (center) {
+          this.onMapClick(center);
+          handled = true;
+        }
+        break;
+        
+      case 'Escape':
+        // Remove current pin
+        if (this.hasValidPin) {
+          this.onRemovePin();
+          handled = true;
+        }
+        break;
+        
+      case 'ArrowUp':
+        // Pan map up
+        this.mapService.panMap('up');
+        handled = true;
+        break;
+        
+      case 'ArrowDown':
+        // Pan map down
+        this.mapService.panMap('down');
+        handled = true;
+        break;
+        
+      case 'ArrowLeft':
+        // Pan map left
+        this.mapService.panMap('left');
+        handled = true;
+        break;
+        
+      case 'ArrowRight':
+        // Pan map right
+        this.mapService.panMap('right');
+        handled = true;
+        break;
+        
+      case '+':
+      case '=':
+        // Zoom in
+        this.mapService.zoomIn();
+        handled = true;
+        break;
+        
+      case '-':
+        // Zoom out
+        this.mapService.zoomOut();
+        handled = true;
+        break;
+        
+      case 'Home':
+        // Center map to world view
+        this.onCenterMap();
+        handled = true;
+        break;
+    }
+
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  }
 }
