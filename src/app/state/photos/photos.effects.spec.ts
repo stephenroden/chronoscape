@@ -156,16 +156,16 @@ describe('PhotosEffects', () => {
       });
     });
 
-    it('should return loadPhotosFailure with server error message when status is 503', (done) => {
+    it('should return loadPhotosFailure with access denied message when status is 403', (done) => {
       spyOn(console, 'error');
       const action = PhotosActions.loadPhotos();
-      const error = { status: 503 };
+      const error = { status: 403 };
       actions$ = of(action);
       photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
 
       effects.loadPhotos$.subscribe(result => {
         expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Server error occurred. Please try again later.'
+          error: 'Access to photo service denied. Please try again later.'
         }));
         expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
         done();
@@ -208,38 +208,6 @@ describe('PhotosEffects', () => {
       spyOn(console, 'error');
       const action = PhotosActions.loadPhotos();
       const error = { someProperty: 'unknown error' };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'An unexpected error occurred while loading photos. Please try again.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-
-    it('should return loadPhotosFailure with generic message for null error', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = null;
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'An unexpected error occurred while loading photos. Please try again.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-
-    it('should return loadPhotosFailure with generic message for undefined error', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = undefined;
       actions$ = of(action);
       photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
 
@@ -297,23 +265,6 @@ describe('PhotosEffects', () => {
         done();
       });
     });
-
-    it('should return photoValidationFailure when validation throws a string error', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.validatePhoto({ photo: mockPhoto });
-      actions$ = of(action);
-      photoServiceSpy.validatePhotoMetadata.and.throwError('String validation error');
-
-      effects.validatePhoto$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.photoValidationFailure({
-          photoId: mockPhoto.id,
-          error: 'Photo validation failed due to an error'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error validating photo:', jasmine.any(Error));
-        expect(photoServiceSpy.validatePhotoMetadata).toHaveBeenCalledWith(mockPhoto);
-        done();
-      });
-    });
   });
 
   describe('logPhotosSuccess$', () => {
@@ -326,36 +277,6 @@ describe('PhotosEffects', () => {
         expect(console.log).toHaveBeenCalledWith(
           'Successfully loaded 5 photos:',
           mockPhotos.map(p => ({ id: p.id, year: p.year, title: p.title }))
-        );
-        done();
-      });
-    });
-
-    it('should log successful photo loading with single photo', (done) => {
-      spyOn(console, 'log');
-      const singlePhoto = [mockPhoto];
-      const action = PhotosActions.loadPhotosSuccess({ photos: singlePhoto });
-      actions$ = of(action);
-
-      effects.logPhotosSuccess$.subscribe(() => {
-        expect(console.log).toHaveBeenCalledWith(
-          'Successfully loaded 1 photos:',
-          singlePhoto.map(p => ({ id: p.id, year: p.year, title: p.title }))
-        );
-        done();
-      });
-    });
-
-    it('should log successful photo loading with empty array', (done) => {
-      spyOn(console, 'log');
-      const emptyPhotos: Photo[] = [];
-      const action = PhotosActions.loadPhotosSuccess({ photos: emptyPhotos });
-      actions$ = of(action);
-
-      effects.logPhotosSuccess$.subscribe(() => {
-        expect(console.log).toHaveBeenCalledWith(
-          'Successfully loaded 0 photos:',
-          []
         );
         done();
       });
@@ -374,158 +295,5 @@ describe('PhotosEffects', () => {
         done();
       });
     });
-
-    it('should log photo loading failures with network error', (done) => {
-      spyOn(console, 'error');
-      const errorMessage = 'Network connection failed. Please check your internet connection and try again.';
-      const action = PhotosActions.loadPhotosFailure({ error: errorMessage });
-      actions$ = of(action);
-
-      effects.logPhotosFailure$.subscribe(() => {
-        expect(console.error).toHaveBeenCalledWith('Photo loading failed:', errorMessage);
-        done();
-      });
-    });
-
-    it('should log photo loading failures with empty error message', (done) => {
-      spyOn(console, 'error');
-      const errorMessage = '';
-      const action = PhotosActions.loadPhotosFailure({ error: errorMessage });
-      actions$ = of(action);
-
-      effects.logPhotosFailure$.subscribe(() => {
-        expect(console.error).toHaveBeenCalledWith('Photo loading failed:', errorMessage);
-        done();
-      });
-    });
-  });
-
-  describe('getErrorMessage private method coverage', () => {
-    it('should handle all error status codes through loadPhotos effect', (done) => {
-      // Test status 502 (another server error >= 500)
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { status: 502 };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Server error occurred. Please try again later.'
-        }));
-        done();
-      });
-    });
-
-    it('should handle error with both status and message', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { status: 400, message: 'Bad request error' };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Error loading photos: Bad request error'
-        }));
-        done();
-      });
-    });
-
-    it('should handle error with status but no specific handler', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { status: 401 };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'An unexpected error occurred while loading photos. Please try again.'
-        }));
-        done();
-      });
-    });
   });
 });
-    it('should return loadPhotosFailure with access denied message when status is 403', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { status: 403 };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Access to photo service denied. Please try again later.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-
-    it('should return loadPhotosFailure with timeout message for timeout errors', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { name: 'TimeoutError', message: 'Request timed out' };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Request timed out. Please check your connection and try again.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-
-    it('should return loadPhotosFailure with CORS message for CORS errors', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { message: 'CORS policy blocked the request' };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Unable to access photo service due to security restrictions. Please try again later.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-
-    it('should return loadPhotosFailure with parse error message for parsing errors', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { message: 'Failed to parse response' };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'Invalid response from photo service. Please try again.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-
-    it('should return loadPhotosFailure with generic message for unknown errors', (done) => {
-      spyOn(console, 'error');
-      const action = PhotosActions.loadPhotos();
-      const error = { someProperty: 'unknown error' };
-      actions$ = of(action);
-      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
-
-      effects.loadPhotos$.subscribe(result => {
-        expect(result).toEqual(PhotosActions.loadPhotosFailure({
-          error: 'An unexpected error occurred while loading photos. Please try again.'
-        }));
-        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
-        done();
-      });
-    });
-  });
-

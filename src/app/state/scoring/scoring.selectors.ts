@@ -182,10 +182,10 @@ export const selectScoreStatistics = createSelector(
 
 export const selectScoringLoading = createSelector(
   selectScoringState,
-  (state: ScoringState) => state.loading
+  (state: ScoringState) => state?.loading || false
 );
 
 export const selectScoringError = createSelector(
   selectScoringState,
-  (state: ScoringState) => state.error
+  (state: ScoringState) => state?.error || null
 );
