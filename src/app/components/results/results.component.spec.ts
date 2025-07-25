@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { Store } from '@ngrx/store';
 import { of } from 'rxjs';
 
@@ -8,6 +8,8 @@ import { AppState } from '../../state/app.state';
 import { Photo } from '../../models/photo.model';
 import { Guess, Score } from '../../models/scoring.model';
 import { nextPhoto } from '../../state/game/game.actions';
+import * as photosSelectors from '../../state/photos/photos.selectors';
+import * as scoringSelectors from '../../state/scoring/scoring.selectors';
 
 describe('ResultsComponent', () => {
   let component: ResultsComponent;
@@ -99,14 +101,14 @@ describe('ResultsComponent', () => {
     beforeEach(() => {
       // Setup store to return mock data BEFORE creating component
       mockStore.select.and.callFake((selector: any) => {
-        const selectorStr = selector.toString();
-        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
+        if (selector === photosSelectors.selectCurrentPhoto) {
           return of(mockPhoto);
         }
-        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
+        if (selector === scoringSelectors.selectCurrentGuess) {
           return of(mockGuess);
         }
-        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
+        // Handle the selectScoreByPhotoId function selector
+        if (typeof selector === 'function') {
           return of(mockScore);
         }
         return of(null);
@@ -119,9 +121,10 @@ describe('ResultsComponent', () => {
     it('should display photo information correctly', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const compiled = fixture.nativeElement;
-      const titleElement = compiled.querySelector('h3');
+      const titleElement = compiled.querySelector('.photo-info h3');
       const descriptionElement = compiled.querySelector('.photo-description');
 
       expect(titleElement).toBeTruthy();
@@ -133,6 +136,7 @@ describe('ResultsComponent', () => {
     it('should display year comparison correctly', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const compiled = fixture.nativeElement;
       const yearSection = compiled.querySelector('.year-results');
@@ -144,6 +148,7 @@ describe('ResultsComponent', () => {
     it('should display location comparison correctly', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const compiled = fixture.nativeElement;
       const locationSection = compiled.querySelector('.location-results');
@@ -155,6 +160,7 @@ describe('ResultsComponent', () => {
     it('should display score information correctly', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const compiled = fixture.nativeElement;
 
@@ -169,7 +175,7 @@ describe('ResultsComponent', () => {
       expect(locationScoreElement.textContent?.trim()).toBe(mockScore.locationScore.toString());
 
       // Check for total score
-      const totalScoreElement = compiled.querySelector('.total-score .points');
+      const totalScoreElement = compiled.querySelector('.total-score .total-points .points');
       expect(totalScoreElement).toBeTruthy();
       expect(totalScoreElement.textContent?.trim()).toBe(mockScore.totalScore.toString());
 
@@ -184,14 +190,14 @@ describe('ResultsComponent', () => {
   describe('Map Functionality', () => {
     beforeEach(() => {
       mockStore.select.and.callFake((selector: any) => {
-        const selectorStr = selector.toString();
-        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
+        if (selector === photosSelectors.selectCurrentPhoto) {
           return of(mockPhoto);
         }
-        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
+        if (selector === scoringSelectors.selectCurrentGuess) {
           return of(mockGuess);
         }
-        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
+        // Handle the selectScoreByPhotoId function selector
+        if (typeof selector === 'function') {
           return of(mockScore);
         }
         return of(null);
@@ -202,39 +208,34 @@ describe('ResultsComponent', () => {
       component = fixture.componentInstance;
     });
 
-    it('should initialize map when data is available', (done) => {
+    it('should initialize map when data is available', fakeAsync(() => {
       fixture.detectChanges();
+      tick(100); // Wait for setTimeout in initializeResultsMap
 
-      // Wait for setTimeout in initializeResultsMap
-      setTimeout(() => {
-        expect(mockMapService.initializeMap).toHaveBeenCalledWith('results-map');
-        expect(mockMapService.addPin).toHaveBeenCalledWith(
-          mockGuess.coordinates,
-          { color: 'red', label: 'Your Guess' }
-        );
-        expect(mockMapService.addAdditionalPin).toHaveBeenCalledWith(
-          mockPhoto.coordinates,
-          { color: 'green', label: 'Correct Location' }
-        );
-        expect(mockMapService.fitBounds).toHaveBeenCalledWith([
-          mockGuess.coordinates,
-          mockPhoto.coordinates
-        ]);
-        done();
-      }, 150);
-    });
+      expect(mockMapService.initializeMap).toHaveBeenCalledWith('results-map');
+      expect(mockMapService.addPin).toHaveBeenCalledWith(
+        mockGuess.coordinates,
+        { color: 'red', label: 'Your Guess' }
+      );
+      expect(mockMapService.addAdditionalPin).toHaveBeenCalledWith(
+        mockPhoto.coordinates,
+        { color: 'green', label: 'Correct Location' }
+      );
+      expect(mockMapService.fitBounds).toHaveBeenCalledWith([
+        mockGuess.coordinates,
+        mockPhoto.coordinates
+      ]);
+    }));
 
-    it('should handle map initialization errors gracefully', (done) => {
+    it('should handle map initialization errors gracefully', fakeAsync(() => {
       mockMapService.initializeMap.and.throwError('Map error');
       spyOn(console, 'error');
 
       fixture.detectChanges();
+      tick(100); // Wait for setTimeout in initializeResultsMap
 
-      setTimeout(() => {
-        expect(console.error).toHaveBeenCalledWith('Error initializing results map:', jasmine.any(Error));
-        done();
-      }, 150);
-    });
+      expect(console.error).toHaveBeenCalledWith('Error initializing results map:', jasmine.any(Error));
+    }));
   });
 
   describe('Distance Calculation', () => {
@@ -318,14 +319,14 @@ describe('ResultsComponent', () => {
     beforeEach(() => {
       // Setup store to return mock data so the template renders
       mockStore.select.and.callFake((selector: any) => {
-        const selectorStr = selector.toString();
-        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
+        if (selector === photosSelectors.selectCurrentPhoto) {
           return of(mockPhoto);
         }
-        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
+        if (selector === scoringSelectors.selectCurrentGuess) {
           return of(mockGuess);
         }
-        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
+        // Handle the selectScoreByPhotoId function selector
+        if (typeof selector === 'function') {
           return of(mockScore);
         }
         return of(null);
@@ -335,8 +336,10 @@ describe('ResultsComponent', () => {
       component = fixture.componentInstance;
     });
 
-    it('should dispatch nextPhoto action when next photo button is clicked', () => {
+    it('should dispatch nextPhoto action when next photo button is clicked', async () => {
       fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const button = fixture.nativeElement.querySelector('.next-photo-btn');
       expect(button).toBeTruthy();
@@ -414,14 +417,14 @@ describe('ResultsComponent', () => {
   describe('Accessibility', () => {
     beforeEach(() => {
       mockStore.select.and.callFake((selector: any) => {
-        const selectorStr = selector.toString();
-        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
+        if (selector === photosSelectors.selectCurrentPhoto) {
           return of(mockPhoto);
         }
-        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
+        if (selector === scoringSelectors.selectCurrentGuess) {
           return of(mockGuess);
         }
-        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
+        // Handle the selectScoreByPhotoId function selector
+        if (typeof selector === 'function') {
           return of(mockScore);
         }
         return of(null);
@@ -434,6 +437,7 @@ describe('ResultsComponent', () => {
     it('should have proper button accessibility', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const button = fixture.nativeElement.querySelector('.next-photo-btn');
       expect(button).toBeTruthy();
@@ -443,6 +447,7 @@ describe('ResultsComponent', () => {
     it('should have proper heading structure', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
+      fixture.detectChanges(); // Second change detection after async pipe resolves
 
       const headings = fixture.nativeElement.querySelectorAll('h2, h3, h4');
       expect(headings.length).toBeGreaterThan(0);
