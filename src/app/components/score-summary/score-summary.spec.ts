@@ -1,13 +1,18 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { select, Store } from '@ngrx/store';
+import { Store } from '@ngrx/store';
 import { of } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
-import { ScoreSummary, PerformanceCategory } from './score-summary';
+import { ScoreSummary } from './score-summary';
 import { Score } from '../../models/scoring.model';
 import { resetGame } from '../../state/game/game.actions';
 import { resetScores } from '../../state/scoring/scoring.actions';
-import { selectAllScores } from '../../state/scoring';
+import {
+  selectAllScores,
+  selectTotalScore,
+  selectScoreBreakdown
+} from '../../state/scoring/scoring.selectors';
+import { selectGameDuration } from '../../state/game/game.selectors';
 
 describe('ScoreSummary', () => {
   let component: ScoreSummary;
@@ -44,13 +49,16 @@ describe('ScoreSummary', () => {
 
     // Setup default store selectors
     mockStore.select.and.callFake((selector: any) => {
-      if (selector == selectAllScores) {
+      if (selector === selectAllScores) {
         return of(mockScores);
+      } else if (selector === selectTotalScore) {
+        return of(mockScoreBreakdown.total);
+      } else if (selector === selectScoreBreakdown) {
+        return of(mockScoreBreakdown);
+      } else if (selector === selectGameDuration) {
+        return of(125000); // 2 minutes 5 seconds
       }
-      else {
-          return of(mockScoreBreakdown.total); // Default return for all selectors
-
-      }
+      return of(null);
     });
 
     fixture = TestBed.createComponent(ScoreSummary);
@@ -203,8 +211,14 @@ describe('ScoreSummary', () => {
     it('should set up performance category observable based on total score', (done) => {
       // Mock a specific total score
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('selectTotalScore')) {
+        if (selector === selectTotalScore) {
           return of(40000); // 80% - Expert Explorer
+        } else if (selector === selectAllScores) {
+          return of(mockScores);
+        } else if (selector === selectScoreBreakdown) {
+          return of(mockScoreBreakdown);
+        } else if (selector === selectGameDuration) {
+          return of(125000);
         }
         return of(null);
       });
@@ -265,9 +279,9 @@ describe('ScoreSummary', () => {
       spyOn(component, 'startNewGame');
       const compiled = fixture.nativeElement;
       const newGameBtn = compiled.querySelector('.new-game-btn');
-      
+
       newGameBtn.click();
-      
+
       expect(component.startNewGame).toHaveBeenCalled();
     });
   });
@@ -275,13 +289,11 @@ describe('ScoreSummary', () => {
   describe('Edge Cases', () => {
     it('should handle empty scores array', () => {
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('selectAllScores')) {
+        if (selector === selectAllScores) {
           return of([]);
-        }
-        if (selector.toString().includes('selectTotalScore')) {
+        } else if (selector === selectTotalScore) {
           return of(0);
-        }
-        if (selector.toString().includes('selectScoreBreakdown')) {
+        } else if (selector === selectScoreBreakdown) {
           return of({
             total: 0,
             year: 0,
@@ -289,6 +301,8 @@ describe('ScoreSummary', () => {
             average: 0,
             maxPossible: 0
           });
+        } else if (selector === selectGameDuration) {
+          return of(null);
         }
         return of(null);
       });
@@ -304,10 +318,16 @@ describe('ScoreSummary', () => {
 
     it('should handle null game duration', () => {
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('selectGameDuration')) {
+        if (selector === selectGameDuration) {
           return of(null);
+        } else if (selector === selectAllScores) {
+          return of(mockScores);
+        } else if (selector === selectTotalScore) {
+          return of(mockScoreBreakdown.total);
+        } else if (selector === selectScoreBreakdown) {
+          return of(mockScoreBreakdown);
         }
-        return of(mockScoreBreakdown);
+        return of(null);
       });
 
       fixture = TestBed.createComponent(ScoreSummary);

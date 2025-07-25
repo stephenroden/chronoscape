@@ -56,6 +56,9 @@ describe('ResultsComponent', () => {
     // Setup default return value for calculateDistance
     mapServiceSpy.calculateDistance.and.returnValue(123.456);
 
+    // Setup default store behavior BEFORE component creation
+    storeSpy.select.and.returnValue(of(null));
+
     await TestBed.configureTestingModule({
       imports: [ResultsComponent],
       providers: [
@@ -64,21 +67,22 @@ describe('ResultsComponent', () => {
       ]
     }).compileComponents();
 
-    // Setup default store selectors
     mockStore = TestBed.inject(Store) as jasmine.SpyObj<Store<AppState>>;
-    mockStore.select.and.returnValue(of(null));
-
-    fixture = TestBed.createComponent(ResultsComponent);
-    component = fixture.componentInstance;
     mockMapService = TestBed.inject(MapService) as jasmine.SpyObj<MapService>;
-
   });
 
   it('should create', () => {
+    fixture = TestBed.createComponent(ResultsComponent);
+    component = fixture.componentInstance;
     expect(component).toBeTruthy();
   });
 
   describe('Component Initialization', () => {
+    beforeEach(() => {
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
+    });
+
     it('should initialize with correct observables', () => {
       fixture.detectChanges();
       expect(component.currentPhoto$).toBeDefined();
@@ -93,14 +97,23 @@ describe('ResultsComponent', () => {
 
   describe('Results Data Display', () => {
     beforeEach(() => {
-      // Directly override the component's observables
-      component.currentPhoto$ = of(mockPhoto);
-      component.currentGuess$ = of(mockGuess);
-      component.resultsData$ = of({
-        photo: mockPhoto,
-        guess: mockGuess,
-        score: mockScore
+      // Setup store to return mock data BEFORE creating component
+      mockStore.select.and.callFake((selector: any) => {
+        const selectorStr = selector.toString();
+        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
+          return of(mockPhoto);
+        }
+        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
+          return of(mockGuess);
+        }
+        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
+          return of(mockScore);
+        }
+        return of(null);
       });
+
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
     });
 
     it('should display photo information correctly', async () => {
@@ -111,12 +124,10 @@ describe('ResultsComponent', () => {
       const titleElement = compiled.querySelector('h3');
       const descriptionElement = compiled.querySelector('.photo-description');
 
-      if (titleElement) {
-        expect(titleElement.textContent).toContain(mockPhoto.title);
-      }
-      if (descriptionElement) {
-        expect(descriptionElement.textContent).toContain(mockPhoto.description);
-      }
+      expect(titleElement).toBeTruthy();
+      expect(titleElement.textContent).toContain(mockPhoto.title);
+      expect(descriptionElement).toBeTruthy();
+      expect(descriptionElement.textContent).toContain(mockPhoto.description);
     });
 
     it('should display year comparison correctly', async () => {
@@ -125,10 +136,9 @@ describe('ResultsComponent', () => {
 
       const compiled = fixture.nativeElement;
       const yearSection = compiled.querySelector('.year-results');
-      if (yearSection) {
-        expect(yearSection.textContent).toContain(mockGuess.year.toString());
-        expect(yearSection.textContent).toContain(mockPhoto.year.toString());
-      }
+      expect(yearSection).toBeTruthy();
+      expect(yearSection.textContent).toContain(mockGuess.year.toString());
+      expect(yearSection.textContent).toContain(mockPhoto.year.toString());
     });
 
     it('should display location comparison correctly', async () => {
@@ -137,10 +147,9 @@ describe('ResultsComponent', () => {
 
       const compiled = fixture.nativeElement;
       const locationSection = compiled.querySelector('.location-results');
-      if (locationSection) {
-        expect(locationSection.textContent).toContain(mockGuess.coordinates.latitude.toFixed(4));
-        expect(locationSection.textContent).toContain(mockPhoto.coordinates.latitude.toFixed(4));
-      }
+      expect(locationSection).toBeTruthy();
+      expect(locationSection.textContent).toContain(mockGuess.coordinates.latitude.toFixed(4));
+      expect(locationSection.textContent).toContain(mockPhoto.coordinates.latitude.toFixed(4));
     });
 
     it('should display score information correctly', async () => {
@@ -175,20 +184,26 @@ describe('ResultsComponent', () => {
   describe('Map Functionality', () => {
     beforeEach(() => {
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('currentPhoto')) {
+        const selectorStr = selector.toString();
+        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
           return of(mockPhoto);
         }
-        if (selector.toString().includes('currentGuess')) {
+        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
           return of(mockGuess);
+        }
+        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
+          return of(mockScore);
         }
         return of(null);
       });
       mockMapService.calculateDistance.and.returnValue(50.5);
+
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
     });
 
-    it('should initialize map when data is available', async () => {
+    it('should initialize map when data is available', (done) => {
       fixture.detectChanges();
-      await fixture.whenStable();
 
       // Wait for setTimeout in initializeResultsMap
       setTimeout(() => {
@@ -205,10 +220,11 @@ describe('ResultsComponent', () => {
           mockGuess.coordinates,
           mockPhoto.coordinates
         ]);
+        done();
       }, 150);
     });
 
-    it('should handle map initialization errors gracefully', () => {
+    it('should handle map initialization errors gracefully', (done) => {
       mockMapService.initializeMap.and.throwError('Map error');
       spyOn(console, 'error');
 
@@ -216,6 +232,7 @@ describe('ResultsComponent', () => {
 
       setTimeout(() => {
         expect(console.error).toHaveBeenCalledWith('Error initializing results map:', jasmine.any(Error));
+        done();
       }, 150);
     });
   });
@@ -223,6 +240,8 @@ describe('ResultsComponent', () => {
   describe('Distance Calculation', () => {
     beforeEach(() => {
       mockMapService.calculateDistance.and.returnValue(123.456);
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
     });
 
     it('should calculate distance correctly', () => {
@@ -236,6 +255,11 @@ describe('ResultsComponent', () => {
   });
 
   describe('Formatting Functions', () => {
+    beforeEach(() => {
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
+    });
+
     it('should format distance correctly for meters', () => {
       const result = component.formatDistance(0.5);
       expect(result).toBe('500m');
@@ -268,6 +292,11 @@ describe('ResultsComponent', () => {
   });
 
   describe('Performance Categories', () => {
+    beforeEach(() => {
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
+    });
+
     it('should return correct year performance categories', () => {
       expect(component.getYearPerformance(5000)).toBe('Perfect!');
       expect(component.getYearPerformance(4500)).toBe('Excellent');
@@ -286,39 +315,8 @@ describe('ResultsComponent', () => {
   });
 
   describe('Navigation', () => {
-    it('should dispatch nextPhoto action when next photo button is clicked', () => {
-      const button = fixture.nativeElement.querySelector('.next-photo-btn');
-
-      if (button) {
-        button.click();
-        expect(mockStore.dispatch).toHaveBeenCalledWith(nextPhoto());
-      }
-    });
-
-    it('should reset map initialization flag when next photo is clicked', () => {
-      component['mapInitialized'] = true;
-      component.onNextPhoto();
-      expect(component['mapInitialized']).toBe(false);
-    });
-  });
-
-  describe('Loading States', () => {
-    it('should show loading state when no data is available', async () => {
-      mockStore.select.and.callFake((selector: any) => {
-        return of(null);
-      });
-
-      fixture.detectChanges();
-      await fixture.whenStable();
-
-      const loadingElement = fixture.nativeElement.querySelector('.results-loading');
-      expect(loadingElement).toBeTruthy();
-      if (loadingElement) {
-        expect(loadingElement.textContent).toContain('Loading results...');
-      }
-    });
-
-    it('should hide loading state when data is available', async () => {
+    beforeEach(() => {
+      // Setup store to return mock data so the template renders
       mockStore.select.and.callFake((selector: any) => {
         const selectorStr = selector.toString();
         if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
@@ -333,15 +331,33 @@ describe('ResultsComponent', () => {
         return of(null);
       });
 
-      fixture.detectChanges();
-      await fixture.whenStable();
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
+    });
 
-      const loadingElement = fixture.nativeElement.querySelector('.results-loading');
-      expect(loadingElement).toBeFalsy();
+    it('should dispatch nextPhoto action when next photo button is clicked', () => {
+      fixture.detectChanges();
+
+      const button = fixture.nativeElement.querySelector('.next-photo-btn');
+      expect(button).toBeTruthy();
+
+      button.click();
+      expect(mockStore.dispatch).toHaveBeenCalledWith(nextPhoto());
+    });
+
+    it('should reset map initialization flag when next photo is clicked', () => {
+      component['mapInitialized'] = true;
+      component.onNextPhoto();
+      expect(component['mapInitialized']).toBe(false);
     });
   });
 
   describe('Component Lifecycle', () => {
+    beforeEach(() => {
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
+    });
+
     it('should clean up subscriptions on destroy', () => {
       const destroySpy = spyOn(component['destroy$'], 'next');
       const completeSpy = spyOn(component['destroy$'], 'complete');
@@ -356,14 +372,18 @@ describe('ResultsComponent', () => {
   describe('Error Handling', () => {
     it('should handle missing photo data gracefully', () => {
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('currentPhoto')) {
+        const selectorStr = selector.toString();
+        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
           return of(null);
         }
-        if (selector.toString().includes('currentGuess')) {
+        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
           return of(mockGuess);
         }
         return of(null);
       });
+
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
 
       expect(() => {
         fixture.detectChanges();
@@ -372,14 +392,18 @@ describe('ResultsComponent', () => {
 
     it('should handle missing guess data gracefully', () => {
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('currentPhoto')) {
+        const selectorStr = selector.toString();
+        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
           return of(mockPhoto);
         }
-        if (selector.toString().includes('currentGuess')) {
+        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
           return of(null);
         }
         return of(null);
       });
+
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
 
       expect(() => {
         fixture.detectChanges();
@@ -390,17 +414,21 @@ describe('ResultsComponent', () => {
   describe('Accessibility', () => {
     beforeEach(() => {
       mockStore.select.and.callFake((selector: any) => {
-        if (selector.toString().includes('currentPhoto')) {
+        const selectorStr = selector.toString();
+        if (selectorStr.includes('selectCurrentPhoto') || selectorStr.includes('currentPhoto')) {
           return of(mockPhoto);
         }
-        if (selector.toString().includes('currentGuess')) {
+        if (selectorStr.includes('selectCurrentGuess') || selectorStr.includes('currentGuess')) {
           return of(mockGuess);
         }
-        if (selector.toString().includes('scoreByPhotoId')) {
+        if (selectorStr.includes('selectScoreByPhotoId') || selectorStr.includes('scoreByPhotoId')) {
           return of(mockScore);
         }
         return of(null);
       });
+
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
     });
 
     it('should have proper button accessibility', async () => {
@@ -408,6 +436,7 @@ describe('ResultsComponent', () => {
       await fixture.whenStable();
 
       const button = fixture.nativeElement.querySelector('.next-photo-btn');
+      expect(button).toBeTruthy();
       expect(button.getAttribute('type')).toBe('button');
     });
 

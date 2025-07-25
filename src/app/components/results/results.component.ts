@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest, of } from 'rxjs';
@@ -76,7 +76,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
     this.resultsData$.pipe(
       takeUntil(this.destroy$)
     ).subscribe(data => {
-      if (data.photo && data.guess && !this.mapInitialized) {
+      if (data && data.photo && data.guess && !this.mapInitialized) {
         setTimeout(() => this.initializeResultsMap(data.photo!, data.guess!), 100);
       }
     });

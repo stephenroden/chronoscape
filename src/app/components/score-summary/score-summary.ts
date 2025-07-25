@@ -115,7 +115,7 @@ export class ScoreSummary implements OnInit {
    * @returns Formatted duration string
    */
   formatDuration(duration: number | null): string {
-    if (!duration) return 'Unknown';
+    if (duration === null || duration === undefined) return 'Unknown';
     
     const seconds = Math.floor(duration / 1000);
     const minutes = Math.floor(seconds / 60);
