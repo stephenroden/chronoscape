@@ -105,7 +105,7 @@
   - Write unit tests for score calculations and display logic
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 14. Implement NgRx effects for scoring workflow
+- [x] 14. Implement NgRx effects for scoring workflow
 
   - Create effects to handle guess submission and score calculation
   - Add effects for transitioning between photos and managing game completion

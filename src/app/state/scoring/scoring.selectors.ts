@@ -84,3 +84,98 @@ export const selectHasCurrentGuess = createSelector(
   selectCurrentGuess,
   (guess) => guess !== null
 );
+
+// Game progress selectors
+export const selectGameProgress = createSelector(
+  selectScoresCount,
+  (scoresCount: number) => ({
+    completedPhotos: scoresCount,
+    totalPhotos: 5, // Based on requirements - always 5 photos per game
+    percentage: Math.round((scoresCount / 5) * 100),
+    isComplete: scoresCount >= 5
+  })
+);
+
+export const selectCurrentScoreForPhoto = (photoId: string) => createSelector(
+  selectScoreByPhotoId(photoId),
+  (score) => score || null
+);
+
+export const selectMaxPossibleScore = createSelector(
+  selectScoresCount,
+  (scoresCount: number) => scoresCount * 10000 // 10,000 points per photo
+);
+
+export const selectScorePercentage = createSelector(
+  selectTotalScore,
+  selectMaxPossibleScore,
+  (totalScore: number, maxScore: number) => 
+    maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0
+);
+
+export const selectPerformanceCategory = createSelector(
+  selectTotalScore,
+  selectScoresCount,
+  (totalScore: number, scoresCount: number) => {
+    if (scoresCount === 0) return 'Not Started';
+    
+    const averageScore = totalScore / scoresCount;
+    const percentage = (averageScore / 10000) * 100;
+    
+    if (percentage >= 90) return 'History Master';
+    if (percentage >= 80) return 'Time Expert';
+    if (percentage >= 70) return 'History Buff';
+    if (percentage >= 60) return 'Good Guesser';
+    if (percentage >= 50) return 'Learning Explorer';
+    if (percentage >= 40) return 'Time Traveler';
+    if (percentage >= 30) return 'History Student';
+    return 'Beginner Explorer';
+  }
+);
+
+export const selectIsGameComplete = createSelector(
+  selectGameProgress,
+  (progress) => progress.isComplete
+);
+
+export const selectCanSubmitGuess = createSelector(
+  selectHasCurrentGuess,
+  selectIsGameComplete,
+  (hasGuess: boolean, isComplete: boolean) => hasGuess && !isComplete
+);
+
+export const selectScoreStatistics = createSelector(
+  selectAllScores,
+  selectTotalScore,
+  selectTotalYearScore,
+  selectTotalLocationScore,
+  (scores: Score[], totalScore: number, yearScore: number, locationScore: number) => {
+    if (scores.length === 0) {
+      return {
+        totalScore: 0,
+        averageScore: 0,
+        yearAccuracy: 0,
+        locationAccuracy: 0,
+        bestPhoto: null,
+        worstPhoto: null
+      };
+    }
+
+    const averageScore = Math.round(totalScore / scores.length);
+    const yearAccuracy = Math.round((yearScore / (scores.length * 5000)) * 100);
+    const locationAccuracy = Math.round((locationScore / (scores.length * 5000)) * 100);
+    
+    const sortedScores = [...scores].sort((a, b) => b.totalScore - a.totalScore);
+    const bestPhoto = sortedScores[0];
+    const worstPhoto = sortedScores[sortedScores.length - 1];
+
+    return {
+      totalScore,
+      averageScore,
+      yearAccuracy,
+      locationAccuracy,
+      bestPhoto,
+      worstPhoto
+    };
+  }
+);
