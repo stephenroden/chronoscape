@@ -2,6 +2,14 @@ import { Injectable } from '@angular/core';
 import * as L from 'leaflet';
 import { Coordinates } from '../models/coordinates.model';
 
+// Fix for Leaflet default marker icons in Angular
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
 /**
  * Pin options for customizing marker appearance
  */
@@ -32,8 +40,8 @@ export class MapService {
    * @returns The initialized Leaflet map instance
    */
   initializeMap(
-    containerId: string, 
-    initialCoordinates?: Coordinates, 
+    containerId: string,
+    initialCoordinates?: Coordinates,
     initialZoom: number = 2
   ): L.Map {
     try {
@@ -157,7 +165,7 @@ export class MapService {
           console.warn('Error creating colored icon, using default:', error);
         }
       }
-      
+
       // Add title and alt attributes if provided
       if (options?.title) {
         markerOptions.title = options.title;
@@ -260,18 +268,18 @@ export class MapService {
    */
   calculateDistance(point1: Coordinates, point2: Coordinates): number {
     const R = 6371; // Earth's radius in kilometers
-    
+
     const lat1Rad = this.toRadians(point1.latitude);
     const lat2Rad = this.toRadians(point2.latitude);
     const deltaLatRad = this.toRadians(point2.latitude - point1.latitude);
     const deltaLngRad = this.toRadians(point2.longitude - point1.longitude);
 
     const a = Math.sin(deltaLatRad / 2) * Math.sin(deltaLatRad / 2) +
-              Math.cos(lat1Rad) * Math.cos(lat2Rad) *
-              Math.sin(deltaLngRad / 2) * Math.sin(deltaLngRad / 2);
-    
+      Math.cos(lat1Rad) * Math.cos(lat2Rad) *
+      Math.sin(deltaLngRad / 2) * Math.sin(deltaLngRad / 2);
+
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    
+
     return R * c;
   }
 
@@ -297,7 +305,7 @@ export class MapService {
     }
 
     const coordArray = Array.isArray(coordinates[0]) ? coordinates as [Coordinates, Coordinates] : coordinates as Coordinates[];
-    
+
     const latLngs = coordArray.map(coord => [coord.latitude, coord.longitude] as [number, number]);
     const bounds = L.latLngBounds(latLngs);
 
@@ -322,7 +330,7 @@ export class MapService {
     } else if (options?.color) {
       markerOptions.icon = this.createColoredIcon(options.color);
     }
-    
+
     // Add title and alt attributes if provided
     if (options?.title) {
       markerOptions.title = options.title;
