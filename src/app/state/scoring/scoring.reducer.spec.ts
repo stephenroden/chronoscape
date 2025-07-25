@@ -141,7 +141,9 @@ describe('Scoring Reducer', () => {
       const state = {
         scores: [mockScore, mockScore2],
         totalScore: 11000,
-        currentGuess: mockGuess
+        currentGuess: mockGuess,
+        loading: false,
+        error: null
       };
 
       const action = ScoringActions.resetScores();

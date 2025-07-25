@@ -448,3 +448,84 @@ describe('PhotosEffects', () => {
     });
   });
 });
+    it('should return loadPhotosFailure with access denied message when status is 403', (done) => {
+      spyOn(console, 'error');
+      const action = PhotosActions.loadPhotos();
+      const error = { status: 403 };
+      actions$ = of(action);
+      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
+
+      effects.loadPhotos$.subscribe(result => {
+        expect(result).toEqual(PhotosActions.loadPhotosFailure({
+          error: 'Access to photo service denied. Please try again later.'
+        }));
+        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
+        done();
+      });
+    });
+
+    it('should return loadPhotosFailure with timeout message for timeout errors', (done) => {
+      spyOn(console, 'error');
+      const action = PhotosActions.loadPhotos();
+      const error = { name: 'TimeoutError', message: 'Request timed out' };
+      actions$ = of(action);
+      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
+
+      effects.loadPhotos$.subscribe(result => {
+        expect(result).toEqual(PhotosActions.loadPhotosFailure({
+          error: 'Request timed out. Please check your connection and try again.'
+        }));
+        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
+        done();
+      });
+    });
+
+    it('should return loadPhotosFailure with CORS message for CORS errors', (done) => {
+      spyOn(console, 'error');
+      const action = PhotosActions.loadPhotos();
+      const error = { message: 'CORS policy blocked the request' };
+      actions$ = of(action);
+      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
+
+      effects.loadPhotos$.subscribe(result => {
+        expect(result).toEqual(PhotosActions.loadPhotosFailure({
+          error: 'Unable to access photo service due to security restrictions. Please try again later.'
+        }));
+        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
+        done();
+      });
+    });
+
+    it('should return loadPhotosFailure with parse error message for parsing errors', (done) => {
+      spyOn(console, 'error');
+      const action = PhotosActions.loadPhotos();
+      const error = { message: 'Failed to parse response' };
+      actions$ = of(action);
+      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
+
+      effects.loadPhotos$.subscribe(result => {
+        expect(result).toEqual(PhotosActions.loadPhotosFailure({
+          error: 'Invalid response from photo service. Please try again.'
+        }));
+        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
+        done();
+      });
+    });
+
+    it('should return loadPhotosFailure with generic message for unknown errors', (done) => {
+      spyOn(console, 'error');
+      const action = PhotosActions.loadPhotos();
+      const error = { someProperty: 'unknown error' };
+      actions$ = of(action);
+      photoServiceSpy.fetchRandomPhotos.and.returnValue(throwError(() => error));
+
+      effects.loadPhotos$.subscribe(result => {
+        expect(result).toEqual(PhotosActions.loadPhotosFailure({
+          error: 'An unexpected error occurred while loading photos. Please try again.'
+        }));
+        expect(console.error).toHaveBeenCalledWith('Error loading photos:', error);
+        done();
+      });
+    });
+  });
+

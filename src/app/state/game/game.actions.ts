@@ -15,3 +15,8 @@ export const setGameError = createAction(
 );
 
 export const clearGameError = createAction('[Game] Clear Game Error');
+
+export const setGameLoading = createAction(
+  '[Game] Set Game Loading',
+  props<{ loading: boolean }>()
+);

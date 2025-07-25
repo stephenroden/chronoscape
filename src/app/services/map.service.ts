@@ -36,33 +36,82 @@ export class MapService {
     initialCoordinates?: Coordinates, 
     initialZoom: number = 2
   ): L.Map {
-    // Clean up existing map if it exists
-    if (this.map) {
-      this.map.remove();
-    }
+    try {
+      // Validate container ID
+      if (!containerId || typeof containerId !== 'string') {
+        throw new Error('Invalid container ID provided for map initialization');
+      }
 
-    // Clear the container to ensure it's not already initialized
-    const container = document.getElementById(containerId);
-    if (container) {
+      // Check if container exists
+      const container = document.getElementById(containerId);
+      if (!container) {
+        throw new Error(`Map container with ID '${containerId}' not found`);
+      }
+
+      // Clean up existing map if it exists
+      if (this.map) {
+        try {
+          this.map.remove();
+        } catch (error) {
+          console.warn('Error cleaning up existing map:', error);
+        }
+      }
+
+      // Clear the container to ensure it's not already initialized
       container.innerHTML = '';
       // Remove Leaflet's internal reference to prevent "already initialized" error
       (container as any)._leaflet_id = null;
+
+      // Validate coordinates
+      const coords = initialCoordinates || { latitude: 20, longitude: 0 };
+      if (coords.latitude < -90 || coords.latitude > 90) {
+        throw new Error('Invalid latitude: must be between -90 and 90');
+      }
+      if (coords.longitude < -180 || coords.longitude > 180) {
+        throw new Error('Invalid longitude: must be between -180 and 180');
+      }
+
+      // Validate zoom level
+      if (initialZoom < 1 || initialZoom > 18) {
+        console.warn(`Invalid zoom level ${initialZoom}, using default zoom 2`);
+        initialZoom = 2;
+      }
+
+      // Initialize the map
+      this.map = L.map(containerId, {
+        zoomControl: true,
+        attributionControl: true,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
+        touchZoom: true,
+        boxZoom: true,
+        keyboard: true
+      }).setView([coords.latitude, coords.longitude], initialZoom);
+
+      // Add OpenStreetMap tile layer with error handling
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 18,
+        minZoom: 1,
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+      });
+
+      tileLayer.on('tileerror', (error: any) => {
+        console.warn('Map tile loading error:', error);
+      });
+
+      tileLayer.addTo(this.map);
+
+      // Add error handling for map events
+      this.map.on('error', (error: any) => {
+        console.error('Map error:', error);
+      });
+
+      return this.map;
+    } catch (error) {
+      console.error('Failed to initialize map:', error);
+      throw new Error(`Map initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    // Set default coordinates to center of world if not provided
-    const coords = initialCoordinates || { latitude: 20, longitude: 0 };
-
-    // Initialize the map
-    this.map = L.map(containerId).setView([coords.latitude, coords.longitude], initialZoom);
-
-    // Add OpenStreetMap tile layer
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 18,
-      minZoom: 1
-    }).addTo(this.map);
-
-    return this.map;
   }
 
   /**
@@ -72,41 +121,69 @@ export class MapService {
    * @returns The created marker
    */
   addPin(coordinates: Coordinates, options?: PinOptions): L.Marker {
-    if (!this.map) {
-      throw new Error('Map must be initialized before adding pins');
-    }
+    try {
+      if (!this.map) {
+        throw new Error('Map must be initialized before adding pins');
+      }
 
-    // Remove existing pin if it exists
-    if (this.currentPin) {
-      this.map.removeLayer(this.currentPin);
-    }
+      // Validate coordinates
+      if (!coordinates || typeof coordinates !== 'object') {
+        throw new Error('Invalid coordinates provided');
+      }
+      if (coordinates.latitude < -90 || coordinates.latitude > 90) {
+        throw new Error('Invalid latitude: must be between -90 and 90');
+      }
+      if (coordinates.longitude < -180 || coordinates.longitude > 180) {
+        throw new Error('Invalid longitude: must be between -180 and 180');
+      }
 
-    // Create marker options with custom icon if color is specified
-    const markerOptions: L.MarkerOptions = {};
-    if (options?.icon) {
-      markerOptions.icon = options.icon;
-    } else if (options?.color) {
-      markerOptions.icon = this.createColoredIcon(options.color);
-    }
-    
-    // Add title and alt attributes if provided
-    if (options?.title) {
-      markerOptions.title = options.title;
-    }
-    if (options?.alt) {
-      markerOptions.alt = options.alt;
-    }
+      // Remove existing pin if it exists
+      if (this.currentPin) {
+        try {
+          this.map.removeLayer(this.currentPin);
+        } catch (error) {
+          console.warn('Error removing existing pin:', error);
+        }
+      }
 
-    // Create new pin
-    this.currentPin = L.marker([coordinates.latitude, coordinates.longitude], markerOptions)
-      .addTo(this.map);
+      // Create marker options with custom icon if color is specified
+      const markerOptions: L.MarkerOptions = {};
+      if (options?.icon) {
+        markerOptions.icon = options.icon;
+      } else if (options?.color) {
+        try {
+          markerOptions.icon = this.createColoredIcon(options.color);
+        } catch (error) {
+          console.warn('Error creating colored icon, using default:', error);
+        }
+      }
+      
+      // Add title and alt attributes if provided
+      if (options?.title) {
+        markerOptions.title = options.title;
+      }
+      if (options?.alt) {
+        markerOptions.alt = options.alt;
+      }
 
-    // Add label if provided
-    if (options?.label) {
-      this.currentPin.bindPopup(options.label);
+      // Create new pin
+      this.currentPin = L.marker([coordinates.latitude, coordinates.longitude], markerOptions)
+        .addTo(this.map);
+
+      // Add label if provided
+      if (options?.label) {
+        try {
+          this.currentPin.bindPopup(options.label);
+        } catch (error) {
+          console.warn('Error binding popup to marker:', error);
+        }
+      }
+
+      return this.currentPin;
+    } catch (error) {
+      console.error('Failed to add pin to map:', error);
+      throw new Error(`Pin creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-
-    return this.currentPin;
   }
 
   /**

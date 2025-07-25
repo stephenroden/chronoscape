@@ -66,3 +66,13 @@ export const selectGameDuration = createSelector(
     return endTime.getTime() - startTime.getTime();
   }
 );
+
+export const selectGameError = createSelector(
+  selectGameState,
+  (state: GameState) => state.error || null
+);
+
+export const selectGameLoading = createSelector(
+  selectGameState,
+  (state: GameState) => state.loading || false
+);

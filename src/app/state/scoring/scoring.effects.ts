@@ -38,14 +38,34 @@ export class ScoringEffects {
             if (isValid) {
               return ScoringActions.guessValidationSuccess({ guess });
             } else {
+              let errorMessage = 'Invalid guess: ';
+              const errors: string[] = [];
+              
+              if (!guess.year || guess.year < 1900 || guess.year > new Date().getFullYear()) {
+                errors.push('Year must be between 1900 and current year');
+              }
+              
+              if (!guess.coordinates || guess.coordinates.latitude === 0 && guess.coordinates.longitude === 0) {
+                errors.push('Location must be selected on the map');
+              }
+              
+              if (guess.coordinates && (
+                guess.coordinates.latitude < -90 || guess.coordinates.latitude > 90 ||
+                guess.coordinates.longitude < -180 || guess.coordinates.longitude > 180
+              )) {
+                errors.push('Coordinates must be valid');
+              }
+              
+              errorMessage += errors.join(', ');
+              
               return ScoringActions.guessValidationFailure({
-                error: 'Invalid guess: Year must be between 1900 and current year, and coordinates must be valid'
+                error: errorMessage
               });
             }
           } catch (error) {
             console.error('Error validating guess:', error);
             return ScoringActions.guessValidationFailure({
-              error: 'Guess validation failed due to an error'
+              error: 'Guess validation failed due to an unexpected error. Please try again.'
             });
           }
         })
@@ -86,6 +106,25 @@ export class ScoringEffects {
         ofType(ScoringActions.calculateScore),
         map(({ photoId, guess, actualYear, actualCoordinates }) => {
           try {
+            // Validate inputs before calculation
+            if (!photoId || typeof photoId !== 'string') {
+              throw new Error('Invalid photo ID provided');
+            }
+            
+            if (!validateGuess(guess)) {
+              throw new Error('Invalid guess provided for scoring');
+            }
+            
+            if (!actualYear || actualYear < 1900 || actualYear > new Date().getFullYear()) {
+              throw new Error('Invalid actual year provided');
+            }
+            
+            if (!actualCoordinates || 
+                actualCoordinates.latitude < -90 || actualCoordinates.latitude > 90 ||
+                actualCoordinates.longitude < -180 || actualCoordinates.longitude > 180) {
+              throw new Error('Invalid actual coordinates provided');
+            }
+            
             const score = this.scoringService.calculateScore(
               photoId,
               guess,
@@ -93,11 +132,17 @@ export class ScoringEffects {
               actualCoordinates
             );
             
+            // Validate calculated score
+            if (!score || typeof score.totalScore !== 'number' || score.totalScore < 0) {
+              throw new Error('Invalid score calculated');
+            }
+            
             return ScoringActions.addScore({ score });
           } catch (error) {
             console.error('Error calculating score:', error);
-            return ScoringActions.guessValidationFailure({
-              error: 'Score calculation failed'
+            const errorMessage = error instanceof Error ? error.message : 'Score calculation failed due to an unexpected error';
+            return ScoringActions.setScoringError({
+              error: errorMessage
             });
           }
         })

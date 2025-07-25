@@ -179,3 +179,13 @@ export const selectScoreStatistics = createSelector(
     };
   }
 );
+
+export const selectScoringLoading = createSelector(
+  selectScoringState,
+  (state: ScoringState) => state.loading
+);
+
+export const selectScoringError = createSelector(
+  selectScoringState,
+  (state: ScoringState) => state.error
+);

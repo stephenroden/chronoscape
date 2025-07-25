@@ -124,7 +124,25 @@ export class PhotosEffects {
       return 'Photo service not found. Please try again later.';
     }
 
+    if (error?.status === 403) {
+      return 'Access to photo service denied. Please try again later.';
+    }
+
+    if (error?.name === 'TimeoutError') {
+      return 'Request timed out. Please check your connection and try again.';
+    }
+
     if (error?.message) {
+      // Check for specific error patterns
+      if (error.message.includes('CORS')) {
+        return 'Unable to access photo service due to security restrictions. Please try again later.';
+      }
+      if (error.message.includes('timeout')) {
+        return 'Request timed out. Please check your connection and try again.';
+      }
+      if (error.message.includes('parse')) {
+        return 'Invalid response from photo service. Please try again.';
+      }
       return `Error loading photos: ${error.message}`;
     }
 

@@ -19,6 +19,8 @@ export interface GameState {
   gameStatus: GameStatus;
   startTime: Date;
   endTime?: Date;
+  error?: string | null;
+  loading?: boolean;
 }
 
 /**

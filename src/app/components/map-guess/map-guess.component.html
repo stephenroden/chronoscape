@@ -17,7 +17,7 @@
     <div *ngIf="mapError" class="map-error">
       <div class="error-icon">⚠️</div>
       <p>{{ mapError }}</p>
-      <button class="retry-button" (click)="initializeMap()">Retry</button>
+      <button class="retry-button" (click)="retryMapInitialization()">Retry</button>
     </div>
 
     <!-- Map Container -->

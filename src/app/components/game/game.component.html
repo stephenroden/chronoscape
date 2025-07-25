@@ -20,7 +20,21 @@
     <div class="game-start" *ngIf="(isGameNotStarted$ | async)">
       <h2>Welcome to Chronoscape!</h2>
       <p>Test your knowledge of history and geography by guessing when and where historical photos were taken.</p>
-      <button class="primary-button" (click)="startGame()">Start Game</button>
+      
+      <!-- Loading state for game initialization -->
+      <div class="loading-container" *ngIf="(gameLoading$ | async) || (photosLoading$ | async)">
+        <div class="loading-spinner"></div>
+        <p>Loading game...</p>
+      </div>
+      
+      <!-- Start button (disabled during loading) -->
+      <button 
+        class="primary-button" 
+        (click)="startGame()"
+        [disabled]="(gameLoading$ | async) || (photosLoading$ | async)">
+        <span *ngIf="!(gameLoading$ | async) && !(photosLoading$ | async)">Start Game</span>
+        <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)">Loading...</span>
+      </button>
     </div>
 
     <!-- Game in progress state -->
@@ -52,11 +66,62 @@
       <button class="primary-button" (click)="resetGame()">Play Again</button>
     </div>
 
-    <!-- Error state -->
-    <div class="game-error" *ngIf="(hasGameError$ | async)">
+    <!-- Error states -->
+    <div class="game-error" *ngIf="(hasGameError$ | async) || (photosError$ | async) || (scoringError$ | async)">
+      <div class="error-icon">⚠️</div>
       <h2>Oops! Something went wrong</h2>
-      <p>We couldn't load the game properly. Please try again.</p>
-      <button class="primary-button" (click)="resetGame()">Try Again</button>
+      
+      <!-- Game error -->
+      <div *ngIf="gameError$ | async as gameError" class="error-message">
+        <p>{{ getErrorMessage(gameError) }}</p>
+        <button 
+          class="primary-button" 
+          (click)="clearGameError()"
+          *ngIf="isRetryableError(gameError)">
+          Try Again
+        </button>
+        <button 
+          class="secondary-button" 
+          (click)="resetGame()">
+          Restart Game
+        </button>
+      </div>
+      
+      <!-- Photos error -->
+      <div *ngIf="photosError$ | async as photosError" class="error-message">
+        <p>{{ getErrorMessage(photosError) }}</p>
+        <button 
+          class="primary-button" 
+          (click)="retryLoadPhotos()"
+          *ngIf="isRetryableError(photosError)">
+          Retry Loading Photos
+        </button>
+        <button 
+          class="secondary-button" 
+          (click)="resetGame()">
+          Restart Game
+        </button>
+      </div>
+      
+      <!-- Scoring error -->
+      <div *ngIf="scoringError$ | async as scoringError" class="error-message">
+        <p>{{ getErrorMessage(scoringError) }}</p>
+        <button 
+          class="secondary-button" 
+          (click)="resetGame()">
+          Restart Game
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading overlay for ongoing operations -->
+    <div class="loading-overlay" *ngIf="(gameLoading$ | async) || (photosLoading$ | async) || (scoringLoading$ | async)">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p *ngIf="photosLoading$ | async">Loading photos...</p>
+        <p *ngIf="scoringLoading$ | async">Calculating score...</p>
+        <p *ngIf="gameLoading$ | async">Loading game...</p>
+      </div>
     </div>
   </div>
 </div>

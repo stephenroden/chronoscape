@@ -25,6 +25,8 @@ export interface ScoringState {
   scores: Score[];
   totalScore: number;
   currentGuess: Guess | null;
+  loading: boolean;
+  error: string | null;
 }
 
 /**

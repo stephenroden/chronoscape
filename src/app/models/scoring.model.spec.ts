@@ -29,7 +29,9 @@ describe('Scoring Model', () => {
     validScoringState = {
       scores: [validScore],
       totalScore: 5500,
-      currentGuess: validGuess
+      currentGuess: validGuess,
+      loading: false,
+      error: null
     };
   });
 
@@ -220,7 +222,9 @@ describe('Scoring Model', () => {
       const scoringState: ScoringState = {
         scores: [],
         totalScore: 0,
-        currentGuess: null
+        currentGuess: null,
+        loading: false,
+        error: null
       };
 
       expect(validateScoringState(scoringState)).toBe(true);
@@ -237,7 +241,9 @@ describe('Scoring Model', () => {
       const scoringState: ScoringState = {
         scores: [validScore, score2],
         totalScore: 11000,
-        currentGuess: null
+        currentGuess: null,
+        loading: false,
+        error: null
       };
 
       expect(validateScoringState(scoringState)).toBe(true);

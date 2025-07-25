@@ -50,3 +50,16 @@ export const guessValidationFailure = createAction(
   '[Scoring] Guess Validation Failure',
   props<{ error: string }>()
 );
+
+// Loading and error management actions
+export const setScoringLoading = createAction(
+  '[Scoring] Set Scoring Loading',
+  props<{ loading: boolean }>()
+);
+
+export const setScoringError = createAction(
+  '[Scoring] Set Scoring Error',
+  props<{ error: string }>()
+);
+
+export const clearScoringError = createAction('[Scoring] Clear Scoring Error');

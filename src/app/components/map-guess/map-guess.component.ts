@@ -92,9 +92,41 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
 
     } catch (error) {
       console.error('Failed to initialize map:', error);
-      this.mapError = 'Failed to load map. Please refresh the page and try again.';
       this.isMapLoading = false;
+      
+      // Provide specific error messages based on error type
+      if (error instanceof Error) {
+        if (error.message.includes('container')) {
+          this.mapError = 'Map container not found. Please refresh the page and try again.';
+        } else if (error.message.includes('coordinates')) {
+          this.mapError = 'Invalid map coordinates. Please refresh the page and try again.';
+        } else {
+          this.mapError = `Map initialization failed: ${error.message}`;
+        }
+      } else {
+        this.mapError = 'Failed to load map. Please refresh the page and try again.';
+      }
     }
+  }
+
+  /**
+   * Retries map initialization
+   */
+  retryMapInitialization(): void {
+    this.mapError = null;
+    this.isMapInitialized = false;
+    
+    // Clean up any existing map instance
+    try {
+      this.mapService.destroy();
+    } catch (error) {
+      console.warn('Error cleaning up map during retry:', error);
+    }
+    
+    // Retry initialization after a short delay
+    setTimeout(() => {
+      this.initializeMap();
+    }, 500);
   }
 
   private onMapClick(coordinates: Coordinates): void {
@@ -121,6 +153,8 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       });
     } catch (error) {
       console.error('Failed to update map pin:', error);
+      // Don't show error to user for pin updates, just log it
+      // The map is still functional even if pin styling fails
     }
   }
 

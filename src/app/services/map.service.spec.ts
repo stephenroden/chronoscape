@@ -377,3 +377,209 @@ describe('MapService', () => {
     });
   });
 });
+
+  describe('Error Handling', () => {
+    describe('initializeMap error handling', () => {
+      it('should throw error for invalid container ID', () => {
+        expect(() => service.initializeMap('')).toThrowError('Invalid container ID provided for map initialization');
+        expect(() => service.initializeMap(null as any)).toThrowError('Invalid container ID provided for map initialization');
+      });
+
+      it('should throw error when container element not found', () => {
+        expect(() => service.initializeMap('non-existent-container')).toThrowError("Map container with ID 'non-existent-container' not found");
+      });
+
+      it('should throw error for invalid latitude', () => {
+        const container = document.createElement('div');
+        container.id = 'test-map-error';
+        document.body.appendChild(container);
+
+        expect(() => service.initializeMap('test-map-error', { latitude: 100, longitude: 0 }))
+          .toThrowError('Invalid latitude: must be between -90 and 90');
+
+        document.body.removeChild(container);
+      });
+
+      it('should throw error for invalid longitude', () => {
+        const container = document.createElement('div');
+        container.id = 'test-map-error';
+        document.body.appendChild(container);
+
+        expect(() => service.initializeMap('test-map-error', { latitude: 0, longitude: 200 }))
+          .toThrowError('Invalid longitude: must be between -180 and 180');
+
+        document.body.removeChild(container);
+      });
+
+      it('should use default zoom for invalid zoom levels', () => {
+        spyOn(console, 'warn');
+        const container = document.createElement('div');
+        container.id = 'test-map-zoom';
+        document.body.appendChild(container);
+
+        const map = service.initializeMap('test-map-zoom', undefined, 25); // Invalid zoom > 18
+        expect(console.warn).toHaveBeenCalledWith('Invalid zoom level 25, using default zoom 2');
+        expect(map).toBeDefined();
+
+        document.body.removeChild(container);
+      });
+
+      it('should handle tile loading errors gracefully', () => {
+        spyOn(console, 'warn');
+        const container = document.createElement('div');
+        container.id = 'test-map-tile-error';
+        document.body.appendChild(container);
+
+        const map = service.initializeMap('test-map-tile-error');
+        
+        // Simulate tile error
+        const tileLayer = (map as any)._layers[Object.keys((map as any)._layers)[0]];
+        tileLayer.fire('tileerror', { error: 'Tile loading failed' });
+
+        expect(console.warn).toHaveBeenCalledWith('Map tile loading error:', { error: 'Tile loading failed' });
+
+        document.body.removeChild(container);
+      });
+
+      it('should handle map errors gracefully', () => {
+        spyOn(console, 'error');
+        const container = document.createElement('div');
+        container.id = 'test-map-general-error';
+        document.body.appendChild(container);
+
+        const map = service.initializeMap('test-map-general-error');
+        
+        // Simulate map error
+        map.fire('error', { error: 'General map error' });
+
+        expect(console.error).toHaveBeenCalledWith('Map error:', { error: 'General map error' });
+
+        document.body.removeChild(container);
+      });
+    });
+
+    describe('addPin error handling', () => {
+      beforeEach(() => {
+        const container = document.createElement('div');
+        container.id = 'test-map-pin-error';
+        document.body.appendChild(container);
+        service.initializeMap('test-map-pin-error');
+      });
+
+      afterEach(() => {
+        const container = document.getElementById('test-map-pin-error');
+        if (container) {
+          document.body.removeChild(container);
+        }
+      });
+
+      it('should throw error when map not initialized', () => {
+        service.destroy(); // Destroy the map
+        expect(() => service.addPin({ latitude: 0, longitude: 0 }))
+          .toThrowError('Map must be initialized before adding pins');
+      });
+
+      it('should throw error for invalid coordinates object', () => {
+        expect(() => service.addPin(null as any))
+          .toThrowError('Invalid coordinates provided');
+        expect(() => service.addPin(undefined as any))
+          .toThrowError('Invalid coordinates provided');
+      });
+
+      it('should throw error for invalid latitude in addPin', () => {
+        expect(() => service.addPin({ latitude: 100, longitude: 0 }))
+          .toThrowError('Invalid latitude: must be between -90 and 90');
+        expect(() => service.addPin({ latitude: -100, longitude: 0 }))
+          .toThrowError('Invalid latitude: must be between -90 and 90');
+      });
+
+      it('should throw error for invalid longitude in addPin', () => {
+        expect(() => service.addPin({ latitude: 0, longitude: 200 }))
+          .toThrowError('Invalid longitude: must be between -180 and 180');
+        expect(() => service.addPin({ latitude: 0, longitude: -200 }))
+          .toThrowError('Invalid longitude: must be between -180 and 180');
+      });
+
+      it('should handle icon creation errors gracefully', () => {
+        spyOn(console, 'warn');
+        spyOn(service as any, 'createColoredIcon').and.throwError('Icon creation failed');
+
+        const marker = service.addPin({ latitude: 0, longitude: 0 }, { color: 'red' });
+        expect(marker).toBeDefined();
+        expect(console.warn).toHaveBeenCalledWith('Error creating colored icon, using default:', jasmine.any(Error));
+      });
+
+      it('should handle popup binding errors gracefully', () => {
+        spyOn(console, 'warn');
+        const marker = service.addPin({ latitude: 0, longitude: 0 });
+        spyOn(marker, 'bindPopup').and.throwError('Popup binding failed');
+
+        // This should not throw, just warn
+        expect(() => service.addPin({ latitude: 0, longitude: 0 }, { label: 'Test label' }))
+          .not.toThrow();
+        expect(console.warn).toHaveBeenCalledWith('Error binding popup to marker:', jasmine.any(Error));
+      });
+
+      it('should handle existing pin removal errors gracefully', () => {
+        spyOn(console, 'warn');
+        
+        // Add a pin first
+        service.addPin({ latitude: 0, longitude: 0 });
+        
+        // Mock removeLayer to throw error
+        const map = (service as any).map;
+        spyOn(map, 'removeLayer').and.throwError('Remove layer failed');
+
+        // Adding another pin should still work despite removal error
+        expect(() => service.addPin({ latitude: 10, longitude: 10 })).not.toThrow();
+        expect(console.warn).toHaveBeenCalledWith('Error removing existing pin:', jasmine.any(Error));
+      });
+    });
+
+    describe('setMapView error handling', () => {
+      it('should throw error when map not initialized', () => {
+        expect(() => service.setMapView({ latitude: 0, longitude: 0 }, 5))
+          .toThrowError('Map must be initialized before setting view');
+      });
+    });
+
+    describe('enableClickToPlace error handling', () => {
+      it('should throw error when map not initialized', () => {
+        expect(() => service.enableClickToPlace(() => {}))
+          .toThrowError('Map must be initialized before enabling click handling');
+      });
+    });
+
+    describe('fitBounds error handling', () => {
+      it('should throw error when map not initialized', () => {
+        expect(() => service.fitBounds([{ latitude: 0, longitude: 0 }]))
+          .toThrowError('Map must be initialized before fitting bounds');
+      });
+    });
+
+    describe('addAdditionalPin error handling', () => {
+      it('should throw error when map not initialized', () => {
+        expect(() => service.addAdditionalPin({ latitude: 0, longitude: 0 }))
+          .toThrowError('Map must be initialized before adding pins');
+      });
+    });
+
+    describe('destroy error handling', () => {
+      it('should handle destruction gracefully even with errors', () => {
+        const container = document.createElement('div');
+        container.id = 'test-map-destroy';
+        document.body.appendChild(container);
+        
+        service.initializeMap('test-map-destroy');
+        
+        // Mock map.remove to throw error
+        const map = (service as any).map;
+        spyOn(map, 'remove').and.throwError('Destruction failed');
+
+        // Should not throw error
+        expect(() => service.destroy()).not.toThrow();
+
+        document.body.removeChild(container);
+      });
+    });
+  });

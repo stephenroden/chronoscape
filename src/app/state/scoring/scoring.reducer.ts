@@ -5,7 +5,9 @@ import * as ScoringActions from './scoring.actions';
 export const initialScoringState: ScoringState = {
   scores: [],
   totalScore: 0,
-  currentGuess: null
+  currentGuess: null,
+  loading: false,
+  error: null
 };
 
 export const scoringReducer = createReducer(
@@ -13,7 +15,9 @@ export const scoringReducer = createReducer(
 
   on(ScoringActions.submitGuess, (state, { guess }): ScoringState => ({
     ...state,
-    currentGuess: guess
+    currentGuess: guess,
+    loading: true,
+    error: null
   })),
 
   on(ScoringActions.setCurrentGuess, (state, { guess }): ScoringState => ({
@@ -35,7 +39,9 @@ export const scoringReducer = createReducer(
     return {
       ...state,
       scores: newScores,
-      totalScore: newTotalScore
+      totalScore: newTotalScore,
+      loading: false,
+      error: null
     };
   }),
 
@@ -69,8 +75,26 @@ export const scoringReducer = createReducer(
     currentGuess: guess
   })),
 
-  on(ScoringActions.guessValidationFailure, (state): ScoringState => ({
+  on(ScoringActions.guessValidationFailure, (state, { error }): ScoringState => ({
     ...state,
-    currentGuess: null
+    currentGuess: null,
+    loading: false,
+    error
+  })),
+
+  on(ScoringActions.setScoringLoading, (state, { loading }): ScoringState => ({
+    ...state,
+    loading
+  })),
+
+  on(ScoringActions.setScoringError, (state, { error }): ScoringState => ({
+    ...state,
+    error,
+    loading: false
+  })),
+
+  on(ScoringActions.clearScoringError, (state): ScoringState => ({
+    ...state,
+    error: null
   }))
 );

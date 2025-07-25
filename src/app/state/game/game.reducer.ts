@@ -7,7 +7,9 @@ export const initialGameState: GameState = {
   totalPhotos: 5,
   gameStatus: GameStatus.NOT_STARTED,
   startTime: new Date(),
-  endTime: undefined
+  endTime: undefined,
+  error: null,
+  loading: false
 };
 
 export const gameReducer = createReducer(
@@ -18,7 +20,9 @@ export const gameReducer = createReducer(
     gameStatus: GameStatus.IN_PROGRESS,
     startTime: new Date(),
     currentPhotoIndex: 0,
-    endTime: undefined
+    endTime: undefined,
+    error: null,
+    loading: false
   })),
 
   on(GameActions.nextPhoto, (state): GameState => {
@@ -46,11 +50,19 @@ export const gameReducer = createReducer(
 
   on(GameActions.setGameError, (state, { error }): GameState => ({
     ...state,
-    gameStatus: GameStatus.ERROR
+    gameStatus: GameStatus.ERROR,
+    error,
+    loading: false
   })),
 
   on(GameActions.clearGameError, (state): GameState => ({
     ...state,
-    gameStatus: state.gameStatus === GameStatus.ERROR ? GameStatus.NOT_STARTED : state.gameStatus
+    gameStatus: state.gameStatus === GameStatus.ERROR ? GameStatus.NOT_STARTED : state.gameStatus,
+    error: null
+  })),
+
+  on(GameActions.setGameLoading, (state, { loading }): GameState => ({
+    ...state,
+    loading
   }))
 );

@@ -7,6 +7,8 @@ import { GameStatus } from '../../models/game-state.model';
 import * as GameActions from '../../state/game/game.actions';
 import * as GameSelectors from '../../state/game/game.selectors';
 import * as PhotosActions from '../../state/photos/photos.actions';
+import * as PhotosSelectors from '../../state/photos/photos.selectors';
+import * as ScoringSelectors from '../../state/scoring/scoring.selectors';
 import { PhotoDisplayComponent } from '../photo-display/photo-display.component';
 import { YearGuessComponent } from '../year-guess/year-guess.component';
 import { MapGuessComponent } from '../map-guess/map-guess.component';
@@ -36,6 +38,16 @@ export class GameComponent implements OnInit, OnDestroy {
   isGameCompleted$: Observable<boolean>;
   isGameNotStarted$: Observable<boolean>;
   hasGameError$: Observable<boolean>;
+  gameError$: Observable<string | null>;
+  gameLoading$: Observable<boolean>;
+  
+  // Photo state observables
+  photosLoading$: Observable<boolean>;
+  photosError$: Observable<string | null>;
+  
+  // Scoring state observables
+  scoringLoading$: Observable<boolean>;
+  scoringError$: Observable<string | null>;
   
   // Subscriptions to manage
   private subscriptions: Subscription = new Subscription();
@@ -48,6 +60,16 @@ export class GameComponent implements OnInit, OnDestroy {
     this.isGameCompleted$ = this.store.select(GameSelectors.selectIsGameCompleted);
     this.isGameNotStarted$ = this.store.select(GameSelectors.selectIsGameNotStarted);
     this.hasGameError$ = this.store.select(GameSelectors.selectHasGameError);
+    this.gameError$ = this.store.select(GameSelectors.selectGameError);
+    this.gameLoading$ = this.store.select(GameSelectors.selectGameLoading);
+    
+    // Photo state observables
+    this.photosLoading$ = this.store.select(PhotosSelectors.selectPhotosLoading);
+    this.photosError$ = this.store.select(PhotosSelectors.selectPhotosError);
+    
+    // Scoring state observables
+    this.scoringLoading$ = this.store.select(ScoringSelectors.selectScoringLoading);
+    this.scoringError$ = this.store.select(ScoringSelectors.selectScoringError);
   }
 
   ngOnInit(): void {
@@ -102,5 +124,52 @@ export class GameComponent implements OnInit, OnDestroy {
    */
   resetGame(): void {
     this.store.dispatch(GameActions.resetGame());
+  }
+
+  /**
+   * Clears any game errors and allows retry
+   */
+  clearGameError(): void {
+    this.store.dispatch(GameActions.clearGameError());
+  }
+
+  /**
+   * Retries loading photos when there's an error
+   */
+  retryLoadPhotos(): void {
+    this.store.dispatch(PhotosActions.loadPhotos());
+  }
+
+  /**
+   * Gets user-friendly error message for display
+   */
+  getErrorMessage(error: string | null): string {
+    if (!error) return '';
+    
+    // Provide more user-friendly messages for common errors
+    if (error.includes('Network connection failed')) {
+      return 'Unable to connect to the internet. Please check your connection and try again.';
+    }
+    if (error.includes('No suitable photos found')) {
+      return 'Unable to find photos for the game. Please try again in a moment.';
+    }
+    if (error.includes('Too many requests')) {
+      return 'Please wait a moment before trying again.';
+    }
+    
+    return error;
+  }
+
+  /**
+   * Determines if an error is retryable
+   */
+  isRetryableError(error: string | null): boolean {
+    if (!error) return false;
+    
+    // Network and temporary errors are retryable
+    return error.includes('Network connection failed') ||
+           error.includes('Server error occurred') ||
+           error.includes('Too many requests') ||
+           error.includes('No suitable photos found');
   }
 }
