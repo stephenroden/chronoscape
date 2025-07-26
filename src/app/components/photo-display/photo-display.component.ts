@@ -4,7 +4,9 @@ import { Store } from '@ngrx/store';
 import { Observable, Subscription } from 'rxjs';
 import { Photo } from '../../models/photo.model';
 import { AppState } from '../../state/app.state';
+import { ImagePreloaderService } from '../../services/image-preloader.service';
 import * as PhotosSelectors from '../../state/photos/photos.selectors';
+import * as GameSelectors from '../../state/game/game.selectors';
 
 /**
  * Component responsible for displaying the current photograph with loading states and error handling.
@@ -37,13 +39,20 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   currentPhoto$: Observable<Photo | null>;
   photosLoading$: Observable<boolean>;
   photosError$: Observable<string | null>;
+  allPhotos$: Observable<Photo[]>;
+  currentPhotoIndex$: Observable<number>;
 
   private subscriptions = new Subscription();
 
-  constructor(private store: Store<AppState>) {
+  constructor(
+    private store: Store<AppState>,
+    private imagePreloader: ImagePreloaderService
+  ) {
     this.currentPhoto$ = this.store.select(PhotosSelectors.selectCurrentPhoto);
     this.photosLoading$ = this.store.select(PhotosSelectors.selectPhotosLoading);
     this.photosError$ = this.store.select(PhotosSelectors.selectPhotosError);
+    this.allPhotos$ = this.store.select(PhotosSelectors.selectAllPhotos);
+    this.currentPhotoIndex$ = this.store.select(GameSelectors.selectCurrentPhotoIndex);
   }
 
   ngOnInit(): void {
@@ -54,7 +63,17 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
           this.photo = photo;
           if (photo) {
             this.resetImageState();
+            this.preloadNextPhoto();
           }
+        }
+      })
+    );
+
+    // Preload all photos when they become available
+    this.subscriptions.add(
+      this.allPhotos$.subscribe(photos => {
+        if (photos && photos.length > 0) {
+          this.imagePreloader.preloadGamePhotos(photos).subscribe();
         }
       })
     );
@@ -72,6 +91,25 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     this.imageLoaded = true;
     this.imageError = false;
     this.imageLoading = false;
+  }
+
+  /**
+   * Preload the next photo in sequence for smooth transitions
+   */
+  private preloadNextPhoto(): void {
+    this.subscriptions.add(
+      this.allPhotos$.subscribe(photos => {
+        if (photos && photos.length > 0) {
+          this.subscriptions.add(
+            this.currentPhotoIndex$.subscribe(currentIndex => {
+              if (currentIndex >= 0) {
+                this.imagePreloader.preloadNextPhoto(photos, currentIndex);
+              }
+            })
+          );
+        }
+      })
+    );
   }
 
   /**
@@ -99,12 +137,27 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   retryImageLoad(): void {
     if (this.photo) {
       this.resetImageState();
+      
+      // Try to use preloaded image first
+      const preloadedImage = this.imagePreloader.getPreloadedImage(this.photo.url);
+      if (preloadedImage) {
+        this.onImageLoad();
+        return;
+      }
+      
       // Force image reload by adding timestamp to URL
       const img = new Image();
       img.onload = () => this.onImageLoad();
       img.onerror = () => this.onImageError();
       img.src = `${this.photo.url}?retry=${Date.now()}`;
     }
+  }
+
+  /**
+   * Check if current image is preloaded
+   */
+  isImagePreloaded(): boolean {
+    return this.photo ? this.imagePreloader.isPreloaded(this.photo.url) : false;
   }
 
   /**

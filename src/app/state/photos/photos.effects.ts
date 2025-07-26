@@ -3,6 +3,7 @@ import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Observable, of } from 'rxjs';
 import { map, catchError, switchMap, tap } from 'rxjs/operators';
 import { PhotoService } from '../../services/photo.service';
+import { ImagePreloaderService } from '../../services/image-preloader.service';
 import * as PhotosActions from './photos.actions';
 import { Action } from '@ngrx/store';
 
@@ -15,7 +16,8 @@ export class PhotosEffects {
 
   constructor(
     private actions$: Actions,
-    private photoService: PhotoService
+    private photoService: PhotoService,
+    private imagePreloader: ImagePreloaderService
   ) {
     /**
      * Effect to handle photo loading from external API
@@ -75,7 +77,7 @@ export class PhotosEffects {
     );
 
     /**
-     * Effect to log successful photo loading for debugging
+     * Effect to log successful photo loading and start preloading
      */
     this.logPhotosSuccess$ = createEffect(() =>
       this.actions$.pipe(
@@ -84,6 +86,11 @@ export class PhotosEffects {
           console.log(`Successfully loaded ${photos.length} photos:`,
             photos.map(p => ({ id: p.id, year: p.year, title: p.title }))
           );
+          
+          // Start preloading the first photo with high priority
+          if (photos.length > 0) {
+            this.imagePreloader.preloadImage(photos[0].url, 10).subscribe();
+          }
         })
       ),
       { dispatch: false }

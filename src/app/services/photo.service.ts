@@ -4,6 +4,7 @@ import { Observable, forkJoin, of } from 'rxjs';
 import { map, switchMap, catchError, filter } from 'rxjs/operators';
 import { Photo, validatePhotoMetadata } from '../models/photo.model';
 import { Coordinates } from '../models/coordinates.model';
+import { CacheService } from './cache.service';
 
 /**
  * Raw response structure from Wikimedia Commons API
@@ -42,8 +43,15 @@ export class PhotoService {
   private readonly API_BASE_URL = 'https://commons.wikimedia.org/w/api.php';
   private readonly MIN_YEAR = 1900;
   private readonly MAX_YEAR = new Date().getFullYear();
+  
+  // Cache configuration
+  private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes for API responses
+  private readonly PHOTO_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for processed photos
 
-  constructor(private http: HttpClient) { }
+  constructor(
+    private http: HttpClient,
+    private cacheService: CacheService
+  ) { }
 
   /**
    * Fetches random historical photos from Wikimedia Commons using geosearch
@@ -51,19 +59,27 @@ export class PhotoService {
    * @returns Observable of Photo array
    */
   fetchRandomPhotos(count: number): Observable<Photo[]> {
-    const locations = this.getRandomLocations(count);
+    const cacheKey = `random-photos-${count}-${Date.now() - (Date.now() % (5 * 60 * 1000))}`; // 5-minute cache buckets
+    
+    return this.cacheService.getOrSet(
+      cacheKey,
+      () => {
+        const locations = this.getRandomLocations(count);
 
-    return forkJoin(
-      locations.map(location => this.searchPhotosByLocation(location))
-    ).pipe(
-      map(locationResults => locationResults.flat()),
-      switchMap(searchResults => this.getPhotoDetails(searchResults)),
-      map(photos => this.filterValidPhotos(photos)),
-      map(photos => this.selectDiversePhotos(photos, count)),
-      catchError(error => {
-        console.error('Error fetching photos:', error);
-        return of([]);
-      })
+        return forkJoin(
+          locations.map(location => this.searchPhotosByLocation(location))
+        ).pipe(
+          map(locationResults => locationResults.flat()),
+          switchMap(searchResults => this.getPhotoDetails(searchResults)),
+          map(photos => this.filterValidPhotos(photos)),
+          map(photos => this.selectDiversePhotos(photos, count)),
+          catchError(error => {
+            console.error('Error fetching photos:', error);
+            return of([]);
+          })
+        );
+      },
+      { ttl: this.PHOTO_CACHE_TTL }
     );
   }
 
@@ -393,25 +409,33 @@ export class PhotoService {
    * Searches for photos near a specific location using geosearch
    */
   private searchPhotosByLocation(location: Coordinates): Observable<any[]> {
-    const params = new HttpParams()
-      .set('action', 'query')
-      .set('list', 'geosearch')
-      .set('gscoord', `${location.latitude}|${location.longitude}`)
-      .set('gsradius', '10000') // 10km radius
-      .set('gslimit', '20') // Get more results per location
-      .set('gsnamespace', '6') // File namespace
-      .set('format', 'json')
-      .set('origin', '*');
+    const cacheKey = `geosearch-${location.latitude}-${location.longitude}`;
+    
+    return this.cacheService.getOrSet(
+      cacheKey,
+      () => {
+        const params = new HttpParams()
+          .set('action', 'query')
+          .set('list', 'geosearch')
+          .set('gscoord', `${location.latitude}|${location.longitude}`)
+          .set('gsradius', '10000') // 10km radius
+          .set('gslimit', '20') // Get more results per location
+          .set('gsnamespace', '6') // File namespace
+          .set('format', 'json')
+          .set('origin', '*');
 
-    return this.http.get<any>(this.API_BASE_URL, { params })
-      .pipe(
-        map(response => response.query?.geosearch || []),
-        filter(results => results.length > 0),
-        catchError(error => {
-          console.error('Geosearch error for location:', location, error);
-          return of([]);
-        })
-      );
+        return this.http.get<any>(this.API_BASE_URL, { params })
+          .pipe(
+            map(response => response.query?.geosearch || []),
+            filter(results => results.length > 0),
+            catchError(error => {
+              console.error('Geosearch error for location:', location, error);
+              return of([]);
+            })
+          );
+      },
+      { ttl: this.CACHE_TTL }
+    );
   }
 
   /**
@@ -439,34 +463,42 @@ export class PhotoService {
    */
   private getPhotoDetailsChunk(searchResults: any[]): Observable<Photo[]> {
     const titles = searchResults.map(result => result.title).join('|');
-    const params = new HttpParams()
-      .set('action', 'query')
-      .set('titles', titles)
-      .set('prop', 'imageinfo')
-      .set('iiprop', 'url|metadata|extmetadata')
-      .set('format', 'json')
-      .set('origin', '*');
+    const cacheKey = `photo-details-${this.hashString(titles)}`;
+    
+    return this.cacheService.getOrSet(
+      cacheKey,
+      () => {
+        const params = new HttpParams()
+          .set('action', 'query')
+          .set('titles', titles)
+          .set('prop', 'imageinfo')
+          .set('iiprop', 'url|metadata|extmetadata')
+          .set('format', 'json')
+          .set('origin', '*');
 
-    return this.http.get<WikimediaImageInfoResponse>(this.API_BASE_URL, { params })
-      .pipe(
-        map(response => {
-          const pages = response.query?.pages || {};
-          const photos: Photo[] = [];
+        return this.http.get<WikimediaImageInfoResponse>(this.API_BASE_URL, { params })
+          .pipe(
+            map(response => {
+              const pages = response.query?.pages || {};
+              const photos: Photo[] = [];
 
-          Object.values(pages).forEach(page => {
-            const photo = this.processPhotoData(page);
-            if (photo) {
-              photos.push(photo);
-            }
-          });
+              Object.values(pages).forEach(page => {
+                const photo = this.processPhotoData(page);
+                if (photo) {
+                  photos.push(photo);
+                }
+              });
 
-          return photos;
-        }),
-        catchError(error => {
-          console.error('Photo details chunk error:', error);
-          return of([]);
-        })
-      );
+              return photos;
+            }),
+            catchError(error => {
+              console.error('Photo details chunk error:', error);
+              return of([]);
+            })
+          );
+      },
+      { ttl: this.CACHE_TTL }
+    );
   }
 
   /**
@@ -669,5 +701,23 @@ export class PhotoService {
     return extmetadata.LicenseShortName?.value ||
       extmetadata.UsageTerms?.value ||
       'Unknown License';
+  }
+
+  /**
+   * Simple hash function for creating cache keys
+   * @param str - String to hash
+   * @returns Hash value as string
+   */
+  private hashString(str: string): string {
+    let hash = 0;
+    if (str.length === 0) return hash.toString();
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return Math.abs(hash).toString(36);
   }
 }

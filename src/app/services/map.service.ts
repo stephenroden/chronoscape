@@ -96,12 +96,28 @@ export class MapService {
         keyboard: true
       }).setView([coords.latitude, coords.longitude], initialZoom);
 
-      // Add OpenStreetMap tile layer with error handling
+      // Add OpenStreetMap tile layer with performance optimizations
       const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 18,
         minZoom: 1,
-        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        // Performance optimizations
+        keepBuffer: 2, // Keep tiles in buffer for smoother panning
+        maxNativeZoom: 18,
+        tileSize: 256,
+        zoomOffset: 0,
+        updateWhenIdle: false, // Update tiles while panning
+        updateWhenZooming: false, // Don't update during zoom animation
+        crossOrigin: true,
+        // Tile loading optimizations
+        bounds: [[-85.0511, -180], [85.0511, 180]], // World bounds
+        noWrap: false,
+        pane: 'tilePane',
+        className: '',
+        opacity: 1,
+        zIndex: 1,
+        updateInterval: 200 // Throttle tile updates
       });
 
       tileLayer.on('tileerror', (error: any) => {
