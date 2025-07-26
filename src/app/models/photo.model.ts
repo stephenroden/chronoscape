@@ -8,6 +8,8 @@ export interface PhotoMetadata {
   license: string;
   originalSource: string;
   dateCreated: Date;
+  format?: string;
+  mimeType?: string;
 }
 
 /**
@@ -86,6 +88,16 @@ export function validatePhotoMetadata(photo: Photo): boolean {
 
   // Optional photographer validation
   if (photo.metadata.photographer !== undefined && typeof photo.metadata.photographer !== 'string') {
+    return false;
+  }
+
+  // Optional format validation
+  if (photo.metadata.format !== undefined && typeof photo.metadata.format !== 'string') {
+    return false;
+  }
+
+  // Optional mimeType validation
+  if (photo.metadata.mimeType !== undefined && typeof photo.metadata.mimeType !== 'string') {
     return false;
   }
 

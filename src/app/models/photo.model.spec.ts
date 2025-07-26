@@ -9,7 +9,9 @@ describe('Photo Model', () => {
       photographer: 'John Doe',
       license: 'CC BY-SA 4.0',
       originalSource: 'https://commons.wikimedia.org/wiki/File:Example.jpg',
-      dateCreated: new Date('2020-01-01')
+      dateCreated: new Date('2020-01-01'),
+      format: 'jpeg',
+      mimeType: 'image/jpeg'
     };
 
     validPhoto = {
@@ -35,7 +37,9 @@ describe('Photo Model', () => {
         description: undefined,
         metadata: {
           ...validMetadata,
-          photographer: undefined
+          photographer: undefined,
+          format: undefined,
+          mimeType: undefined
         }
       };
 
@@ -222,6 +226,88 @@ describe('Photo Model', () => {
           const photo = { ...validPhoto, metadata };
           expect(validatePhotoMetadata(photo as any)).toBe(false);
         });
+      });
+
+      it('should return true for valid format values', () => {
+        const validFormats = ['jpeg', 'png', 'webp', 'jpg'];
+        
+        validFormats.forEach(format => {
+          const metadata = { ...validMetadata, format };
+          const photo = { ...validPhoto, metadata };
+          expect(validatePhotoMetadata(photo)).toBe(true);
+        });
+      });
+
+      it('should return true when format is undefined', () => {
+        const metadata = { ...validMetadata, format: undefined };
+        const photo = { ...validPhoto, metadata };
+        expect(validatePhotoMetadata(photo)).toBe(true);
+      });
+
+      it('should return false for invalid format type', () => {
+        const invalidFormats = [123, true, {}, [], null];
+        
+        invalidFormats.forEach(format => {
+          const metadata = { ...validMetadata, format };
+          const photo = { ...validPhoto, metadata };
+          expect(validatePhotoMetadata(photo as any)).toBe(false);
+        });
+      });
+
+      it('should return true for valid mimeType values', () => {
+        const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        
+        validMimeTypes.forEach(mimeType => {
+          const metadata = { ...validMetadata, mimeType };
+          const photo = { ...validPhoto, metadata };
+          expect(validatePhotoMetadata(photo)).toBe(true);
+        });
+      });
+
+      it('should return true when mimeType is undefined', () => {
+        const metadata = { ...validMetadata, mimeType: undefined };
+        const photo = { ...validPhoto, metadata };
+        expect(validatePhotoMetadata(photo)).toBe(true);
+      });
+
+      it('should return false for invalid mimeType type', () => {
+        const invalidMimeTypes = [123, true, {}, [], null];
+        
+        invalidMimeTypes.forEach(mimeType => {
+          const metadata = { ...validMetadata, mimeType };
+          const photo = { ...validPhoto, metadata };
+          expect(validatePhotoMetadata(photo as any)).toBe(false);
+        });
+      });
+
+      it('should return true with both format and mimeType present', () => {
+        const metadata = { 
+          ...validMetadata, 
+          format: 'jpeg', 
+          mimeType: 'image/jpeg' 
+        };
+        const photo = { ...validPhoto, metadata };
+        expect(validatePhotoMetadata(photo)).toBe(true);
+      });
+
+      it('should return true with only format present', () => {
+        const metadata = { 
+          ...validMetadata, 
+          format: 'png', 
+          mimeType: undefined 
+        };
+        const photo = { ...validPhoto, metadata };
+        expect(validatePhotoMetadata(photo)).toBe(true);
+      });
+
+      it('should return true with only mimeType present', () => {
+        const metadata = { 
+          ...validMetadata, 
+          format: undefined, 
+          mimeType: 'image/webp' 
+        };
+        const photo = { ...validPhoto, metadata };
+        expect(validatePhotoMetadata(photo)).toBe(true);
       });
     });
   });
