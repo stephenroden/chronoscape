@@ -113,9 +113,10 @@ export class FormatValidationService {
    * Validates image format using multiple detection strategies
    * @param url - Image URL to validate
    * @param mimeType - Optional MIME type from metadata
+   * @param metadata - Optional metadata object (can contain extmetadata for Wikimedia)
    * @returns Promise resolving to validation result
    */
-  async validateImageFormat(url: string, mimeType?: string): Promise<FormatValidationResult> {
+  async validateImageFormat(url: string, mimeType?: string, metadata?: any): Promise<FormatValidationResult> {
     if (!url || typeof url !== 'string') {
       return {
         isValid: false,
@@ -130,7 +131,7 @@ export class FormatValidationService {
     
     for (const strategy of sortedStrategies) {
       try {
-        const result = await strategy.detect(url, { mimeType });
+        const result = await strategy.detect(url, { mimeType, extmetadata: metadata?.extmetadata });
         
         // If we get a definitive result (high confidence), use it
         if (result.confidence >= 0.8) {
@@ -243,7 +244,7 @@ export class FormatValidationService {
    * @returns Detected format or null
    */
   getFormatFromMimeType(mimeType: string): string | null {
-    if (!mimeType) return null;
+    if (!mimeType || typeof mimeType !== 'string') return null;
 
     const normalizedMimeType = mimeType.toLowerCase().trim();
     
@@ -262,6 +263,146 @@ export class FormatValidationService {
     }
     
     return null;
+  }
+
+  /**
+   * Extracts MIME type from Wikimedia Commons extmetadata
+   * @param extmetadata - Wikimedia extmetadata object
+   * @returns Extracted MIME type or null
+   */
+  extractMimeTypeFromWikimediaMetadata(extmetadata: any): string | null {
+    if (!extmetadata || typeof extmetadata !== 'object') {
+      return null;
+    }
+
+    // Extract MIME type from Wikimedia extmetadata structure
+    const mimeTypeField = extmetadata.MimeType;
+    if (mimeTypeField && typeof mimeTypeField === 'object' && mimeTypeField.value) {
+      const mimeType = mimeTypeField.value;
+      if (typeof mimeType === 'string' && mimeType.trim()) {
+        return mimeType.trim();
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Validates MIME type from Wikimedia metadata with prioritization logic
+   * @param url - Image URL for fallback detection
+   * @param extmetadata - Wikimedia extmetadata object
+   * @returns Promise resolving to validation result
+   */
+  async validateWithWikimediaMetadata(url: string, extmetadata: any): Promise<FormatValidationResult> {
+    if (!url || typeof url !== 'string') {
+      return {
+        isValid: false,
+        rejectionReason: 'Invalid URL provided',
+        confidence: 1.0,
+        detectionMethod: 'input-validation'
+      };
+    }
+
+    // Extract MIME type from Wikimedia metadata
+    const extractedMimeType = this.extractMimeTypeFromWikimediaMetadata(extmetadata);
+    
+    // Try MIME type detection first (highest priority)
+    if (extractedMimeType) {
+      const mimeTypeResult = await this.validateViaMimeType(url, extractedMimeType);
+      if (mimeTypeResult.confidence >= 0.8) {
+        return mimeTypeResult;
+      }
+    }
+
+    // Fall back to URL extension detection
+    const urlResult = await this.validateViaUrlExtension(url);
+    if (urlResult.confidence >= 0.7) {
+      // If both MIME type and URL extension are available but conflict, log warning
+      if (extractedMimeType && urlResult.detectedFormat) {
+        const mimeTypeFormat = this.getFormatFromMimeType(extractedMimeType);
+        if (mimeTypeFormat && mimeTypeFormat !== urlResult.detectedFormat) {
+          console.warn('Format conflict detected:', {
+            url,
+            mimeTypeFormat,
+            urlFormat: urlResult.detectedFormat,
+            mimeType: extractedMimeType
+          });
+        }
+      }
+      return urlResult;
+    }
+
+    // If no reliable detection method worked, return failure
+    return {
+      isValid: false,
+      rejectionReason: 'Unable to determine image format from metadata or URL',
+      confidence: 0.0,
+      detectionMethod: 'wikimedia-metadata-validation'
+    };
+  }
+
+  /**
+   * Validates image format using MIME type detection
+   * @param url - Image URL
+   * @param mimeType - MIME type string
+   * @returns Promise resolving to validation result
+   */
+  private async validateViaMimeType(url: string, mimeType: string): Promise<FormatValidationResult> {
+    if (!mimeType) {
+      return {
+        isValid: false,
+        confidence: 0.0,
+        detectionMethod: 'mime-type',
+        rejectionReason: 'No MIME type available'
+      };
+    }
+
+    const detectedFormat = this.getFormatFromMimeType(mimeType);
+    if (!detectedFormat) {
+      return {
+        isValid: false,
+        confidence: 0.8,
+        detectionMethod: 'mime-type',
+        detectedMimeType: mimeType,
+        rejectionReason: 'Unknown MIME type'
+      };
+    }
+
+    const isSupported = this.isFormatSupported(detectedFormat);
+    return {
+      isValid: isSupported,
+      detectedFormat,
+      detectedMimeType: mimeType,
+      confidence: 0.9,
+      detectionMethod: 'mime-type',
+      rejectionReason: isSupported ? undefined : this.getRejectionReason(detectedFormat)
+    };
+  }
+
+  /**
+   * Validates image format using URL extension detection
+   * @param url - Image URL
+   * @returns Promise resolving to validation result
+   */
+  private async validateViaUrlExtension(url: string): Promise<FormatValidationResult> {
+    const detectedFormat = this.getFormatFromUrl(url);
+    if (!detectedFormat) {
+      return {
+        isValid: false,
+        confidence: 0.0,
+        detectionMethod: 'url-extension',
+        rejectionReason: 'No recognizable file extension'
+      };
+    }
+
+    const isSupported = this.isFormatSupported(detectedFormat);
+    return {
+      isValid: isSupported,
+      detectedFormat,
+      confidence: 0.7,
+      detectionMethod: 'url-extension',
+      rejectionReason: isSupported ? undefined : this.getRejectionReason(detectedFormat)
+    };
   }
 
   /**
@@ -311,7 +452,14 @@ export class FormatValidationService {
       name: 'mime-type',
       priority: 1,
       detect: async (url: string, metadata?: any): Promise<FormatValidationResult> => {
-        const mimeType = metadata?.mimeType;
+        // Try to extract MIME type from Wikimedia metadata first
+        let mimeType = metadata?.mimeType;
+        
+        // If metadata contains extmetadata (Wikimedia structure), extract from there
+        if (!mimeType && metadata?.extmetadata) {
+          mimeType = this.extractMimeTypeFromWikimediaMetadata(metadata.extmetadata);
+        }
+        
         if (!mimeType) {
           return {
             isValid: false,

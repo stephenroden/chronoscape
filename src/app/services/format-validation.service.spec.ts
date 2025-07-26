@@ -292,9 +292,369 @@ describe('FormatValidationService - Basic Tests', () => {
       expect(format).toBe('png');
     });
 
-    it('should return null for unknown MIME types', () => {
-      const format = service.getFormatFromMimeType('image/unknown');
-      expect(format).toBeNull();
+    it('should detect WebP format from MIME type', () => {
+      const format = service.getFormatFromMimeType('image/webp');
+      expect(format).toBe('webp');
+    });
+
+    it('should detect rejected formats from MIME type', () => {
+      expect(service.getFormatFromMimeType('image/tiff')).toBe('tiff');
+      expect(service.getFormatFromMimeType('image/gif')).toBe('gif');
+      expect(service.getFormatFromMimeType('image/svg+xml')).toBe('svg');
+      expect(service.getFormatFromMimeType('image/bmp')).toBe('bmp');
+    });
+
+    it('should handle case insensitive MIME types', () => {
+      expect(service.getFormatFromMimeType('IMAGE/JPEG')).toBe('jpeg');
+      expect(service.getFormatFromMimeType('Image/PNG')).toBe('png');
+      expect(service.getFormatFromMimeType('image/WebP')).toBe('webp');
+    });
+
+    it('should handle MIME types with whitespace', () => {
+      expect(service.getFormatFromMimeType('  image/jpeg  ')).toBe('jpeg');
+      expect(service.getFormatFromMimeType('\timage/png\n')).toBe('png');
+    });
+
+    it('should return null for invalid MIME types', () => {
+      expect(service.getFormatFromMimeType('image/unknown')).toBeNull();
+      expect(service.getFormatFromMimeType('text/plain')).toBeNull();
+      expect(service.getFormatFromMimeType('application/json')).toBeNull();
+    });
+
+    it('should return null for empty or null MIME types', () => {
+      expect(service.getFormatFromMimeType('')).toBeNull();
+      expect(service.getFormatFromMimeType('   ')).toBeNull();
+      expect(service.getFormatFromMimeType(null as any)).toBeNull();
+      expect(service.getFormatFromMimeType(undefined as any)).toBeNull();
+    });
+
+    it('should return null for non-string MIME types', () => {
+      expect(service.getFormatFromMimeType(123 as any)).toBeNull();
+      expect(service.getFormatFromMimeType({} as any)).toBeNull();
+      expect(service.getFormatFromMimeType([] as any)).toBeNull();
+    });
+  });
+
+  describe('extractMimeTypeFromWikimediaMetadata - MIME type extraction from Wikimedia metadata', () => {
+    describe('Valid metadata extraction', () => {
+      it('should extract MIME type from valid Wikimedia extmetadata', () => {
+        const extmetadata = {
+          MimeType: { value: 'image/jpeg' }
+        };
+        
+        const mimeType = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+        expect(mimeType).toBe('image/jpeg');
+      });
+
+      it('should extract different MIME types correctly', () => {
+        const testCases = [
+          { metadata: { MimeType: { value: 'image/png' } }, expected: 'image/png' },
+          { metadata: { MimeType: { value: 'image/webp' } }, expected: 'image/webp' },
+          { metadata: { MimeType: { value: 'image/tiff' } }, expected: 'image/tiff' },
+          { metadata: { MimeType: { value: 'image/gif' } }, expected: 'image/gif' }
+        ];
+
+        testCases.forEach(testCase => {
+          const result = service.extractMimeTypeFromWikimediaMetadata(testCase.metadata);
+          expect(result).toBe(testCase.expected);
+        });
+      });
+
+      it('should handle MIME types with whitespace', () => {
+        const extmetadata = {
+          MimeType: { value: '  image/jpeg  ' }
+        };
+        
+        const mimeType = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+        expect(mimeType).toBe('image/jpeg');
+      });
+
+      it('should extract from complex metadata with other fields', () => {
+        const extmetadata = {
+          DateTime: { value: '2023-01-01' },
+          Artist: { value: 'Test Artist' },
+          MimeType: { value: 'image/png' },
+          License: { value: 'CC BY-SA' }
+        };
+        
+        const mimeType = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+        expect(mimeType).toBe('image/png');
+      });
+    });
+
+    describe('Invalid metadata handling', () => {
+      it('should return null for missing MimeType field', () => {
+        const extmetadata = {
+          DateTime: { value: '2023-01-01' },
+          Artist: { value: 'Test Artist' }
+        };
+        
+        const mimeType = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+        expect(mimeType).toBeNull();
+      });
+
+      it('should return null for MimeType field without value', () => {
+        const testCases = [
+          { MimeType: {} },
+          { MimeType: { value: null } },
+          { MimeType: { value: undefined } },
+          { MimeType: { value: '' } },
+          { MimeType: { value: '   ' } }
+        ];
+
+        testCases.forEach(extmetadata => {
+          const result = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+          expect(result).toBeNull();
+        });
+      });
+
+      it('should return null for non-string MIME type values', () => {
+        const testCases = [
+          { MimeType: { value: 123 } },
+          { MimeType: { value: {} } },
+          { MimeType: { value: [] } },
+          { MimeType: { value: true } }
+        ];
+
+        testCases.forEach(extmetadata => {
+          const result = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+          expect(result).toBeNull();
+        });
+      });
+
+      it('should return null for invalid metadata structures', () => {
+        const testCases = [
+          null,
+          undefined,
+          '',
+          123,
+          [],
+          'not-an-object',
+          { MimeType: 'not-an-object' },
+          { MimeType: null }
+        ];
+
+        testCases.forEach(extmetadata => {
+          const result = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+          expect(result).toBeNull();
+        });
+      });
+    });
+
+    describe('Requirements validation', () => {
+      // Requirement 3.2: WHEN validating photo format THEN the system SHALL check the MIME type from metadata if available
+      it('should extract MIME type from metadata when available (Requirement 3.2)', () => {
+        const extmetadata = {
+          MimeType: { value: 'image/jpeg' },
+          DateTime: { value: '2023-01-01' }
+        };
+        
+        const mimeType = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+        expect(mimeType).toBe('image/jpeg');
+      });
+
+      // Requirement 5.3: WHEN logging format decisions THEN the system SHALL include the photo URL and detected format
+      it('should handle metadata structure for logging purposes (Requirement 5.3)', () => {
+        const extmetadata = {
+          MimeType: { value: 'image/png' }
+        };
+        
+        const mimeType = service.extractMimeTypeFromWikimediaMetadata(extmetadata);
+        expect(mimeType).toBeTruthy();
+        expect(typeof mimeType).toBe('string');
+      });
+    });
+  });
+
+  describe('validateWithWikimediaMetadata - MIME type validation with prioritization', () => {
+    describe('MIME type prioritization', () => {
+      it('should prioritize MIME type over URL extension when both available', async () => {
+        const extmetadata = {
+          MimeType: { value: 'image/png' }
+        };
+        
+        // URL suggests JPEG but MIME type says PNG
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+        
+        expect(result.isValid).toBe(true);
+        expect(result.detectedFormat).toBe('png');
+        expect(result.detectedMimeType).toBe('image/png');
+        expect(result.detectionMethod).toBe('mime-type');
+        expect(result.confidence).toBe(0.9);
+      });
+
+      it('should fall back to URL extension when MIME type unavailable', async () => {
+        const extmetadata = {
+          DateTime: { value: '2023-01-01' }
+          // No MimeType field
+        };
+        
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.webp', extmetadata);
+        
+        expect(result.isValid).toBe(true);
+        expect(result.detectedFormat).toBe('webp');
+        expect(result.detectionMethod).toBe('url-extension');
+        expect(result.confidence).toBe(0.7);
+      });
+
+      it('should handle conflicting MIME type and URL extension', async () => {
+        const consoleSpy = spyOn(console, 'warn');
+        
+        const extmetadata = {
+          MimeType: { value: 'image/png' }
+        };
+        
+        // This should prioritize MIME type but log the conflict
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+        
+        expect(result.isValid).toBe(true);
+        expect(result.detectedFormat).toBe('png');
+        expect(result.detectionMethod).toBe('mime-type');
+      });
+    });
+
+    describe('Supported format validation', () => {
+      it('should validate supported formats via MIME type', async () => {
+        const testCases = [
+          { mimeType: 'image/jpeg', expectedFormat: 'jpeg' },
+          { mimeType: 'image/png', expectedFormat: 'png' },
+          { mimeType: 'image/webp', expectedFormat: 'webp' }
+        ];
+
+        for (const testCase of testCases) {
+          const extmetadata = {
+            MimeType: { value: testCase.mimeType }
+          };
+          
+          const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+          
+          expect(result.isValid).toBe(true);
+          expect(result.detectedFormat).toBe(testCase.expectedFormat);
+          expect(result.detectedMimeType).toBe(testCase.mimeType);
+          expect(result.detectionMethod).toBe('mime-type');
+        }
+      });
+
+      it('should reject unsupported formats via MIME type', async () => {
+        const testCases = [
+          { mimeType: 'image/tiff', expectedFormat: 'tiff', expectedReason: 'Limited browser support' },
+          { mimeType: 'image/gif', expectedFormat: 'gif', expectedReason: 'Avoid animated content' },
+          { mimeType: 'image/svg+xml', expectedFormat: 'svg', expectedReason: 'Not suitable for photographs' },
+          { mimeType: 'image/bmp', expectedFormat: 'bmp', expectedReason: 'Large file sizes, limited web optimization' }
+        ];
+
+        for (const testCase of testCases) {
+          const extmetadata = {
+            MimeType: { value: testCase.mimeType }
+          };
+          
+          const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+          
+          expect(result.isValid).toBe(false);
+          expect(result.detectedFormat).toBe(testCase.expectedFormat);
+          expect(result.detectedMimeType).toBe(testCase.mimeType);
+          expect(result.rejectionReason).toBe(testCase.expectedReason);
+          expect(result.detectionMethod).toBe('mime-type');
+        }
+      });
+    });
+
+    describe('Error handling', () => {
+      it('should handle invalid URL input', async () => {
+        const extmetadata = {
+          MimeType: { value: 'image/jpeg' }
+        };
+        
+        const result = await service.validateWithWikimediaMetadata('', extmetadata);
+        
+        expect(result.isValid).toBe(false);
+        expect(result.detectionMethod).toBe('input-validation');
+        expect(result.rejectionReason).toBe('Invalid URL provided');
+        expect(result.confidence).toBe(1.0);
+      });
+
+      it('should handle unknown MIME types', async () => {
+        const extmetadata = {
+          MimeType: { value: 'image/unknown' }
+        };
+        
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+        
+        expect(result.isValid).toBe(false);
+        expect(result.detectedMimeType).toBe('image/unknown');
+        expect(result.detectionMethod).toBe('mime-type');
+        expect(result.rejectionReason).toBe('Unknown MIME type');
+        expect(result.confidence).toBe(0.8);
+      });
+
+      it('should handle missing metadata and unrecognizable URL', async () => {
+        const extmetadata = {
+          DateTime: { value: '2023-01-01' }
+          // No MimeType
+        };
+        
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo', extmetadata);
+        
+        expect(result.isValid).toBe(false);
+        expect(result.detectionMethod).toBe('wikimedia-metadata-validation');
+        expect(result.rejectionReason).toBe('Unable to determine image format from metadata or URL');
+        expect(result.confidence).toBe(0.0);
+      });
+
+      it('should handle null and undefined metadata', async () => {
+        const testCases = [null, undefined, {}];
+        
+        for (const extmetadata of testCases) {
+          const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+          
+          expect(result.isValid).toBe(true); // Should fall back to URL extension
+          expect(result.detectedFormat).toBe('jpeg');
+          expect(result.detectionMethod).toBe('url-extension');
+        }
+      });
+    });
+
+    describe('Requirements validation', () => {
+      // Requirement 3.2: WHEN validating photo format THEN the system SHALL check the MIME type from metadata if available
+      it('should check MIME type from metadata when available (Requirement 3.2)', async () => {
+        const extmetadata = {
+          MimeType: { value: 'image/png' }
+        };
+        
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+        
+        expect(result.detectedMimeType).toBe('image/png');
+        expect(result.detectionMethod).toBe('mime-type');
+      });
+
+      // Requirement 3.3: WHEN file extension and MIME type conflict THEN the system SHALL prioritize MIME type validation
+      it('should prioritize MIME type over file extension when they conflict (Requirement 3.3)', async () => {
+        const extmetadata = {
+          MimeType: { value: 'image/webp' }
+        };
+        
+        // URL extension suggests PNG but MIME type says WebP
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.png', extmetadata);
+        
+        expect(result.detectedFormat).toBe('webp');
+        expect(result.detectedMimeType).toBe('image/webp');
+        expect(result.detectionMethod).toBe('mime-type');
+        expect(result.confidence).toBe(0.9); // High confidence for MIME type
+      });
+
+      // Requirement 5.3: WHEN logging format decisions THEN the system SHALL include the photo URL and detected format
+      it('should provide information suitable for logging (Requirement 5.3)', async () => {
+        const extmetadata = {
+          MimeType: { value: 'image/jpeg' }
+        };
+        
+        const result = await service.validateWithWikimediaMetadata('https://example.com/photo.jpg', extmetadata);
+        
+        expect(result.detectedFormat).toBeDefined();
+        expect(result.detectedMimeType).toBeDefined();
+        expect(result.detectionMethod).toBeDefined();
+        expect(result.confidence).toBeDefined();
+      });
     });
   });
 
@@ -346,6 +706,52 @@ describe('FormatValidationService - Basic Tests', () => {
       expect(result.isValid).toBe(false);
       expect(result.detectionMethod).toBe('input-validation');
       expect(result.rejectionReason).toBe('Invalid URL provided');
+    });
+  });
+
+  describe('validateImageFormat - Wikimedia Metadata Integration', () => {
+    it('should extract MIME type from Wikimedia extmetadata structure', async () => {
+      const metadata = {
+        extmetadata: {
+          MimeType: { value: 'image/png' },
+          DateTime: { value: '2023-01-01' }
+        }
+      };
+      
+      const result = await service.validateImageFormat('https://example.com/photo.jpg', undefined, metadata);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png');
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('mime-type');
+    });
+
+    it('should prioritize direct MIME type over extmetadata', async () => {
+      const metadata = {
+        extmetadata: {
+          MimeType: { value: 'image/png' }
+        }
+      };
+      
+      // Direct MIME type should take precedence
+      const result = await service.validateImageFormat('https://example.com/photo.jpg', 'image/webp', metadata);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('webp');
+      expect(result.detectedMimeType).toBe('image/webp');
+      expect(result.detectionMethod).toBe('mime-type');
+    });
+
+    it('should handle missing extmetadata gracefully', async () => {
+      const metadata = {
+        someOtherField: 'value'
+      };
+      
+      const result = await service.validateImageFormat('https://example.com/photo.jpeg', undefined, metadata);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('jpeg');
+      expect(result.detectionMethod).toBe('url-extension');
     });
   });
 });

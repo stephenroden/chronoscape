@@ -25,6 +25,7 @@ interface WikimediaImageInfoResponse {
             LicenseShortName?: { value: string };
             UsageTerms?: { value: string };
             ImageDescription?: { value: string };
+            MimeType?: { value: string };
           };
           metadata?: Array<{
             name: string;
