@@ -40,7 +40,7 @@
     </section>
 
     <!-- Game in progress state -->
-    <section class="game-play" *ngIf="(isGameInProgress$ | async)" aria-labelledby="game-play-heading">
+    <section class="game-play" *ngIf="(isGameInProgress$ | async) && !(showingResults$ | async)" aria-labelledby="game-play-heading">
       <h2 id="game-play-heading" class="sr-only">Game in Progress</h2>
       
       <!-- Photo display component -->
@@ -64,21 +64,25 @@
         </div>
       </div>
 
-      <!-- Temporary buttons for testing game flow -->
-      <div class="game-controls" role="region" aria-label="Game controls">
-        <button class="secondary-button" 
-                (click)="nextPhoto()" 
+      <!-- Submit guess button -->
+      <div class="submit-container" role="region" aria-label="Submit your guess">
+        <button class="primary-button submit-guess-btn" 
+                (click)="submitGuess()" 
+                [disabled]="!(canSubmitGuess$ | async)"
                 type="button"
-                aria-label="Advance to next photo (temporary testing button)">
-          Next Photo (Temporary)
+                [attr.aria-label]="(canSubmitGuess$ | async) ? 'Submit your year and location guess' : 'Complete both year and location guesses to submit'">
+          Submit Guess
         </button>
-        <button class="secondary-button" 
-                (click)="endGame()" 
-                type="button"
-                aria-label="End current game (temporary testing button)">
-          End Game (Temporary)
-        </button>
+        <p class="submit-help-text" *ngIf="!(canSubmitGuess$ | async)">
+          Please make both a year guess and place a pin on the map to submit.
+        </p>
       </div>
+    </section>
+
+    <!-- Results display after guess submission -->
+    <section class="game-results" *ngIf="(isGameInProgress$ | async) && (showingResults$ | async)" aria-labelledby="results-heading">
+      <h2 id="results-heading" class="sr-only">Photo Results</h2>
+      <app-results (nextPhoto)="onNextPhoto()"></app-results>
     </section>
 
     <!-- Game completed state - redirect to results -->

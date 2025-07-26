@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest, of } from 'rxjs';
@@ -11,7 +11,6 @@ import { Coordinates } from '../../models/coordinates.model';
 
 import { selectCurrentPhoto } from '../../state/photos/photos.selectors';
 import { selectCurrentGuess, selectScoreByPhotoId } from '../../state/scoring/scoring.selectors';
-import { nextPhoto } from '../../state/game/game.actions';
 
 import { MapService } from '../../services/map.service';
 
@@ -23,6 +22,8 @@ import { MapService } from '../../services/map.service';
   styleUrls: ['./results.component.scss']
 })
 export class ResultsComponent implements OnInit, OnDestroy {
+  @Output() nextPhoto = new EventEmitter<void>();
+  
   private destroy$ = new Subject<void>();
   
   currentPhoto$: Observable<Photo | null>;
@@ -176,6 +177,6 @@ export class ResultsComponent implements OnInit, OnDestroy {
    */
   onNextPhoto(): void {
     this.mapInitialized = false; // Reset map for next photo
-    this.store.dispatch(nextPhoto());
+    this.nextPhoto.emit();
   }
 }

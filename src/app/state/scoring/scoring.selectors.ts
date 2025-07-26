@@ -5,17 +5,17 @@ export const selectScoringState = createFeatureSelector<ScoringState>('scoring')
 
 export const selectAllScores = createSelector(
   selectScoringState,
-  (state: ScoringState) => state.scores
+  (state: ScoringState) => state?.scores || []
 );
 
 export const selectTotalScore = createSelector(
   selectScoringState,
-  (state: ScoringState) => state.totalScore
+  (state: ScoringState) => state?.totalScore || 0
 );
 
 export const selectCurrentGuess = createSelector(
   selectScoringState,
-  (state: ScoringState) => state.currentGuess
+  (state: ScoringState) => state?.currentGuess || null
 );
 
 export const selectScoreByPhotoId = (photoId: string) => createSelector(
@@ -188,4 +188,14 @@ export const selectScoringLoading = createSelector(
 export const selectScoringError = createSelector(
   selectScoringState,
   (state: ScoringState) => state?.error || null
+);
+
+export const selectLatestScore = createSelector(
+  selectAllScores,
+  (scores: Score[]) => scores.length > 0 ? scores[scores.length - 1] : null
+);
+
+export const selectCurrentScore = createSelector(
+  selectLatestScore,
+  (latestScore) => latestScore
 );

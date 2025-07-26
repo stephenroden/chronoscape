@@ -229,7 +229,7 @@ describe('GameComponent', () => {
     expect(store.dispatch).toHaveBeenCalledWith(GameActions.startGame());
 
     // Test nextPhoto
-    component.nextPhoto();
+    component.onNextPhoto();
     expect(store.dispatch).toHaveBeenCalledWith(GameActions.nextPhoto());
 
     // Test endGame
