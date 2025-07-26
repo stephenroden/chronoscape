@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { FormatValidationService } from './format-validation.service';
 
 describe('FormatValidationService - Basic Tests', () => {
@@ -752,6 +752,594 @@ describe('FormatValidationService - Basic Tests', () => {
       expect(result.isValid).toBe(true);
       expect(result.detectedFormat).toBe('jpeg');
       expect(result.detectionMethod).toBe('url-extension');
+    });
+  });
+});
+
+describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
+  let service: FormatValidationService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [FormatValidationService]
+    });
+    service = TestBed.inject(FormatValidationService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  // First, let's test a simple case to make sure HTTP Content-Type detection works
+  describe('Basic HTTP Content-Type functionality', () => {
+    it('should make HTTP request for URL without extension', async () => {
+      const testUrl = 'https://example.com/image-no-ext';
+      
+      // Test individual methods first
+      console.log('Testing getFormatFromUrl:', service.getFormatFromUrl(testUrl));
+      console.log('Testing getFormatFromMimeType with undefined:', service.getFormatFromMimeType(undefined as any));
+      
+      // Start the validation - this should trigger HTTP request since no extension is found
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Wait a bit for the async operations to start
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Expect the HTTP request
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      // Respond with JPEG content type
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/jpeg' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('jpeg');
+      expect(result.detectedMimeType).toBe('image/jpeg');
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.confidence).toBe(0.8);
+    });
+  });
+
+  describe('HTTP Content-Type fallback detection', () => {
+    it('should detect JPEG format via HTTP Content-Type header when URL has no extension', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/jpeg' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('jpeg');
+      expect(result.detectedMimeType).toBe('image/jpeg');
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.confidence).toBe(0.8);
+    });
+
+    it('should detect PNG format via HTTP Content-Type header when URL has no extension', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/png' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png');
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.confidence).toBe(0.8);
+    });
+
+    it('should detect WebP format via HTTP Content-Type header when URL has no extension', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/webp' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('webp');
+      expect(result.detectedMimeType).toBe('image/webp');
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.confidence).toBe(0.8);
+    });
+
+    it('should reject unsupported formats via HTTP Content-Type header', async () => {
+      const testCases = [
+        { contentType: 'image/tiff', expectedFormat: 'tiff', expectedReason: 'Limited browser support' },
+        { contentType: 'image/gif', expectedFormat: 'gif', expectedReason: 'Avoid animated content' },
+        { contentType: 'image/svg+xml', expectedFormat: 'svg', expectedReason: 'Not suitable for photographs' },
+        { contentType: 'image/bmp', expectedFormat: 'bmp', expectedReason: 'Large file sizes, limited web optimization' }
+      ];
+
+      for (const testCase of testCases) {
+        const testUrl = `https://example.com/image-without-extension-${testCase.expectedFormat}`;
+        
+        const resultPromise = service.validateImageFormat(testUrl);
+        
+        const req = httpMock.expectOne(testUrl);
+        expect(req.request.method).toBe('HEAD');
+        
+        req.flush(null, { 
+          status: 200, 
+          statusText: 'OK',
+          headers: { 'content-type': testCase.contentType }
+        });
+        
+        const result = await resultPromise;
+        
+        expect(result.isValid).toBe(false);
+        expect(result.detectedFormat).toBe(testCase.expectedFormat);
+        expect(result.detectedMimeType).toBe(testCase.contentType);
+        expect(result.detectionMethod).toBe('http-content-type');
+        expect(result.rejectionReason).toBe(testCase.expectedReason);
+        expect(result.confidence).toBe(0.8);
+      }
+    });
+
+    it('should handle Content-Type header with charset parameter', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/jpeg; charset=utf-8' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('jpeg');
+      expect(result.detectedMimeType).toBe('image/jpeg');
+      expect(result.detectionMethod).toBe('http-content-type');
+    });
+
+    it('should handle Content-Type header with multiple parameters', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/png; boundary=something; charset=utf-8' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png');
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('http-content-type');
+    });
+
+    it('should handle unknown Content-Type from HTTP response', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/unknown' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectedMimeType).toBe('image/unknown');
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('Unknown Content-Type');
+      expect(result.confidence).toBe(0.6);
+    });
+
+    it('should handle missing Content-Type header', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: {}
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('Unable to retrieve Content-Type header');
+      expect(result.confidence).toBe(0.0);
+    });
+
+    it('should skip HTTP requests for invalid URLs', async () => {
+      const testCases = [
+        'ftp://example.com/image.jpg',
+        'file:///local/image.jpg',
+        'data:image/jpeg;base64,/9j/4AAQ...',
+        'not-a-url',
+        'relative/path/image.jpg'
+      ];
+
+      for (const testUrl of testCases) {
+        const result = await service.validateImageFormat(testUrl);
+        
+        // Should not make HTTP request for invalid URLs
+        expect(result.detectionMethod).not.toBe('http-content-type');
+      }
+      
+      // Verify no HTTP requests were made
+      httpMock.expectNone(() => true);
+    });
+  });
+
+  describe('HTTP timeout and error handling', () => {
+    it('should handle HTTP timeout errors', async () => {
+      const testUrl = 'https://example.com/slow-image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      // Simulate timeout by not responding and letting the timeout kick in
+      req.error(new ProgressEvent('timeout'), { status: 0, statusText: 'Timeout' });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('HTTP request failed');
+      expect(result.confidence).toBe(0.0);
+    });
+
+    it('should handle HTTP 404 errors', async () => {
+      const testUrl = 'https://example.com/missing-image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { status: 404, statusText: 'Not Found' });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('HTTP request failed');
+      expect(result.confidence).toBe(0.0);
+    });
+
+    it('should handle HTTP 500 errors', async () => {
+      const testUrl = 'https://example.com/server-error-image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { status: 500, statusText: 'Internal Server Error' });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('HTTP request failed');
+      expect(result.confidence).toBe(0.0);
+    });
+
+    it('should handle network errors', async () => {
+      const testUrl = 'https://example.com/network-error-image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Network Error' });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('HTTP request failed');
+      expect(result.confidence).toBe(0.0);
+    });
+
+    it('should respect HTTP timeout configuration', async () => {
+      const testUrl = 'https://example.com/timeout-test-image-without-extension';
+      
+      // Start the validation
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      // Don't respond immediately to test timeout behavior
+      // The timeout should be handled by the RxJS timeout operator
+      req.error(new ProgressEvent('timeout'), { status: 0, statusText: 'Timeout' });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('HTTP request failed');
+    });
+  });
+
+  describe('Fallback chain: MIME type → URL extension → HTTP Content-Type', () => {
+    it('should use MIME type when available (highest priority)', async () => {
+      const testUrl = 'https://example.com/image.jpg';
+      const mimeType = 'image/png';
+      
+      const result = await service.validateImageFormat(testUrl, mimeType);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png');
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('mime-type');
+      expect(result.confidence).toBe(0.9);
+      
+      // Should not make HTTP request when MIME type is available
+      httpMock.expectNone(() => true);
+    });
+
+    it('should fall back to URL extension when MIME type unavailable', async () => {
+      const testUrl = 'https://example.com/image.webp';
+      
+      const result = await service.validateImageFormat(testUrl);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('webp');
+      expect(result.detectionMethod).toBe('url-extension');
+      expect(result.confidence).toBe(0.7);
+      
+      // Should not make HTTP request when URL extension is recognizable
+      httpMock.expectNone(() => true);
+    });
+
+    it('should fall back to HTTP Content-Type when both MIME type and URL extension fail', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/jpeg' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('jpeg');
+      expect(result.detectedMimeType).toBe('image/jpeg');
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.confidence).toBe(0.8);
+    });
+
+    it('should prioritize MIME type over URL extension even when they conflict', async () => {
+      const testUrl = 'https://example.com/image.jpg';
+      const mimeType = 'image/png';
+      
+      const result = await service.validateImageFormat(testUrl, mimeType);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png'); // MIME type wins
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('mime-type');
+      expect(result.confidence).toBe(0.9);
+      
+      // Should not make HTTP request when MIME type is available
+      httpMock.expectNone(() => true);
+    });
+
+    it('should use URL extension over HTTP Content-Type when extension is recognizable', async () => {
+      const testUrl = 'https://example.com/image.png';
+      
+      const result = await service.validateImageFormat(testUrl);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png');
+      expect(result.detectionMethod).toBe('url-extension');
+      expect(result.confidence).toBe(0.7);
+      
+      // Should not make HTTP request when URL extension is sufficient
+      httpMock.expectNone(() => true);
+    });
+
+    it('should fail gracefully when all detection methods fail', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'text/plain' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('Unknown Content-Type');
+    });
+  });
+
+  describe('Requirements validation', () => {
+    // Requirement 3.2: WHEN validating photo format THEN the system SHALL check the MIME type from metadata if available
+    it('should check MIME type from metadata when available (Requirement 3.2)', async () => {
+      const testUrl = 'https://example.com/image.jpg';
+      const mimeType = 'image/png';
+      
+      const result = await service.validateImageFormat(testUrl, mimeType);
+      
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('mime-type');
+      
+      // Should not make HTTP request when MIME type is available
+      httpMock.expectNone(() => true);
+    });
+
+    // Requirement 3.3: WHEN file extension and MIME type conflict THEN the system SHALL prioritize MIME type validation
+    it('should prioritize MIME type over file extension when they conflict (Requirement 3.3)', async () => {
+      const testUrl = 'https://example.com/image.jpg';
+      const mimeType = 'image/webp';
+      
+      const result = await service.validateImageFormat(testUrl, mimeType);
+      
+      expect(result.detectedFormat).toBe('webp'); // MIME type wins over .jpg extension
+      expect(result.detectedMimeType).toBe('image/webp');
+      expect(result.detectionMethod).toBe('mime-type');
+      
+      // Should not make HTTP request when MIME type is available
+      httpMock.expectNone(() => true);
+    });
+
+    // Requirement 3.4: WHEN neither extension nor MIME type indicate a supported format THEN the system SHALL reject the photo
+    it('should reject photo when neither extension nor MIME type indicate supported format (Requirement 3.4)', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'text/plain' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.rejectionReason).toBe('Unknown Content-Type');
+    });
+
+    // Requirement 6.4: WHEN testing edge cases THEN the system SHALL gracefully handle network errors during format detection
+    it('should gracefully handle network errors during format detection (Requirement 6.4)', async () => {
+      const testUrl = 'https://example.com/network-error-image-without-extension';
+      
+      const resultPromise = service.validateImageFormat(testUrl);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.error(new ProgressEvent('error'), { status: 0, statusText: 'Network Error' });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(false);
+      expect(result.detectionMethod).toBe('http-content-type');
+      expect(result.rejectionReason).toBe('HTTP request failed');
+      expect(result.confidence).toBe(0.0);
+    });
+  });
+
+  describe('Integration with Wikimedia metadata', () => {
+    it('should use Wikimedia MIME type over HTTP Content-Type', async () => {
+      const testUrl = 'https://example.com/image';
+      const metadata = {
+        extmetadata: {
+          MimeType: { value: 'image/png' }
+        }
+      };
+      
+      const result = await service.validateImageFormat(testUrl, undefined, metadata);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('png');
+      expect(result.detectedMimeType).toBe('image/png');
+      expect(result.detectionMethod).toBe('mime-type');
+      
+      // Should not make HTTP request when Wikimedia MIME type is available
+      httpMock.expectNone(() => true);
+    });
+
+    it('should fall back to HTTP Content-Type when Wikimedia metadata is incomplete', async () => {
+      const testUrl = 'https://example.com/image-without-extension';
+      const metadata = {
+        extmetadata: {
+          DateTime: { value: '2023-01-01' }
+          // No MimeType field
+        }
+      };
+      
+      const resultPromise = service.validateImageFormat(testUrl, undefined, metadata);
+      
+      const req = httpMock.expectOne(testUrl);
+      expect(req.request.method).toBe('HEAD');
+      
+      req.flush(null, { 
+        status: 200, 
+        statusText: 'OK',
+        headers: { 'content-type': 'image/webp' }
+      });
+      
+      const result = await resultPromise;
+      
+      expect(result.isValid).toBe(true);
+      expect(result.detectedFormat).toBe('webp');
+      expect(result.detectedMimeType).toBe('image/webp');
+      expect(result.detectionMethod).toBe('http-content-type');
     });
   });
 });

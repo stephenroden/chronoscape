@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
+import { Observable, of, firstValueFrom } from 'rxjs';
 import { map, catchError, timeout } from 'rxjs/operators';
 
 /**
@@ -583,19 +583,20 @@ export class FormatValidationService {
    */
   private async getContentTypeFromHttp(url: string): Promise<string | null> {
     try {
-      const response = await this.http.head(url, { observe: 'response' })
-        .pipe(
-          timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
-          map(response => {
-            const contentType = response.headers.get('content-type');
-            return contentType ? contentType.split(';')[0].trim() : null;
-          }),
-          catchError(error => {
-            console.warn('HTTP HEAD request failed for format detection:', error);
-            return of(null);
-          })
-        )
-        .toPromise();
+      const response = await firstValueFrom(
+        this.http.head(url, { observe: 'response' })
+          .pipe(
+            timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
+            map(response => {
+              const contentType = response.headers.get('content-type');
+              return contentType ? contentType.split(';')[0].trim() : null;
+            }),
+            catchError(error => {
+              console.warn('HTTP HEAD request failed for format detection:', error);
+              return of(null);
+            })
+          )
+      );
       
       return response || null;
     } catch (error) {
