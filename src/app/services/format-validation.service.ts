@@ -174,24 +174,49 @@ export class FormatValidationService {
 
   /**
    * Extracts format from URL file extension
+   * Handles query parameters, URL fragments, and various edge cases
    * @param url - Image URL
    * @returns Detected format or null
    */
   getFormatFromUrl(url: string): string | null {
-    if (!url) return null;
+    if (!url || typeof url !== 'string') return null;
 
     try {
+      // Handle relative URLs by adding a dummy base
+      let fullUrl = url;
+      if (url.startsWith('//')) {
+        // Protocol-relative URL
+        fullUrl = `https:${url}`;
+      } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        // Relative URL
+        fullUrl = `https://example.com${url.startsWith('/') ? '' : '/'}${url}`;
+      }
+      
       // Parse URL and extract pathname, removing query parameters and fragments
-      const urlObj = new URL(url);
-      const pathname = urlObj.pathname.toLowerCase();
+      const urlObj = new URL(fullUrl);
+      let pathname = urlObj.pathname.toLowerCase();
+      
+      // Remove trailing slash if present
+      if (pathname.endsWith('/')) {
+        pathname = pathname.slice(0, -1);
+      }
+      
+      // Handle empty pathname
+      if (!pathname || pathname === '/') return null;
       
       // Extract file extension
       const lastDotIndex = pathname.lastIndexOf('.');
-      if (lastDotIndex === -1) return null;
+      const lastSlashIndex = pathname.lastIndexOf('/');
+      
+      // Ensure the dot is in the filename, not in a directory name
+      if (lastDotIndex === -1 || lastDotIndex < lastSlashIndex) return null;
       
       const extension = pathname.substring(lastDotIndex);
       
-      // Find matching format
+      // Validate extension format (should be at least 2 characters: dot + letter)
+      if (extension.length < 2 || !/^\.[\w]+$/.test(extension)) return null;
+      
+      // Find matching format in supported formats
       for (const [formatName, config] of Object.entries(this.formatConfig.supportedFormats)) {
         if (config.extensions.includes(extension)) {
           return formatName;
