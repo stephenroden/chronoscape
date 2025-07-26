@@ -178,42 +178,55 @@ describe('FinalResultsComponent', () => {
     expect(message).toBe('');
   });
 
-  it('should display total score correctly', () => {
+  it('should display total score correctly', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const scoreDisplay = fixture.nativeElement.querySelector('.score-number');
+    expect(scoreDisplay).toBeTruthy();
     expect(scoreDisplay.textContent.trim()).toBe('34,000');
   });
 
-  it('should display performance category', () => {
+  it('should display performance category', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const performanceCategory = fixture.nativeElement.querySelector('.performance-category h3');
+    expect(performanceCategory).toBeTruthy();
     expect(performanceCategory.textContent).toBe('Expert Explorer');
   });
 
-  it('should display score breakdown', () => {
+  it('should display score breakdown', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const breakdownItems = fixture.nativeElement.querySelectorAll('.breakdown-item');
     expect(breakdownItems.length).toBe(2);
     
     const yearBreakdown = breakdownItems[0];
+    expect(yearBreakdown).toBeTruthy();
     expect(yearBreakdown.textContent).toContain('Year Accuracy');
     expect(yearBreakdown.textContent).toContain('19,000');
     
     const locationBreakdown = breakdownItems[1];
+    expect(locationBreakdown).toBeTruthy();
     expect(locationBreakdown.textContent).toContain('Location Accuracy');
     expect(locationBreakdown.textContent).toContain('15,000');
   });
 
-  it('should display per-photo scores', () => {
+  it('should display per-photo scores', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
 
     const photoScoreItems = fixture.nativeElement.querySelectorAll('.photo-score-item');
     expect(photoScoreItems.length).toBe(5);
     
     const firstPhoto = photoScoreItems[0];
+    expect(firstPhoto).toBeTruthy();
     expect(firstPhoto.textContent).toContain('Photo 1');
     expect(firstPhoto.textContent).toContain('4,500');
     expect(firstPhoto.textContent).toContain('3,000');

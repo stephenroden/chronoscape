@@ -815,6 +815,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -838,6 +841,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -860,6 +866,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       const testUrl = 'https://example.com/image-without-extension';
       
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -892,6 +901,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
         
         const resultPromise = service.validateImageFormat(testUrl);
         
+        // Allow time for the async HTTP request to be triggered
+        await new Promise(resolve => setTimeout(resolve, 10));
+        
         const req = httpMock.expectOne(testUrl);
         expect(req.request.method).toBe('HEAD');
         
@@ -917,6 +929,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -938,6 +953,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       const testUrl = 'https://example.com/image-without-extension';
       
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -961,6 +979,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -983,6 +1004,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       const testUrl = 'https://example.com/image-without-extension';
       
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -1028,6 +1052,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -1047,6 +1074,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -1064,6 +1094,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       const testUrl = 'https://example.com/server-error-image-without-extension';
       
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -1083,6 +1116,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -1101,6 +1137,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       // Start the validation
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -1152,6 +1191,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       const testUrl = 'https://example.com/image-without-extension';
       
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -1206,6 +1248,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -1259,6 +1304,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       
       const resultPromise = service.validateImageFormat(testUrl);
       
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
       
@@ -1279,6 +1327,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       const testUrl = 'https://example.com/network-error-image-without-extension';
       
       const resultPromise = service.validateImageFormat(testUrl);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');
@@ -1324,6 +1375,9 @@ describe('FormatValidationService - HTTP Content-Type Detection Tests', () => {
       };
       
       const resultPromise = service.validateImageFormat(testUrl, undefined, metadata);
+      
+      // Allow time for the async HTTP request to be triggered
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       const req = httpMock.expectOne(testUrl);
       expect(req.request.method).toBe('HEAD');

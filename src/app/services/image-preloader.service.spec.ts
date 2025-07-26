@@ -77,9 +77,9 @@ describe('ImagePreloaderService', () => {
 
     it('should handle multiple preload requests', (done) => {
       const urls = [
-        'https://example.com/photo1.jpg',
-        'https://example.com/photo2.jpg',
-        'https://example.com/photo3.jpg'
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
       ];
 
       service.preloadImages(urls).subscribe(progress => {
@@ -107,7 +107,37 @@ describe('ImagePreloaderService', () => {
 
   describe('Game Photo Preloading', () => {
     it('should preload game photos', (done) => {
-      service.preloadGamePhotos(mockPhotos).subscribe(progress => {
+      // Use data URLs that will load successfully
+      const testPhotos = [
+        { 
+          id: '1', 
+          url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+          title: 'Test Photo 1',
+          year: 2020,
+          coordinates: { latitude: 40.7128, longitude: -74.0060 },
+          source: 'test',
+          metadata: {
+            license: 'test',
+            originalSource: 'test',
+            dateCreated: new Date()
+          }
+        },
+        { 
+          id: '2', 
+          url: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+          title: 'Test Photo 2',
+          year: 2021,
+          coordinates: { latitude: 51.5074, longitude: -0.1278 },
+          source: 'test',
+          metadata: {
+            license: 'test',
+            originalSource: 'test',
+            dateCreated: new Date()
+          }
+        }
+      ];
+
+      service.preloadGamePhotos(testPhotos).subscribe(progress => {
         expect(progress.total).toBe(2);
         expect(progress.completed).toBeGreaterThanOrEqual(0);
         expect(progress.completed).toBeLessThanOrEqual(2);
@@ -152,13 +182,19 @@ describe('ImagePreloaderService', () => {
 
   describe('Priority Handling', () => {
     it('should handle different priority levels', (done) => {
+      let loadCount = 0;
+
       // Test that high priority items are processed
-      service.preloadImage('https://example.com/high-priority.jpg', 10).subscribe(() => {
-        // High priority item completed
-        done();
+      service.preloadImage('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 10).subscribe(() => {
+        loadCount++;
+        if (loadCount === 1) {
+          // High priority item completed first, test passed
+          done();
+        }
       });
       
-      service.preloadImage('https://example.com/low-priority.jpg', 1).subscribe(() => {
+      service.preloadImage('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 1).subscribe(() => {
+        loadCount++;
         // Low priority item completed
       });
     });

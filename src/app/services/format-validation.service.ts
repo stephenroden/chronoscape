@@ -129,30 +129,62 @@ export class FormatValidationService {
     // Try detection strategies in priority order
     const sortedStrategies = [...this.detectionStrategies].sort((a, b) => a.priority - b.priority);
     
+    let bestResult: FormatValidationResult | null = null;
+    let lastResult: FormatValidationResult | null = null;
+    
     for (const strategy of sortedStrategies) {
       try {
         const result = await strategy.detect(url, { mimeType, extmetadata: metadata?.extmetadata });
+        lastResult = result;
         
         // If we get a definitive result (high confidence), use it
         if (result.confidence >= 0.8) {
           return result;
         }
         
-        // Store the best result so far for fallback
-        if (result.detectedFormat) {
-          const isSupported = this.isFormatSupported(result.detectedFormat);
-          const rejectionReason = isSupported ? undefined : this.getRejectionReason(result.detectedFormat);
-          
-          return {
-            ...result,
-            isValid: isSupported,
-            rejectionReason
-          };
+        // Store the best result so far for fallback (only if it has a detected format and reasonable confidence)
+        if (result.detectedFormat && result.confidence >= 0.6) {
+          if (!bestResult || result.confidence > bestResult.confidence) {
+            const isSupported = this.isFormatSupported(result.detectedFormat);
+            const rejectionReason = isSupported ? undefined : this.getRejectionReason(result.detectedFormat);
+            
+            bestResult = {
+              ...result,
+              isValid: isSupported,
+              rejectionReason
+            };
+          }
+          // If we have a good result with reasonable confidence, stop here and don't call remaining strategies
+          if (result.confidence >= 0.7) {
+            break;
+          }
         }
+        
+        // For results with low confidence but no detected format, continue to next strategy
+        // This ensures we don't exit early when strategies return confidence 0.0 with no format
       } catch (error) {
         console.warn(`Format detection strategy ${strategy.name} failed:`, error);
+        // If this was the HTTP strategy and it failed, we want to return its error instead of a generic one
+        if (strategy.name === 'http-content-type') {
+          return {
+            isValid: false,
+            confidence: 0.0,
+            detectionMethod: 'http-content-type',
+            rejectionReason: 'HTTP request failed'
+          };
+        }
         continue;
       }
+    }
+    
+    // Return the best result found, if any
+    if (bestResult) {
+      return bestResult;
+    }
+    
+    // If we have a last result (even with low confidence), use it instead of generic failure
+    if (lastResult) {
+      return lastResult;
     }
 
     // If no strategy could determine the format, reject
@@ -528,7 +560,7 @@ export class FormatValidationService {
           return {
             isValid: false,
             confidence: 0.0,
-            detectionMethod: 'http-content-type',
+            detectionMethod: 'url-validation',
             rejectionReason: 'Invalid URL for HTTP request'
           };
         }
@@ -582,26 +614,21 @@ export class FormatValidationService {
    * @returns Promise resolving to Content-Type or null
    */
   private async getContentTypeFromHttp(url: string): Promise<string | null> {
-    try {
-      const response = await firstValueFrom(
-        this.http.head(url, { observe: 'response' })
-          .pipe(
-            timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
-            map(response => {
-              const contentType = response.headers.get('content-type');
-              return contentType ? contentType.split(';')[0].trim() : null;
-            }),
-            catchError(error => {
-              console.warn('HTTP HEAD request failed for format detection:', error);
-              return of(null);
-            })
-          )
-      );
-      
-      return response || null;
-    } catch (error) {
-      console.warn('HTTP HEAD request failed for format detection:', error);
-      return null;
-    }
+    const response = await firstValueFrom(
+      this.http.head(url, { observe: 'response' })
+        .pipe(
+          timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
+          map(response => {
+            const contentType = response.headers.get('content-type');
+            return contentType ? contentType.split(';')[0].trim() : null;
+          }),
+          catchError(error => {
+            console.warn('HTTP HEAD request failed for format detection:', error);
+            throw error; // Propagate the error instead of returning null
+          })
+        )
+    );
+    
+    return response || null;
   }
 }

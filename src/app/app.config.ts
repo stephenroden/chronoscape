@@ -11,6 +11,7 @@ import { photosReducer } from './state/photos/photos.reducer';
 import { scoringReducer } from './state/scoring/scoring.reducer';
 import { PhotosEffects } from './state/photos/photos.effects';
 import { ScoringEffects } from './state/scoring/scoring.effects';
+import { GameEffects } from './state/game/game.effects';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -30,6 +31,6 @@ export const appConfig: ApplicationConfig = {
       trace: false,
       traceLimit: 75
     }),
-    provideEffects([PhotosEffects, ScoringEffects])
+    provideEffects([PhotosEffects, ScoringEffects, GameEffects])
   ]
 };
