@@ -129,7 +129,7 @@
   - Write tests for responsive behavior and accessibility features
   - _Requirements: 7.2, 8.5_
 
-- [ ] 17. Create routing and navigation structure
+- [x] 17. Create routing and navigation structure
 
   - Set up Angular routing for game flow (start screen, game play, results)
   - Implement route guards to prevent navigation during active games

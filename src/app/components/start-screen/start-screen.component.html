@@ -1,0 +1,87 @@
+<div class="start-screen-container">
+  <!-- Skip to main content link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  
+  <!-- Header -->
+  <header class="start-header" role="banner">
+    <h1 id="game-title">Chronoscape</h1>
+    <p class="game-subtitle">Test your knowledge of history and geography</p>
+  </header>
+
+  <!-- Main content -->
+  <main class="start-content" id="main-content" role="main">
+    <section class="welcome-section" aria-labelledby="welcome-heading">
+      <h2 id="welcome-heading">Welcome to Chronoscape!</h2>
+      <div class="game-description">
+        <p>Challenge yourself with historical photographs from around the world.</p>
+        <ul class="game-features">
+          <li>Guess when and where 5 historical photos were taken</li>
+          <li>Earn up to 10,000 points per photo</li>
+          <li>Test your knowledge of world history and geography</li>
+        </ul>
+      </div>
+      
+      <!-- Loading state for game initialization -->
+      <div class="loading-container" 
+           *ngIf="(gameLoading$ | async) || (photosLoading$ | async)"
+           role="status"
+           aria-live="polite"
+           aria-label="Loading game">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p>Preparing your game...</p>
+      </div>
+      
+      <!-- Start button (disabled during loading) -->
+      <div class="start-actions">
+        <button 
+          class="primary-button start-button" 
+          (click)="startGame()"
+          [disabled]="(gameLoading$ | async) || (photosLoading$ | async)"
+          [attr.aria-describedby]="(gameLoading$ | async) || (photosLoading$ | async) ? 'loading-status' : null"
+          type="button">
+          <span *ngIf="!(gameLoading$ | async) && !(photosLoading$ | async)">Start Game</span>
+          <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)" id="loading-status">Loading...</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Error states -->
+    <section class="error-section" 
+             *ngIf="(photosError$ | async) || (gameError$ | async)"
+             role="alert"
+             aria-labelledby="error-heading">
+      <div class="error-icon" aria-hidden="true">⚠️</div>
+      <h2 id="error-heading">Unable to start game</h2>
+      
+      <!-- Photos error -->
+      <div *ngIf="photosError$ | async as photosError" class="error-message">
+        <p>{{ getErrorMessage(photosError) }}</p>
+        <div class="error-actions">
+          <button 
+            class="primary-button" 
+            (click)="retryLoadPhotos()"
+            *ngIf="isRetryableError(photosError)"
+            type="button"
+            aria-label="Retry loading photos from the server">
+            Try Again
+          </button>
+        </div>
+      </div>
+      
+      <!-- Game error -->
+      <div *ngIf="gameError$ | async as gameError" class="error-message">
+        <p>{{ getErrorMessage(gameError) }}</p>
+        <div class="error-actions">
+          <button 
+            class="primary-button" 
+            (click)="clearGameError()"
+            *ngIf="isRetryableError(gameError)"
+            type="button"
+            aria-label="Try to resolve the game error">
+            Try Again
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>

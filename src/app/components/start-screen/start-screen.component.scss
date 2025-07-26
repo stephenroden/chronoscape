@@ -1,0 +1,244 @@
+.start-screen-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: #000;
+  color: white;
+  padding: 8px;
+  text-decoration: none;
+  z-index: 1000;
+  
+  &:focus {
+    top: 6px;
+  }
+}
+
+.start-header {
+  text-align: center;
+  padding: 2rem 1rem 1rem;
+  
+  h1 {
+    font-size: 3rem;
+    margin: 0 0 0.5rem;
+    font-weight: 700;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  
+  .game-subtitle {
+    font-size: 1.2rem;
+    margin: 0;
+    opacity: 0.9;
+  }
+}
+
+.start-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.welcome-section {
+  max-width: 600px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 20px;
+  padding: 3rem 2rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  
+  h2 {
+    font-size: 2rem;
+    margin: 0 0 1.5rem;
+    font-weight: 600;
+  }
+}
+
+.game-description {
+  margin-bottom: 2rem;
+  
+  p {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+}
+
+.game-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  
+  li {
+    padding: 0.5rem 0;
+    font-size: 1rem;
+    position: relative;
+    
+    &::before {
+      content: '✓';
+      color: #4ade80;
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+  }
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin: 2rem 0;
+  
+  .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  p {
+    margin: 0;
+    font-size: 1rem;
+  }
+}
+
+.start-actions {
+  margin-top: 2rem;
+}
+
+.primary-button {
+  background: #4ade80;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 160px;
+  
+  &:hover:not(:disabled) {
+    background: #22c55e;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.4);
+  }
+  
+  &:disabled {
+    background: rgba(255, 255, 255, 0.3);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  
+  &:focus {
+    outline: 2px solid #fbbf24;
+    outline-offset: 2px;
+  }
+}
+
+.error-section {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-top: 2rem;
+  text-align: center;
+  
+  .error-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  h2 {
+    color: #fca5a5;
+    margin: 0 0 1rem;
+    font-size: 1.5rem;
+  }
+  
+  .error-message {
+    margin-bottom: 1rem;
+    
+    p {
+      margin: 0 0 1rem;
+      line-height: 1.5;
+    }
+  }
+  
+  .error-actions {
+    margin-top: 1rem;
+    
+    .primary-button {
+      background: #ef4444;
+      
+      &:hover:not(:disabled) {
+        background: #dc2626;
+      }
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .start-header {
+    padding: 1rem;
+    
+    h1 {
+      font-size: 2.5rem;
+    }
+    
+    .game-subtitle {
+      font-size: 1rem;
+    }
+  }
+  
+  .welcome-section {
+    margin: 0 1rem;
+    padding: 2rem 1.5rem;
+    
+    h2 {
+      font-size: 1.5rem;
+    }
+  }
+  
+  .game-description p {
+    font-size: 1rem;
+  }
+  
+  .primary-button {
+    padding: 0.875rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .start-header h1 {
+    font-size: 2rem;
+  }
+  
+  .welcome-section {
+    padding: 1.5rem 1rem;
+  }
+  
+  .game-features li {
+    font-size: 0.9rem;
+  }
+}

@@ -1,0 +1,57 @@
+<nav class="navigation-container" role="navigation" aria-label="Game navigation">
+  <!-- Breadcrumb navigation -->
+  <div class="breadcrumb-container" role="navigation" aria-label="Breadcrumb navigation">
+    <ol class="breadcrumb-list">
+      <li *ngFor="let breadcrumb of breadcrumbs$ | async; let isLast = last" 
+          [ngClass]="getBreadcrumbClasses(breadcrumb)">
+        
+        <!-- Active or disabled breadcrumb (no link) -->
+        <span *ngIf="breadcrumb.active || breadcrumb.disabled"
+              class="breadcrumb-text"
+              [attr.aria-label]="getBreadcrumbAriaLabel(breadcrumb)"
+              [attr.aria-current]="breadcrumb.active ? 'page' : null">
+          {{ breadcrumb.label }}
+        </span>
+        
+        <!-- Clickable breadcrumb -->
+        <button *ngIf="!breadcrumb.active && !breadcrumb.disabled"
+                class="breadcrumb-link"
+                (click)="navigateTo(breadcrumb)"
+                [attr.aria-label]="getBreadcrumbAriaLabel(breadcrumb)"
+                type="button">
+          {{ breadcrumb.label }}
+        </button>
+        
+        <!-- Separator (not for last item) -->
+        <span *ngIf="!isLast" class="breadcrumb-separator" aria-hidden="true">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06L7.28 12.78a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 010-1.06z"/>
+          </svg>
+        </span>
+      </li>
+    </ol>
+  </div>
+  
+  <!-- Game progress indicator (shown during game) -->
+  <div class="progress-indicator" 
+       *ngIf="(gameProgress$ | async) && (currentRoute$ | async) === '/game'"
+       role="status"
+       aria-live="polite"
+       [attr.aria-label]="'Game progress: ' + formatGameProgress(gameProgress$ | async)">
+    
+    <div class="progress-text">
+      {{ formatGameProgress(gameProgress$ | async) }}
+    </div>
+    
+    <div class="progress-bar" 
+         role="progressbar"
+         [attr.aria-valuenow]="(gameProgress$ | async)?.current"
+         [attr.aria-valuemin]="1"
+         [attr.aria-valuemax]="(gameProgress$ | async)?.total"
+         [attr.aria-valuetext]="formatGameProgress(gameProgress$ | async)">
+      <div class="progress-fill" 
+           [style.width.%]="(gameProgress$ | async)?.percentage">
+      </div>
+    </div>
+  </div>
+</nav>

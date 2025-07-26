@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Observable, Subscription } from 'rxjs';
 import { AppState } from '../../state/app.state';
@@ -52,7 +53,10 @@ export class GameComponent implements OnInit, OnDestroy {
   // Subscriptions to manage
   private subscriptions: Subscription = new Subscription();
 
-  constructor(private store: Store<AppState>) {
+  constructor(
+    private store: Store<AppState>,
+    private router: Router
+  ) {
     // Initialize observables from selectors
     this.gameStatus$ = this.store.select(GameSelectors.selectGameStatus);
     this.gameProgress$ = this.store.select(GameSelectors.selectGameProgress);
@@ -79,8 +83,10 @@ export class GameComponent implements OnInit, OnDestroy {
     // Subscribe to game status changes to handle automatic transitions
     this.subscriptions.add(
       this.gameStatus$.subscribe(status => {
-        // Any additional logic for status changes can be added here
-        // For now, we let the NgRx effects handle the transitions
+        // Navigate to results when game is completed
+        if (status === GameStatus.COMPLETED) {
+          this.router.navigate(['/results']);
+        }
       })
     );
   }
@@ -119,11 +125,11 @@ export class GameComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Resets the game state to allow starting a new game.
-   * Requirement 6.1: Provide option to start new game from final results.
+   * Resets the game state and navigates to start screen.
    */
   resetGame(): void {
     this.store.dispatch(GameActions.resetGame());
+    this.router.navigate(['/']);
   }
 
   /**

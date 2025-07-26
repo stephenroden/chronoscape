@@ -1,0 +1,147 @@
+<div class="results-container">
+  <!-- Skip to main content link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  
+  <!-- Header -->
+  <header class="results-header" role="banner">
+    <h1 id="results-title">Game Complete!</h1>
+  </header>
+
+  <!-- Main content -->
+  <main class="results-content" id="main-content" role="main">
+    <!-- Loading state -->
+    <div class="loading-container" 
+         *ngIf="scoringLoading$ | async"
+         role="status"
+         aria-live="polite"
+         aria-label="Calculating final score">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p>Calculating your final score...</p>
+    </div>
+
+    <!-- Error state -->
+    <section class="error-section" 
+             *ngIf="(scoringError$ | async) || (gameError$ | async)"
+             role="alert"
+             aria-labelledby="error-heading">
+      <div class="error-icon" aria-hidden="true">⚠️</div>
+      <h2 id="error-heading">Unable to display results</h2>
+      
+      <div *ngIf="scoringError$ | async as scoringError" class="error-message">
+        <p>{{ getErrorMessage(scoringError) }}</p>
+      </div>
+      
+      <div *ngIf="gameError$ | async as gameError" class="error-message">
+        <p>{{ getErrorMessage(gameError) }}</p>
+      </div>
+      
+      <div class="error-actions">
+        <button 
+          class="primary-button" 
+          (click)="startNewGame()"
+          type="button"
+          aria-label="Start a new game">
+          Start New Game
+        </button>
+      </div>
+    </section>
+
+    <!-- Results display -->
+    <section class="results-display" 
+             *ngIf="!(scoringLoading$ | async) && !(scoringError$ | async) && !(gameError$ | async)"
+             aria-labelledby="results-heading">
+      
+      <!-- Total score section (Requirement 6.1) -->
+      <div class="total-score-section" 
+           *ngIf="totalScore$ | async as totalScore"
+           role="region"
+           aria-labelledby="total-score-heading">
+        <h2 id="total-score-heading">Your Final Score</h2>
+        <div class="score-display">
+          <div class="score-number" [attr.aria-label]="'Total score: ' + formatScore(totalScore) + ' out of 50,000 points'">
+            {{ formatScore(totalScore) }}
+          </div>
+          <div class="score-max">/ 50,000</div>
+          <div class="score-percentage">{{ getScorePercentage(totalScore) }}%</div>
+        </div>
+        
+        <!-- Performance category (Requirement 6.5) -->
+        <div class="performance-category" 
+             [ngClass]="getPerformanceCategory(totalScore).class"
+             role="region"
+             aria-labelledby="performance-heading">
+          <h3 id="performance-heading">{{ getPerformanceCategory(totalScore).title }}</h3>
+          <p>{{ getPerformanceCategory(totalScore).description }}</p>
+        </div>
+      </div>
+
+      <!-- Score breakdown section (Requirement 6.2, 6.3) -->
+      <div class="score-breakdown-section" 
+           *ngIf="scores$ | async as scores"
+           role="region"
+           aria-labelledby="breakdown-heading">
+        <h2 id="breakdown-heading">Score Breakdown</h2>
+        
+        <!-- Overall breakdown -->
+        <div class="overall-breakdown">
+          <div class="breakdown-item">
+            <h3>Year Accuracy</h3>
+            <div class="breakdown-score">{{ formatScore(getScoreBreakdown(scores).yearTotal) }}</div>
+            <div class="breakdown-average">Avg: {{ formatScore(getScoreBreakdown(scores).yearAvg) }} per photo</div>
+          </div>
+          <div class="breakdown-item">
+            <h3>Location Accuracy</h3>
+            <div class="breakdown-score">{{ formatScore(getScoreBreakdown(scores).locationTotal) }}</div>
+            <div class="breakdown-average">Avg: {{ formatScore(getScoreBreakdown(scores).locationAvg) }} per photo</div>
+          </div>
+        </div>
+
+        <!-- Per-photo breakdown -->
+        <div class="photo-scores">
+          <h3>Points Per Photo</h3>
+          <div class="photo-score-list">
+            <div class="photo-score-item" 
+                 *ngFor="let score of scores; let i = index"
+                 [attr.aria-label]="'Photo ' + (i + 1) + ': ' + formatScore(score.totalScore) + ' points total'">
+              <div class="photo-number">Photo {{ i + 1 }}</div>
+              <div class="photo-score-details">
+                <div class="score-component">
+                  <span class="score-label">Year:</span>
+                  <span class="score-value">{{ formatScore(score.yearScore) }}</span>
+                </div>
+                <div class="score-component">
+                  <span class="score-label">Location:</span>
+                  <span class="score-value">{{ formatScore(score.locationScore) }}</span>
+                </div>
+                <div class="score-total">
+                  <span class="score-label">Total:</span>
+                  <span class="score-value total">{{ formatScore(score.totalScore) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Actions section (Requirement 6.4) -->
+      <div class="results-actions" role="region" aria-label="Game actions">
+        <button 
+          class="primary-button new-game-button" 
+          (click)="startNewGame()"
+          type="button"
+          aria-label="Start a new game of Chronoscape">
+          Play Again
+        </button>
+        
+        <!-- Debug/testing button - remove in production -->
+        <button 
+          class="secondary-button" 
+          (click)="backToGame()"
+          type="button"
+          aria-label="Return to game screen (for testing)">
+          Back to Game (Debug)
+        </button>
+      </div>
+    </section>
+  </main>
+</div>

@@ -25,31 +25,18 @@
 
   <!-- Game content area -->
   <main class="game-content" id="main-content" role="main">
-    <!-- Not started state -->
-    <section class="game-start" *ngIf="(isGameNotStarted$ | async)" aria-labelledby="welcome-heading">
-      <h2 id="welcome-heading">Welcome to Chronoscape!</h2>
-      <p>Test your knowledge of history and geography by guessing when and where historical photos were taken.</p>
-      
-      <!-- Loading state for game initialization -->
+    <!-- Loading state for game initialization -->
+    <section class="game-loading" 
+             *ngIf="(isGameNotStarted$ | async) && ((gameLoading$ | async) || (photosLoading$ | async))"
+             aria-labelledby="loading-heading">
+      <h2 id="loading-heading">Preparing Your Game</h2>
       <div class="loading-container" 
-           *ngIf="(gameLoading$ | async) || (photosLoading$ | async)"
            role="status"
            aria-live="polite"
            aria-label="Loading game">
-        <div class="loading-spinner" aria-hidden="true"></div>
-        <p>Loading game...</p>
+        <div class="loading-spinner large" aria-hidden="true"></div>
+        <p>Loading historical photos...</p>
       </div>
-      
-      <!-- Start button (disabled during loading) -->
-      <button 
-        class="primary-button" 
-        (click)="startGame()"
-        [disabled]="(gameLoading$ | async) || (photosLoading$ | async)"
-        [attr.aria-describedby]="(gameLoading$ | async) || (photosLoading$ | async) ? 'loading-status' : null"
-        type="button">
-        <span *ngIf="!(gameLoading$ | async) && !(photosLoading$ | async)">Start Game</span>
-        <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)" id="loading-status">Loading...</span>
-      </button>
     </section>
 
     <!-- Game in progress state -->
@@ -94,19 +81,16 @@
       </div>
     </section>
 
-    <!-- Game completed state (Requirement 1.4, 6.1) -->
+    <!-- Game completed state - redirect to results -->
     <section class="game-completed" 
              *ngIf="(isGameCompleted$ | async)" 
              aria-labelledby="game-completed-heading"
              role="region">
       <h2 id="game-completed-heading">Game Completed!</h2>
-      <p>You've completed all photos. Your final score will be displayed here.</p>
-      <button class="primary-button" 
-              (click)="resetGame()" 
-              type="button"
-              aria-label="Start a new game">
-        Play Again
-      </button>
+      <p>Redirecting to your results...</p>
+      <div class="loading-container">
+        <div class="loading-spinner" aria-hidden="true"></div>
+      </div>
     </section>
 
     <!-- Error states -->
