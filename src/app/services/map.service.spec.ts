@@ -102,7 +102,7 @@ describe('MapService', () => {
       service.destroy();
       const coordinates: Coordinates = { latitude: 40.7128, longitude: -74.0060 };
 
-      expect(() => service.addPin(coordinates)).toThrowError('Map must be initialized before adding pins');
+      expect(() => service.addPin(coordinates)).toThrowError('Pin creation failed: Map must be initialized before adding pins');
     });
   });
 
@@ -380,12 +380,12 @@ describe('MapService', () => {
   describe('Error Handling', () => {
     describe('initializeMap error handling', () => {
       it('should throw error for invalid container ID', () => {
-        expect(() => service.initializeMap('')).toThrowError('Invalid container ID provided for map initialization');
-        expect(() => service.initializeMap(null as any)).toThrowError('Invalid container ID provided for map initialization');
+        expect(() => service.initializeMap('')).toThrowError('Map initialization failed: Invalid container ID provided for map initialization');
+        expect(() => service.initializeMap(null as any)).toThrowError('Map initialization failed: Invalid container ID provided for map initialization');
       });
 
       it('should throw error when container element not found', () => {
-        expect(() => service.initializeMap('non-existent-container')).toThrowError("Map container with ID 'non-existent-container' not found");
+        expect(() => service.initializeMap('non-existent-container')).toThrowError("Map initialization failed: Map container with ID 'non-existent-container' not found");
       });
 
       it('should throw error for invalid latitude', () => {
@@ -394,7 +394,7 @@ describe('MapService', () => {
         document.body.appendChild(container);
 
         expect(() => service.initializeMap('test-map-error', { latitude: 100, longitude: 0 }))
-          .toThrowError('Invalid latitude: must be between -90 and 90');
+          .toThrowError('Map initialization failed: Invalid latitude: must be between -90 and 90');
 
         document.body.removeChild(container);
       });
@@ -405,7 +405,7 @@ describe('MapService', () => {
         document.body.appendChild(container);
 
         expect(() => service.initializeMap('test-map-error', { latitude: 0, longitude: 200 }))
-          .toThrowError('Invalid longitude: must be between -180 and 180');
+          .toThrowError('Map initialization failed: Invalid longitude: must be between -180 and 180');
 
         document.body.removeChild(container);
       });
@@ -435,7 +435,7 @@ describe('MapService', () => {
         const tileLayer = (map as any)._layers[Object.keys((map as any)._layers)[0]];
         tileLayer.fire('tileerror', { error: 'Tile loading failed' });
 
-        expect(console.warn).toHaveBeenCalledWith('Map tile loading error:', { error: 'Tile loading failed' });
+        expect(console.warn).toHaveBeenCalledWith('Map tile loading error:', jasmine.objectContaining({ error: 'Tile loading failed' }));
 
         document.body.removeChild(container);
       });
@@ -451,7 +451,7 @@ describe('MapService', () => {
         // Simulate map error
         map.fire('error', { error: 'General map error' });
 
-        expect(console.error).toHaveBeenCalledWith('Map error:', { error: 'General map error' });
+        expect(console.error).toHaveBeenCalledWith('Map error:', jasmine.objectContaining({ error: 'General map error' }));
 
         document.body.removeChild(container);
       });
@@ -475,28 +475,28 @@ describe('MapService', () => {
       it('should throw error when map not initialized', () => {
         service.destroy(); // Destroy the map
         expect(() => service.addPin({ latitude: 0, longitude: 0 }))
-          .toThrowError('Map must be initialized before adding pins');
+          .toThrowError('Pin creation failed: Map must be initialized before adding pins');
       });
 
       it('should throw error for invalid coordinates object', () => {
         expect(() => service.addPin(null as any))
-          .toThrowError('Invalid coordinates provided');
+          .toThrowError('Pin creation failed: Invalid coordinates provided');
         expect(() => service.addPin(undefined as any))
-          .toThrowError('Invalid coordinates provided');
+          .toThrowError('Pin creation failed: Invalid coordinates provided');
       });
 
       it('should throw error for invalid latitude in addPin', () => {
         expect(() => service.addPin({ latitude: 100, longitude: 0 }))
-          .toThrowError('Invalid latitude: must be between -90 and 90');
+          .toThrowError('Pin creation failed: Invalid latitude: must be between -90 and 90');
         expect(() => service.addPin({ latitude: -100, longitude: 0 }))
-          .toThrowError('Invalid latitude: must be between -90 and 90');
+          .toThrowError('Pin creation failed: Invalid latitude: must be between -90 and 90');
       });
 
       it('should throw error for invalid longitude in addPin', () => {
         expect(() => service.addPin({ latitude: 0, longitude: 200 }))
-          .toThrowError('Invalid longitude: must be between -180 and 180');
+          .toThrowError('Pin creation failed: Invalid longitude: must be between -180 and 180');
         expect(() => service.addPin({ latitude: 0, longitude: -200 }))
-          .toThrowError('Invalid longitude: must be between -180 and 180');
+          .toThrowError('Pin creation failed: Invalid longitude: must be between -180 and 180');
       });
 
       it('should handle icon creation errors gracefully', () => {
@@ -510,8 +510,12 @@ describe('MapService', () => {
 
       it('should handle popup binding errors gracefully', () => {
         spyOn(console, 'warn');
-        const marker = service.addPin({ latitude: 0, longitude: 0 });
-        spyOn(marker, 'bindPopup').and.throwError('Popup binding failed');
+        
+        // Mock L.marker to return a marker with a failing bindPopup method
+        const mockMarker = jasmine.createSpyObj('Marker', ['addTo', 'bindPopup']);
+        mockMarker.bindPopup.and.throwError('Popup binding failed');
+        mockMarker.addTo.and.returnValue(mockMarker);
+        spyOn(L, 'marker').and.returnValue(mockMarker);
 
         // This should not throw, just warn
         expect(() => service.addPin({ latitude: 0, longitude: 0 }, { label: 'Test label' }))

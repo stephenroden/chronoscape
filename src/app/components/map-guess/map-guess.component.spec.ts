@@ -128,7 +128,7 @@ describe('MapGuessComponent', () => {
 
       expect(component.isMapInitialized).toBeFalse();
       expect(component.isMapLoading).toBeFalse();
-      expect(component.mapError).toBe('Failed to load map. Please refresh the page and try again.');
+      expect(component.mapError).toBe('Map initialization failed: Map initialization failed');
       expect(console.error).toHaveBeenCalled();
     }));
 

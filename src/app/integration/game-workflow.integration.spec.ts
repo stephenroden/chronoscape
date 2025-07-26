@@ -358,7 +358,7 @@ describe('Game Workflow Integration', () => {
   });
 
   describe('Requirements Verification', () => {
-    it('should meet requirement 1.1: Display first of five photographs', () => {
+    it('should meet requirement 1.1: Display first of five photographs', (done) => {
       const req1State: AppState = {
         ...initialState,
         game: {
@@ -379,6 +379,7 @@ describe('Game Workflow Integration', () => {
       component.gameProgress$.subscribe(progress => {
         expect(progress.current).toBe(1); // 1-based display
         expect(progress.total).toBe(5);
+        done();
       });
     });
 

@@ -24,6 +24,20 @@ describe('FinalResultsComponent', () => {
     const storeSpy = jasmine.createSpyObj('Store', ['select', 'dispatch']);
     const routerSpy = jasmine.createSpyObj('Router', ['navigate']);
 
+    // Setup default store selectors before component creation
+    storeSpy.select.and.callFake((selector: any) => {
+      if (selector.toString().includes('TotalScore')) {
+        return of(34000);
+      }
+      if (selector.toString().includes('Scores')) {
+        return of(mockScores);
+      }
+      if (selector.toString().includes('IsGameCompleted')) {
+        return of(true);
+      }
+      return of(false);
+    });
+
     await TestBed.configureTestingModule({
       imports: [FinalResultsComponent],
       providers: [
@@ -36,20 +50,6 @@ describe('FinalResultsComponent', () => {
     component = fixture.componentInstance;
     mockStore = TestBed.inject(Store) as jasmine.SpyObj<Store>;
     mockRouter = TestBed.inject(Router) as jasmine.SpyObj<Router>;
-
-    // Setup default store selectors
-    mockStore.select.and.callFake((selector: any) => {
-      if (selector.toString().includes('TotalScore')) {
-        return of(34000);
-      }
-      if (selector.toString().includes('Scores')) {
-        return of(mockScores);
-      }
-      if (selector.toString().includes('IsGameCompleted')) {
-        return of(true);
-      }
-      return of(false);
-    });
   });
 
   it('should create', () => {

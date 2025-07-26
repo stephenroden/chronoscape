@@ -447,8 +447,12 @@ export class MapService {
    */
   destroy(): void {
     if (this.map) {
-      this.clearAdditionalMarkers();
-      this.map.remove();
+      try {
+        this.clearAdditionalMarkers();
+        this.map.remove();
+      } catch (error) {
+        console.warn('Error during map destruction:', error);
+      }
       this.map = null;
       this.currentPin = null;
     }
