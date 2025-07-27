@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, of, firstValueFrom } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, of, firstValueFrom, TimeoutError } from 'rxjs';
 import { map, catchError, timeout } from 'rxjs/operators';
+import { FormatValidationLoggerService } from './format-validation-logger.service';
 
 /**
  * Configuration for supported image formats
@@ -105,25 +106,35 @@ export class FormatValidationService {
 
   private detectionStrategies: FormatDetectionStrategy[] = [];
 
-  constructor(private http: HttpClient) {
+  constructor(
+    private http: HttpClient,
+    private logger: FormatValidationLoggerService
+  ) {
     this.initializeDetectionStrategies();
   }
 
   /**
-   * Validates image format using multiple detection strategies
+   * Validates image format using multiple detection strategies with comprehensive logging
    * @param url - Image URL to validate
    * @param mimeType - Optional MIME type from metadata
    * @param metadata - Optional metadata object (can contain extmetadata for Wikimedia)
    * @returns Promise resolving to validation result
    */
   async validateImageFormat(url: string, mimeType?: string, metadata?: any): Promise<FormatValidationResult> {
+    const startTime = Date.now();
+    
+    // Input validation with logging
     if (!url || typeof url !== 'string') {
-      return {
+      const result: FormatValidationResult = {
         isValid: false,
         rejectionReason: 'Invalid URL provided',
         confidence: 1.0,
         detectionMethod: 'input-validation'
       };
+      
+      const validationTime = Date.now() - startTime;
+      this.logger.logRejection(url || 'invalid-url', result, validationTime);
+      return result;
     }
 
     // Try detection strategies in priority order
@@ -131,14 +142,25 @@ export class FormatValidationService {
     
     let bestResult: FormatValidationResult | null = null;
     let lastResult: FormatValidationResult | null = null;
+    let lastError: Error | null = null;
     
     for (const strategy of sortedStrategies) {
+      const strategyStartTime = Date.now();
+      
       try {
         const result = await strategy.detect(url, { mimeType, extmetadata: metadata?.extmetadata });
         lastResult = result;
         
         // If we get a definitive result (high confidence), use it
         if (result.confidence >= 0.8) {
+          const validationTime = Date.now() - startTime;
+          
+          if (result.isValid) {
+            this.logger.logSuccess(url, result, validationTime);
+          } else {
+            this.logger.logRejection(url, result, validationTime);
+          }
+          
           return result;
         }
         
@@ -163,37 +185,83 @@ export class FormatValidationService {
         // For results with low confidence but no detected format, continue to next strategy
         // This ensures we don't exit early when strategies return confidence 0.0 with no format
       } catch (error) {
-        console.warn(`Format detection strategy ${strategy.name} failed:`, error);
+        lastError = error as Error;
+        const strategyTime = Date.now() - strategyStartTime;
+        
+        // Log strategy-specific errors with detailed information
+        const isNetworkError = this.isNetworkError(error);
+        const isTimeoutError = this.isTimeoutError(error);
+        const httpStatusCode = this.extractHttpStatusCode(error);
+        
+        if (strategy.name === 'http-content-type') {
+          this.logger.logNetworkError(url, error as Error, strategyTime, isTimeoutError, httpStatusCode);
+        } else {
+          this.logger.logError(url, error as Error, strategyTime, strategy.name, {
+            networkTimeout: isTimeoutError,
+            httpStatusCode
+          });
+        }
+        
         // If this was the HTTP strategy and it failed, we want to return its error instead of a generic one
         if (strategy.name === 'http-content-type') {
-          return {
+          const errorResult: FormatValidationResult = {
             isValid: false,
             confidence: 0.0,
             detectionMethod: 'http-content-type',
-            rejectionReason: 'HTTP request failed'
+            rejectionReason: this.getNetworkErrorMessage(error as Error, isTimeoutError)
           };
+          
+          const validationTime = Date.now() - startTime;
+          this.logger.logError(url, error as Error, validationTime, 'http-content-type', {
+            networkTimeout: isTimeoutError,
+            httpStatusCode
+          });
+          
+          return errorResult;
         }
         continue;
       }
     }
     
+    const validationTime = Date.now() - startTime;
+    
     // Return the best result found, if any
     if (bestResult) {
+      if (bestResult.isValid) {
+        this.logger.logSuccess(url, bestResult, validationTime);
+      } else {
+        this.logger.logRejection(url, bestResult, validationTime);
+      }
       return bestResult;
     }
     
     // If we have a last result (even with low confidence), use it instead of generic failure
     if (lastResult) {
+      if (lastResult.isValid) {
+        this.logger.logSuccess(url, lastResult, validationTime);
+      } else {
+        this.logger.logRejection(url, lastResult, validationTime);
+      }
       return lastResult;
     }
 
-    // If no strategy could determine the format, reject
-    return {
+    // If no strategy could determine the format, reject with comprehensive error info
+    const finalResult: FormatValidationResult = {
       isValid: false,
-      rejectionReason: 'Unable to determine image format',
+      rejectionReason: lastError ? 
+        `Unable to determine image format due to errors: ${lastError.message}` :
+        'Unable to determine image format',
       confidence: 0.0,
       detectionMethod: 'unknown'
     };
+    
+    if (lastError) {
+      this.logger.logError(url, lastError, validationTime, 'unknown');
+    } else {
+      this.logger.logRejection(url, finalResult, validationTime);
+    }
+    
+    return finalResult;
   }
 
   /**
@@ -609,26 +677,127 @@ export class FormatValidationService {
   }
 
   /**
-   * Gets Content-Type header via HTTP HEAD request
+   * Gets Content-Type header via HTTP HEAD request with comprehensive error handling
    * @param url - Image URL
    * @returns Promise resolving to Content-Type or null
    */
   private async getContentTypeFromHttp(url: string): Promise<string | null> {
-    const response = await firstValueFrom(
-      this.http.head(url, { observe: 'response' })
-        .pipe(
-          timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
-          map(response => {
-            const contentType = response.headers.get('content-type');
-            return contentType ? contentType.split(';')[0].trim() : null;
-          }),
-          catchError(error => {
-            console.warn('HTTP HEAD request failed for format detection:', error);
-            throw error; // Propagate the error instead of returning null
-          })
-        )
-    );
+    try {
+      const response = await firstValueFrom(
+        this.http.head(url, { observe: 'response' })
+          .pipe(
+            timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
+            map(response => {
+              const contentType = response.headers.get('content-type');
+              return contentType ? contentType.split(';')[0].trim() : null;
+            }),
+            catchError(error => {
+              // Enhanced error handling with detailed logging
+              const isTimeout = this.isTimeoutError(error);
+              const isNetwork = this.isNetworkError(error);
+              const statusCode = this.extractHttpStatusCode(error);
+              
+              console.warn('HTTP HEAD request failed for format detection:', {
+                url,
+                error: error.message,
+                isTimeout,
+                isNetwork,
+                statusCode,
+                errorType: error.constructor.name
+              });
+              
+              throw error; // Propagate the error with enhanced context
+            })
+          )
+      );
+      
+      return response || null;
+    } catch (error) {
+      // Re-throw with additional context for upstream error handling
+      throw new Error(`HTTP Content-Type detection failed: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Checks if an error is a network-related error
+   * @param error - Error to check
+   * @returns true if error is network-related
+   */
+  private isNetworkError(error: any): boolean {
+    if (!error) return false;
     
-    return response || null;
+    return error instanceof HttpErrorResponse ||
+           error.name === 'HttpErrorResponse' ||
+           error.status !== undefined ||
+           error.message?.includes('Http failure') ||
+           error.message?.includes('Network') ||
+           error.message?.includes('Connection') ||
+           error.message?.includes('CORS');
+  }
+
+  /**
+   * Checks if an error is a timeout error
+   * @param error - Error to check
+   * @returns true if error is timeout-related
+   */
+  private isTimeoutError(error: any): boolean {
+    if (!error) return false;
+    
+    return error instanceof TimeoutError ||
+           error.name === 'TimeoutError' ||
+           error.message?.includes('Timeout') ||
+           error.message?.includes('timeout') ||
+           (error instanceof HttpErrorResponse && error.status === 0 && error.statusText === 'Unknown Error');
+  }
+
+  /**
+   * Extracts HTTP status code from error if available
+   * @param error - Error to extract status from
+   * @returns HTTP status code or undefined
+   */
+  private extractHttpStatusCode(error: any): number | undefined {
+    if (!error) return undefined;
+    
+    if (error instanceof HttpErrorResponse) {
+      return error.status;
+    }
+    
+    if (error.status !== undefined) {
+      return error.status;
+    }
+    
+    return undefined;
+  }
+
+  /**
+   * Gets user-friendly error message for network errors
+   * @param error - Network error
+   * @param isTimeout - Whether error was due to timeout
+   * @returns User-friendly error message
+   */
+  private getNetworkErrorMessage(error: Error, isTimeout: boolean): string {
+    if (isTimeout) {
+      return 'HTTP request timed out during format detection';
+    }
+    
+    if (error instanceof HttpErrorResponse) {
+      switch (error.status) {
+        case 0:
+          return 'Network connection failed during format detection';
+        case 403:
+          return 'Access forbidden during format detection';
+        case 404:
+          return 'Image not found during format detection';
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return 'Server error during format detection';
+        default:
+          return `HTTP error ${error.status} during format detection`;
+      }
+    }
+    
+    return `Network error during format detection: ${error.message}`;
   }
 }

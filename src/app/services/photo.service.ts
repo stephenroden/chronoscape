@@ -218,24 +218,15 @@ export class PhotoService {
       );
 
       if (!formatValidation.isValid) {
-        console.log(`Photo rejected due to format validation: ${formatValidation.rejectionReason}`, {
+        // Detailed logging is now handled by FormatValidationLoggerService
+        // Just log a summary for PhotoService context
+        console.log(`Photo rejected due to format validation`, {
           url: imageInfo.url,
-          detectedFormat: formatValidation.detectedFormat,
-          detectedMimeType: formatValidation.detectedMimeType,
-          detectionMethod: formatValidation.detectionMethod,
-          confidence: formatValidation.confidence
+          reason: formatValidation.rejectionReason,
+          method: formatValidation.detectionMethod
         });
         return null;
       }
-
-      // Log successful format validation
-      console.log(`Photo format validation successful`, {
-        url: imageInfo.url,
-        detectedFormat: formatValidation.detectedFormat,
-        detectedMimeType: formatValidation.detectedMimeType,
-        detectionMethod: formatValidation.detectionMethod,
-        confidence: formatValidation.confidence
-      });
 
       // Create photo object with format metadata
       const photo: Photo = {

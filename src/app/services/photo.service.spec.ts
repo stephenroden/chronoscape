@@ -2023,3 +2023,505 @@ describe('PhotoService', () => {
     });
   });
 });
+
+describe('PhotoService - Format Validation Error Handling', () => {
+  let service: PhotoService;
+  let httpMock: HttpTestingController;
+  let formatValidationService: jasmine.SpyObj<FormatValidationService>;
+  const API_BASE_URL = 'https://commons.wikimedia.org/w/api.php';
+
+  beforeEach(() => {
+    const formatValidationSpy = jasmine.createSpyObj('FormatValidationService', ['validateImageFormat', 'isFormatSupported', 'getSupportedFormats']);
+
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [
+        PhotoService,
+        { provide: FormatValidationService, useValue: formatValidationSpy }
+      ]
+    });
+    service = TestBed.inject(PhotoService);
+    httpMock = TestBed.inject(HttpTestingController);
+    formatValidationService = TestBed.inject(FormatValidationService) as jasmine.SpyObj<FormatValidationService>;
+    
+    // Set up default behavior for format validation methods
+    formatValidationService.isFormatSupported.and.returnValue(true);
+    formatValidationService.getSupportedFormats.and.returnValue(['jpeg', 'png', 'webp']);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  describe('processPhotoData with format validation errors', () => {
+    const mockRawData = {
+      title: 'File:Test_Photo.jpg',
+      imageinfo: [{
+        url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Test_Photo.jpg/800px-Test_Photo.jpg',
+        extmetadata: {
+          DateTime: { value: '2020-01-15 10:30:00' },
+          GPSLatitude: { value: '40.7128' },
+          GPSLongitude: { value: '-74.0060' },
+          Artist: { value: 'Test Photographer' },
+          LicenseShortName: { value: 'CC BY-SA 4.0' },
+          MimeType: { value: 'image/jpeg' }
+        }
+      }]
+    };
+
+    it('should handle format validation rejection gracefully', async () => {
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: false,
+        detectedFormat: 'tiff',
+        rejectionReason: 'Limited browser support',
+        confidence: 0.8,
+        detectionMethod: 'mime-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const result = await service.processPhotoData(mockRawData);
+
+      expect(result).toBeNull();
+      expect(formatValidationService.validateImageFormat).toHaveBeenCalledWith(
+        mockRawData.imageinfo[0].url,
+        'image/jpeg',
+        { extmetadata: mockRawData.imageinfo[0].extmetadata }
+      );
+    });
+
+    it('should handle format validation network errors', async () => {
+      const networkError = new Error('Network connection failed during format detection');
+      formatValidationService.validateImageFormat.and.returnValue(Promise.reject(networkError));
+
+      const result = await service.processPhotoData(mockRawData);
+
+      expect(result).toBeNull();
+      expect(formatValidationService.validateImageFormat).toHaveBeenCalled();
+    });
+
+    it('should handle format validation timeout errors', async () => {
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: false,
+        rejectionReason: 'HTTP request timed out during format detection',
+        confidence: 0.0,
+        detectionMethod: 'http-content-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const result = await service.processPhotoData(mockRawData);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle unknown format detection errors', async () => {
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: false,
+        rejectionReason: 'Unable to determine image format',
+        confidence: 0.0,
+        detectionMethod: 'unknown'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const result = await service.processPhotoData(mockRawData);
+
+      expect(result).toBeNull();
+    });
+
+    it('should successfully process photo with valid format', async () => {
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        detectedMimeType: 'image/jpeg',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const result = await service.processPhotoData(mockRawData);
+
+      expect(result).not.toBeNull();
+      expect(result?.metadata.format).toBe('jpeg');
+      expect(result?.metadata.mimeType).toBe('image/jpeg');
+    });
+
+    it('should handle format validation with missing MIME type', async () => {
+      const dataWithoutMimeType = {
+        ...mockRawData,
+        imageinfo: [{
+          ...mockRawData.imageinfo[0],
+          extmetadata: {
+            ...mockRawData.imageinfo[0].extmetadata,
+            MimeType: undefined
+          }
+        }]
+      };
+
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        confidence: 0.7,
+        detectionMethod: 'url-extension'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const result = await service.processPhotoData(dataWithoutMimeType);
+
+      expect(result).not.toBeNull();
+      expect(formatValidationService.validateImageFormat).toHaveBeenCalledWith(
+        dataWithoutMimeType.imageinfo[0].url,
+        undefined,
+        { extmetadata: dataWithoutMimeType.imageinfo[0].extmetadata }
+      );
+    });
+  });
+
+  describe('fetchRandomPhotos with format validation errors', () => {
+    it('should retry when format validation reduces available photos', (done) => {
+      // Mock geosearch response
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Photo2.tiff', pageid: 2, lat: 40.7129, lon: -74.0061, dist: 101 },
+            { title: 'File:Photo3.gif', pageid: 3, lat: 40.7130, lon: -74.0062, dist: 102 }
+          ]
+        }
+      };
+
+      // Mock imageinfo response
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo1.jpg',
+                extmetadata: {
+                  DateTime: { value: '2020-01-15 10:30:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  Artist: { value: 'Test Photographer' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Photo2.tiff',
+              imageinfo: [{
+                url: 'https://example.com/photo2.tiff',
+                extmetadata: {
+                  DateTime: { value: '2020-01-16 11:30:00' },
+                  GPSLatitude: { value: '40.7129' },
+                  GPSLongitude: { value: '-74.0061' },
+                  Artist: { value: 'Test Photographer' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/tiff' }
+                }
+              }]
+            },
+            '3': {
+              title: 'File:Photo3.gif',
+              imageinfo: [{
+                url: 'https://example.com/photo3.gif',
+                extmetadata: {
+                  DateTime: { value: '2020-01-17 12:30:00' },
+                  GPSLatitude: { value: '40.7130' },
+                  GPSLongitude: { value: '-74.0062' },
+                  Artist: { value: 'Test Photographer' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/gif' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      // Set up format validation responses
+      formatValidationService.validateImageFormat.and.callFake((url: string) => {
+        if (url.includes('photo1.jpg')) {
+          return Promise.resolve({
+            isValid: true,
+            detectedFormat: 'jpeg',
+            confidence: 0.9,
+            detectionMethod: 'mime-type'
+          });
+        } else if (url.includes('photo2.tiff')) {
+          return Promise.resolve({
+            isValid: false,
+            detectedFormat: 'tiff',
+            rejectionReason: 'Limited browser support',
+            confidence: 0.8,
+            detectionMethod: 'mime-type'
+          });
+        } else if (url.includes('photo3.gif')) {
+          return Promise.resolve({
+            isValid: false,
+            detectedFormat: 'gif',
+            rejectionReason: 'Avoid animated content',
+            confidence: 0.9,
+            detectionMethod: 'mime-type'
+          });
+        }
+        return Promise.resolve({
+          isValid: false,
+          rejectionReason: 'Unknown format',
+          confidence: 0.0,
+          detectionMethod: 'unknown'
+        });
+      });
+
+      service.fetchRandomPhotos(2).subscribe({
+        next: (photos) => {
+          expect(photos.length).toBe(1); // Only 1 valid photo after format filtering
+          expect(photos[0].url).toBe('https://example.com/photo1.jpg');
+          done();
+        },
+        error: (error) => {
+          done.fail(`Unexpected error: ${error.message}`);
+        }
+      });
+
+      // Handle multiple geosearch requests (original + retries)
+      const geosearchRequests = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      
+      geosearchRequests.forEach(req => {
+        req.flush(mockGeosearchResponse);
+      });
+
+      // Handle imageinfo requests
+      const imageinfoRequests = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      
+      imageinfoRequests.forEach(req => {
+        req.flush(mockImageInfoResponse);
+      });
+    });
+
+    it('should throw InsufficientPhotosError when all photos are rejected by format validation', (done) => {
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.tiff', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Photo2.gif', pageid: 2, lat: 40.7129, lon: -74.0061, dist: 101 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.tiff',
+              imageinfo: [{
+                url: 'https://example.com/photo1.tiff',
+                extmetadata: {
+                  DateTime: { value: '2020-01-15 10:30:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  Artist: { value: 'Test Photographer' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/tiff' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Photo2.gif',
+              imageinfo: [{
+                url: 'https://example.com/photo2.gif',
+                extmetadata: {
+                  DateTime: { value: '2020-01-16 11:30:00' },
+                  GPSLatitude: { value: '40.7129' },
+                  GPSLongitude: { value: '-74.0061' },
+                  Artist: { value: 'Test Photographer' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/gif' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      // All format validations fail
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve({
+        isValid: false,
+        rejectionReason: 'Format not supported',
+        confidence: 0.8,
+        detectionMethod: 'mime-type'
+      }));
+
+      service.fetchRandomPhotos(2).subscribe({
+        next: (photos) => {
+          done.fail('Expected error but got photos');
+        },
+        error: (error) => {
+          expect(error).toBeInstanceOf(InsufficientPhotosError);
+          expect(error.message).toContain('Unable to find photos in supported formats');
+          done();
+        }
+      });
+
+      // Handle multiple requests due to retries
+      const geosearchRequests = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      
+      geosearchRequests.forEach(req => {
+        req.flush(mockGeosearchResponse);
+      });
+
+      const imageinfoRequests = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      
+      imageinfoRequests.forEach(req => {
+        req.flush(mockImageInfoResponse);
+      });
+    });
+
+    it('should handle format validation service errors gracefully', (done) => {
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo1.jpg',
+                extmetadata: {
+                  DateTime: { value: '2020-01-15 10:30:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  Artist: { value: 'Test Photographer' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      // Format validation service throws error
+      formatValidationService.validateImageFormat.and.returnValue(
+        Promise.reject(new Error('Format validation service unavailable'))
+      );
+
+      service.fetchRandomPhotos(1).subscribe({
+        next: (photos) => {
+          done.fail('Expected error but got photos');
+        },
+        error: (error) => {
+          expect(error).toBeInstanceOf(InsufficientPhotosError);
+          done();
+        }
+      });
+
+      // Handle requests
+      const geosearchRequests = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      
+      geosearchRequests.forEach(req => {
+        req.flush(mockGeosearchResponse);
+      });
+
+      const imageinfoRequests = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      
+      imageinfoRequests.forEach(req => {
+        req.flush(mockImageInfoResponse);
+      });
+    });
+  });
+
+  describe('Error logging and monitoring', () => {
+    it('should log format validation rejections with photo details', async () => {
+      const consoleSpy = spyOn(console, 'log');
+      
+      const mockRawData = {
+        title: 'File:Test_Photo.tiff',
+        imageinfo: [{
+          url: 'https://example.com/photo.tiff',
+          extmetadata: {
+            DateTime: { value: '2020-01-15 10:30:00' },
+            GPSLatitude: { value: '40.7128' },
+            GPSLongitude: { value: '-74.0060' },
+            Artist: { value: 'Test Photographer' },
+            LicenseShortName: { value: 'CC BY-SA 4.0' },
+            MimeType: { value: 'image/tiff' }
+          }
+        }]
+      };
+
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: false,
+        detectedFormat: 'tiff',
+        rejectionReason: 'Limited browser support',
+        confidence: 0.8,
+        detectionMethod: 'mime-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      await service.processPhotoData(mockRawData);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Photo rejected due to format validation',
+        jasmine.objectContaining({
+          url: 'https://example.com/photo.tiff',
+          reason: 'Limited browser support',
+          method: 'mime-type'
+        })
+      );
+    });
+
+    it('should handle and log network errors during format validation', async () => {
+      const consoleSpy = spyOn(console, 'error');
+      
+      const mockRawData = {
+        title: 'File:Test_Photo.jpg',
+        imageinfo: [{
+          url: 'https://example.com/photo.jpg',
+          extmetadata: {
+            DateTime: { value: '2020-01-15 10:30:00' },
+            GPSLatitude: { value: '40.7128' },
+            GPSLongitude: { value: '-74.0060' },
+            Artist: { value: 'Test Photographer' },
+            LicenseShortName: { value: 'CC BY-SA 4.0' },
+            MimeType: { value: 'image/jpeg' }
+          }
+        }]
+      };
+
+      const networkError = new Error('Network connection failed during format detection');
+      formatValidationService.validateImageFormat.and.returnValue(Promise.reject(networkError));
+
+      const result = await service.processPhotoData(mockRawData);
+
+      expect(result).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Error processing photo data:',
+        networkError
+      );
+    });
+  });
+});
