@@ -80,7 +80,7 @@
   - Write unit tests for caching functionality and cache invalidation
   - _Requirements: Performance optimization from design_
 
-- [ ] 11. Add configuration management for supported formats
+- [x] 11. Add configuration management for supported formats
 
   - Create centralized configuration for supported and rejected formats
   - Implement easy format addition/removal through configuration updates

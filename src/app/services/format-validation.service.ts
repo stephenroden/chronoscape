@@ -3,31 +3,9 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, firstValueFrom, TimeoutError } from 'rxjs';
 import { map, catchError, timeout } from 'rxjs/operators';
 import { FormatValidationLoggerService } from './format-validation-logger.service';
+import { FormatConfigService, FormatConfig } from './format-config.service';
 
-/**
- * Configuration for supported image formats
- */
-export interface FormatConfig {
-  supportedFormats: {
-    [key: string]: {
-      extensions: string[];
-      mimeTypes: string[];
-      enabled: boolean;
-    };
-  };
-  rejectedFormats: {
-    [key: string]: {
-      extensions: string[];
-      mimeTypes: string[];
-      reason: string;
-    };
-  };
-  fallbackBehavior: {
-    retryCount: number;
-    expandSearchRadius: boolean;
-    httpTimeoutMs: number;
-  };
-}
+// FormatConfig interface is now imported from FormatConfigService
 
 /**
  * Result of format validation
@@ -75,52 +53,6 @@ interface FormatValidationCacheConfig {
   providedIn: 'root'
 })
 export class FormatValidationService {
-  private readonly formatConfig: FormatConfig = {
-    supportedFormats: {
-      jpeg: {
-        extensions: ['.jpg', '.jpeg'],
-        mimeTypes: ['image/jpeg'],
-        enabled: true
-      },
-      png: {
-        extensions: ['.png'],
-        mimeTypes: ['image/png'],
-        enabled: true
-      },
-      webp: {
-        extensions: ['.webp'],
-        mimeTypes: ['image/webp'],
-        enabled: true
-      }
-    },
-    rejectedFormats: {
-      tiff: {
-        extensions: ['.tiff', '.tif'],
-        mimeTypes: ['image/tiff'],
-        reason: 'Limited browser support'
-      },
-      svg: {
-        extensions: ['.svg'],
-        mimeTypes: ['image/svg+xml'],
-        reason: 'Not suitable for photographs'
-      },
-      gif: {
-        extensions: ['.gif'],
-        mimeTypes: ['image/gif'],
-        reason: 'Avoid animated content'
-      },
-      bmp: {
-        extensions: ['.bmp'],
-        mimeTypes: ['image/bmp'],
-        reason: 'Large file sizes, limited web optimization'
-      }
-    },
-    fallbackBehavior: {
-      retryCount: 3,
-      expandSearchRadius: true,
-      httpTimeoutMs: 5000
-    }
-  };
 
   private detectionStrategies: FormatDetectionStrategy[] = [];
 
@@ -146,7 +78,8 @@ export class FormatValidationService {
 
   constructor(
     private http: HttpClient,
-    private logger: FormatValidationLoggerService
+    private logger: FormatValidationLoggerService,
+    private formatConfigService: FormatConfigService
   ) {
     this.initializeDetectionStrategies();
     
@@ -532,8 +465,7 @@ export class FormatValidationService {
    * @returns Array of supported format names
    */
   getSupportedFormats(): string[] {
-    return Object.keys(this.formatConfig.supportedFormats)
-      .filter(format => this.formatConfig.supportedFormats[format].enabled);
+    return this.formatConfigService.getSupportedFormatNames();
   }
 
   /**
@@ -580,15 +512,17 @@ export class FormatValidationService {
       // Validate extension format (should be at least 2 characters: dot + letter)
       if (extension.length < 2 || !/^\.[\w]+$/.test(extension)) return null;
       
+      const formatConfig = this.formatConfigService.getConfig();
+      
       // Find matching format in supported formats
-      for (const [formatName, config] of Object.entries(this.formatConfig.supportedFormats)) {
+      for (const [formatName, config] of Object.entries(formatConfig.supportedFormats)) {
         if (config.extensions.includes(extension)) {
           return formatName;
         }
       }
       
       // Check rejected formats too
-      for (const [formatName, config] of Object.entries(this.formatConfig.rejectedFormats)) {
+      for (const [formatName, config] of Object.entries(formatConfig.rejectedFormats)) {
         if (config.extensions.includes(extension)) {
           return formatName;
         }
@@ -610,16 +544,17 @@ export class FormatValidationService {
     if (!mimeType || typeof mimeType !== 'string') return null;
 
     const normalizedMimeType = mimeType.toLowerCase().trim();
+    const formatConfig = this.formatConfigService.getConfig();
     
     // Check supported formats
-    for (const [formatName, config] of Object.entries(this.formatConfig.supportedFormats)) {
+    for (const [formatName, config] of Object.entries(formatConfig.supportedFormats)) {
       if (config.mimeTypes.includes(normalizedMimeType)) {
         return formatName;
       }
     }
     
     // Check rejected formats
-    for (const [formatName, config] of Object.entries(this.formatConfig.rejectedFormats)) {
+    for (const [formatName, config] of Object.entries(formatConfig.rejectedFormats)) {
       if (config.mimeTypes.includes(normalizedMimeType)) {
         return formatName;
       }
@@ -774,8 +709,41 @@ export class FormatValidationService {
    * @returns true if format is supported
    */
   isFormatSupported(format: string): boolean {
-    const config = this.formatConfig.supportedFormats[format];
+    const formatConfig = this.formatConfigService.getConfig();
+    const config = formatConfig.supportedFormats[format];
     return config ? config.enabled : false;
+  }
+
+  /**
+   * Gets the current format configuration
+   * @returns Current format configuration
+   */
+  getFormatConfig(): FormatConfig {
+    return this.formatConfigService.getConfig();
+  }
+
+  /**
+   * Updates the format configuration
+   * @param newConfig - New configuration to apply
+   * @returns Validation result indicating success or failure with details
+   */
+  updateFormatConfig(newConfig: FormatConfig) {
+    return this.formatConfigService.updateConfig(newConfig);
+  }
+
+  /**
+   * Resets format configuration to default values
+   */
+  resetFormatConfigToDefault(): void {
+    this.formatConfigService.resetToDefault();
+  }
+
+  /**
+   * Gets the default format configuration
+   * @returns Default format configuration
+   */
+  getDefaultFormatConfig(): FormatConfig {
+    return this.formatConfigService.getDefaultConfig();
   }
 
   /**
@@ -784,7 +752,8 @@ export class FormatValidationService {
    * @returns Rejection reason or generic message
    */
   private getRejectionReason(format: string): string {
-    const rejectedConfig = this.formatConfig.rejectedFormats[format];
+    const formatConfig = this.formatConfigService.getConfig();
+    const rejectedConfig = formatConfig.rejectedFormats[format];
     if (rejectedConfig) {
       return rejectedConfig.reason;
     }
@@ -949,7 +918,7 @@ export class FormatValidationService {
       const response = await firstValueFrom(
         this.http.head(url, { observe: 'response' })
           .pipe(
-            timeout(this.formatConfig.fallbackBehavior.httpTimeoutMs),
+            timeout(this.formatConfigService.getConfig().fallbackBehavior.httpTimeoutMs),
             map(response => {
               const contentType = response.headers.get('content-type');
               return contentType ? contentType.split(';')[0].trim() : null;

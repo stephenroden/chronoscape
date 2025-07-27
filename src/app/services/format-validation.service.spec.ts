@@ -3,6 +3,7 @@ import { HttpClientTestingModule, HttpTestingController } from '@angular/common/
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormatValidationService } from './format-validation.service';
 import { FormatValidationLoggerService } from './format-validation-logger.service';
+import { FormatConfigService } from './format-config.service';
 
 describe('FormatValidationService - Basic Tests', () => {
   let service: FormatValidationService;
@@ -12,7 +13,7 @@ describe('FormatValidationService - Basic Tests', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [FormatValidationService, FormatValidationLoggerService]
+      providers: [FormatValidationService, FormatValidationLoggerService, FormatConfigService]
     });
     service = TestBed.inject(FormatValidationService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -126,7 +127,7 @@ describe('FormatValidationService - Error Handling and Logging Tests', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [FormatValidationService, FormatValidationLoggerService]
+      providers: [FormatValidationService, FormatValidationLoggerService, FormatConfigService]
     });
     service = TestBed.inject(FormatValidationService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -587,7 +588,7 @@ describe(
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [FormatValidationService, FormatValidationLoggerService]
+      providers: [FormatValidationService, FormatValidationLoggerService, FormatConfigService]
     });
     service = TestBed.inject(FormatValidationService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -981,6 +982,267 @@ describe(
       
       const stats = service.getCacheStats();
       expect(stats.hits).toBe(1);
+    });
+  });
+});
+describe('FormatValidationService - Configuration Management Tests', () => {
+  let service: FormatValidationService;
+  let httpMock: HttpTestingController;
+  let loggerService: FormatValidationLoggerService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [FormatValidationService, FormatValidationLoggerService, FormatConfigService]
+    });
+    service = TestBed.inject(FormatValidationService);
+    httpMock = TestBed.inject(HttpTestingController);
+    loggerService = TestBed.inject(FormatValidationLoggerService);
+    
+    // Clear logs before each test
+    loggerService.clearLogs();
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  describe('Configuration Access', () => {
+    it('should get current format configuration', () => {
+      const config = service.getFormatConfig();
+      
+      expect(config).toBeDefined();
+      expect(config.supportedFormats).toBeDefined();
+      expect(config.rejectedFormats).toBeDefined();
+      expect(config.fallbackBehavior).toBeDefined();
+      
+      // Verify default supported formats
+      expect(config.supportedFormats['jpeg']).toBeDefined();
+      expect(config.supportedFormats['png']).toBeDefined();
+      expect(config.supportedFormats['webp']).toBeDefined();
+      
+      // Verify default rejected formats
+      expect(config.rejectedFormats['tiff']).toBeDefined();
+      expect(config.rejectedFormats['svg']).toBeDefined();
+      expect(config.rejectedFormats['gif']).toBeDefined();
+      expect(config.rejectedFormats['bmp']).toBeDefined();
+    });
+
+    it('should get default format configuration', () => {
+      const defaultConfig = service.getDefaultFormatConfig();
+      
+      expect(defaultConfig).toBeDefined();
+      expect(defaultConfig.supportedFormats['jpeg'].enabled).toBe(true);
+      expect(defaultConfig.supportedFormats['png'].enabled).toBe(true);
+      expect(defaultConfig.supportedFormats['webp'].enabled).toBe(true);
+      
+      expect(defaultConfig.rejectedFormats['tiff'].reason).toBe('Limited browser support');
+      expect(defaultConfig.rejectedFormats['svg'].reason).toBe('Not suitable for photographs');
+      expect(defaultConfig.rejectedFormats['gif'].reason).toBe('Avoid animated content');
+      expect(defaultConfig.rejectedFormats['bmp'].reason).toBe('Large file sizes, limited web optimization');
+    });
+
+    it('should return independent copies of configuration', () => {
+      const config1 = service.getFormatConfig();
+      const config2 = service.getFormatConfig();
+      
+      expect(config1).not.toBe(config2);
+      expect(config1.supportedFormats).not.toBe(config2.supportedFormats);
+      
+      // Modify one config and ensure the other is not affected
+      config1.supportedFormats['jpeg'].enabled = false;
+      expect(config2.supportedFormats['jpeg'].enabled).toBe(true);
+    });
+  });
+
+  describe('Configuration Updates', () => {
+    it('should update format configuration successfully', () => {
+      const newConfig = service.getFormatConfig();
+      newConfig.supportedFormats['jpeg'].enabled = false;
+      newConfig.fallbackBehavior.retryCount = 5;
+      
+      const result = service.updateFormatConfig(newConfig);
+      
+      expect(result.isValid).toBe(true);
+      expect(result.errors).toEqual([]);
+      
+      const updatedConfig = service.getFormatConfig();
+      expect(updatedConfig.supportedFormats['jpeg'].enabled).toBe(false);
+      expect(updatedConfig.fallbackBehavior.retryCount).toBe(5);
+    });
+
+    it('should reject invalid format configuration', () => {
+      const invalidConfig = {
+        supportedFormats: {},
+        // Missing required properties
+      } as any;
+      
+      const result = service.updateFormatConfig(invalidConfig);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      
+      // Original configuration should remain unchanged
+      const currentConfig = service.getFormatConfig();
+      expect(currentConfig.supportedFormats['jpeg']).toBeDefined();
+    });
+
+    it('should reset configuration to default', () => {
+      // Modify configuration
+      const newConfig = service.getFormatConfig();
+      newConfig.supportedFormats['jpeg'].enabled = false;
+      service.updateFormatConfig(newConfig);
+      
+      expect(service.getFormatConfig().supportedFormats['jpeg'].enabled).toBe(false);
+      
+      // Reset to default
+      service.resetFormatConfigToDefault();
+      expect(service.getFormatConfig().supportedFormats['jpeg'].enabled).toBe(true);
+    });
+  });
+
+  describe('Integration with Format Validation', () => {
+    it('should use updated configuration for format validation', async () => {
+      // Initially JPEG should be supported
+      expect(service.isFormatSupported('jpeg')).toBe(true);
+      
+      // Disable JPEG format
+      const newConfig = service.getFormatConfig();
+      newConfig.supportedFormats['jpeg'].enabled = false;
+      service.updateFormatConfig(newConfig);
+      
+      // Now JPEG should not be supported
+      expect(service.isFormatSupported('jpeg')).toBe(false);
+      
+      // Test with actual validation
+      const result = await service.validateImageFormat('https://example.com/photo.jpg');
+      expect(result.isValid).toBe(false);
+      expect(result.rejectionReason).toContain('Format not supported');
+    });
+
+    it('should use updated configuration for getSupportedFormats', () => {
+      // Initially should include all default formats
+      let supportedFormats = service.getSupportedFormats();
+      expect(supportedFormats).toContain('jpeg');
+      expect(supportedFormats).toContain('png');
+      expect(supportedFormats).toContain('webp');
+      
+      // Disable PNG format
+      const newConfig = service.getFormatConfig();
+      newConfig.supportedFormats['png'].enabled = false;
+      service.updateFormatConfig(newConfig);
+      
+      // Now PNG should not be in supported formats
+      supportedFormats = service.getSupportedFormats();
+      expect(supportedFormats).toContain('jpeg');
+      expect(supportedFormats).not.toContain('png');
+      expect(supportedFormats).toContain('webp');
+    });
+
+    it('should use updated timeout configuration for HTTP requests', async () => {
+      // Update HTTP timeout to a very low value
+      const newConfig = service.getFormatConfig();
+      newConfig.fallbackBehavior.httpTimeoutMs = 1; // 1ms timeout
+      service.updateFormatConfig(newConfig);
+      
+      // This should timeout quickly
+      const result = await service.validateImageFormat('https://httpbin.org/delay/1');
+      
+      expect(result.isValid).toBe(false);
+      expect(result.rejectionReason).toContain('HTTP request failed');
+    });
+  });
+
+  describe('Configuration Validation Integration', () => {
+    it('should validate format extensions correctly with custom configuration', async () => {
+      // Add a new supported format
+      const newConfig = service.getFormatConfig();
+      newConfig.supportedFormats['avif'] = {
+        extensions: ['.avif'],
+        mimeTypes: ['image/avif'],
+        enabled: true,
+        description: 'AVIF format'
+      };
+      
+      const updateResult = service.updateFormatConfig(newConfig);
+      expect(updateResult.isValid).toBe(true);
+      
+      // Test validation with the new format
+      const validationResult = await service.validateImageFormat('https://example.com/photo.avif');
+      expect(validationResult.isValid).toBe(true);
+      expect(validationResult.detectedFormat).toBe('avif');
+    });
+
+    it('should handle rejected format configuration correctly', async () => {
+      // Add a new rejected format
+      const newConfig = service.getFormatConfig();
+      newConfig.rejectedFormats['heic'] = {
+        extensions: ['.heic'],
+        mimeTypes: ['image/heic'],
+        reason: 'Limited browser support',
+        description: 'HEIC format'
+      };
+      
+      const updateResult = service.updateFormatConfig(newConfig);
+      expect(updateResult.isValid).toBe(true);
+      
+      // Test validation with the new rejected format
+      const validationResult = await service.validateImageFormat('https://example.com/photo.heic');
+      expect(validationResult.isValid).toBe(false);
+      expect(validationResult.detectedFormat).toBe('heic');
+      expect(validationResult.rejectionReason).toBe('Limited browser support');
+    });
+
+    it('should prevent configuration conflicts', () => {
+      const newConfig = service.getFormatConfig();
+      
+      // Try to add a rejected format that conflicts with supported format
+      newConfig.rejectedFormats['conflicting'] = {
+        extensions: ['.jpg'], // Conflicts with JPEG
+        mimeTypes: ['image/conflicting'],
+        reason: 'Test conflict'
+      };
+      
+      const result = service.updateFormatConfig(newConfig);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.errors.some(error => error.includes("Extension '.jpg' is used by both"))).toBe(true);
+    });
+  });
+
+  describe('Error Handling', () => {
+    it('should handle null configuration gracefully', () => {
+      const result = service.updateFormatConfig(null as any);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Configuration must be an object');
+      
+      // Original configuration should remain unchanged
+      const currentConfig = service.getFormatConfig();
+      expect(currentConfig.supportedFormats['jpeg']).toBeDefined();
+    });
+
+    it('should handle undefined configuration gracefully', () => {
+      const result = service.updateFormatConfig(undefined as any);
+      
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('Configuration must be an object');
+    });
+
+    it('should preserve original configuration when update fails', () => {
+      const originalConfig = service.getFormatConfig();
+      
+      // Try to update with invalid configuration
+      const invalidConfig = {
+        supportedFormats: 'invalid'
+      } as any;
+      
+      const result = service.updateFormatConfig(invalidConfig);
+      expect(result.isValid).toBe(false);
+      
+      // Configuration should remain unchanged
+      const currentConfig = service.getFormatConfig();
+      expect(currentConfig).toEqual(originalConfig);
     });
   });
 });
