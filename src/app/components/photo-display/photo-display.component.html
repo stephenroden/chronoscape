@@ -47,23 +47,42 @@
     *ngIf="photo && !imageError && !(photosLoading$ | async)"
     [class.loaded]="imageLoaded">
     
-    <!-- Main photo container with responsive sizing -->
-    <div class="photo-container">
+    <!-- Main photo container with responsive sizing and zoom support -->
+    <div 
+      class="photo-container"
+      #photoContainer
+      [class.zoomable]="isZoomEnabled()"
+      [class.zoomed]="zoomState && zoomState.zoomLevel > 1"
+      [class.dragging]="isDragging">
+      
       <img 
+        #photoImage
         [src]="photo.url"
         [alt]="getImageAltText()"
         class="photo-image"
         [class.loading]="imageLoading"
         [class.loaded]="imageLoaded"
+        [style.transform]="getImageTransform()"
         (load)="onImageLoad()"
         (error)="onImageError()"
+        (mousedown)="onMouseDown($event)"
+        (touchstart)="onTouchStart($event)"
+        (touchmove)="onTouchMove($event)"
+        (touchend)="onTouchEnd($event)"
         loading="eager"
-        decoding="async">
+        decoding="async"
+        draggable="false">
       
       <!-- Loading overlay for smooth transition -->
       <div class="image-loading-overlay" *ngIf="imageLoading">
         <div class="loading-spinner small"></div>
       </div>
+
+      <!-- Zoom controls overlay -->
+      <app-photo-zoom-controls 
+        *ngIf="isZoomEnabled()"
+        [disabled]="imageLoading || imageError">
+      </app-photo-zoom-controls>
     </div>
 
     <!-- Photo metadata (only shown when showMetadata is true, for testing) -->

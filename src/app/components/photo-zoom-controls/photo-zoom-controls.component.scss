@@ -1,0 +1,153 @@
+.zoom-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+  transition: opacity 0.2s ease;
+
+  &.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .zoom-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.05);
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    &:focus {
+      outline: 2px solid #007bff;
+      outline-offset: 2px;
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  }
+
+  .zoom-level-indicator {
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    min-width: 32px;
+    text-align: center;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    user-select: none;
+  }
+}
+
+// Mobile responsive adjustments
+@media (max-width: 768px) {
+  .zoom-controls {
+    top: 12px;
+    right: 12px;
+    gap: 6px;
+    padding: 6px;
+
+    .zoom-btn {
+      width: 36px;
+      height: 36px;
+
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+
+    .zoom-level-indicator {
+      font-size: 12px;
+      min-width: 28px;
+      padding: 2px 6px;
+    }
+  }
+}
+
+// High contrast mode support
+@media (prefers-contrast: high) {
+  .zoom-controls {
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid white;
+
+    .zoom-btn {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+
+      &:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.4);
+        border-color: rgba(255, 255, 255, 0.6);
+      }
+
+      &:focus {
+        outline: 3px solid #ffff00;
+      }
+    }
+
+    .zoom-level-indicator {
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+// Reduced motion support
+@media (prefers-reduced-motion: reduce) {
+  .zoom-controls,
+  .zoom-btn {
+    transition: none;
+  }
+
+  .zoom-btn:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .zoom-btn:active:not(:disabled) {
+    transform: none;
+  }
+}

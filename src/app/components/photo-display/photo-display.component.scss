@@ -185,6 +185,7 @@
   position: relative;
   width: 100%;
   background-color: #000;
+  overflow: hidden;
   
   // Maintain aspect ratio while being responsive
   &::before {
@@ -194,6 +195,19 @@
     
     @media (max-width: 768px) {
       padding-top: 75%; // 4:3 aspect ratio on mobile for better fit
+    }
+  }
+
+  // Zoom-specific styles
+  &.zoomable {
+    cursor: grab;
+    
+    &.zoomed {
+      cursor: grab;
+    }
+    
+    &.dragging {
+      cursor: grabbing;
     }
   }
 }
@@ -207,6 +221,10 @@
   object-fit: contain;
   object-position: center;
   transition: opacity 0.3s ease;
+  transform-origin: center center;
+  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
   
   &.loading {
     opacity: 0;
@@ -220,6 +238,15 @@
   &:focus {
     outline: 3px solid #4285f4;
     outline-offset: 2px;
+  }
+
+  // Zoom-specific styles
+  .photo-container.zoomable & {
+    transition: transform 0.1s ease-out;
+  }
+
+  .photo-container.dragging & {
+    transition: none;
   }
 }
 
@@ -358,6 +385,24 @@
   }
 }
 
+// Touch device optimizations
+@media (hover: none) and (pointer: coarse) {
+  .photo-container.zoomable {
+    // Improve touch responsiveness
+    touch-action: none;
+    
+    .photo-image {
+      // Prevent default touch behaviors
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+  }
+}
+
 // Reduced motion support
 @media (prefers-reduced-motion: reduce) {
   .skeleton-image,
@@ -365,6 +410,10 @@
   .photo-content,
   .photo-image {
     animation: none;
+    transition: none;
+  }
+
+  .photo-container.zoomable .photo-image {
     transition: none;
   }
 }

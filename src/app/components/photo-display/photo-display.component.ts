@@ -1,10 +1,12 @@
-import { Component, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ElementRef, ViewChild, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subscription } from 'rxjs';
 import { Photo } from '../../models/photo.model';
 import { AppState } from '../../state/app.state';
 import { ImagePreloaderService } from '../../services/image-preloader.service';
+import { PhotoZoomService, PhotoZoomState } from '../../services/photo-zoom.service';
+import { PhotoZoomControlsComponent } from '../photo-zoom-controls/photo-zoom-controls.component';
 import * as PhotosSelectors from '../../state/photos/photos.selectors';
 import * as GameSelectors from '../../state/game/game.selectors';
 
@@ -22,18 +24,32 @@ import * as GameSelectors from '../../state/game/game.selectors';
 @Component({
   selector: 'app-photo-display',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, PhotoZoomControlsComponent],
   templateUrl: './photo-display.component.html',
   styleUrls: ['./photo-display.component.scss']
 })
 export class PhotoDisplayComponent implements OnInit, OnDestroy {
   @Input() photo: Photo | null = null;
   @Input() showMetadata: boolean = false; // For testing purposes, normally false during game
+  @Input() enableZoom: boolean = true; // Enable/disable zoom functionality
+
+  @ViewChild('photoContainer', { static: false }) photoContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('photoImage', { static: false }) photoImage!: ElementRef<HTMLImageElement>;
 
   // Component state
   imageLoaded = false;
   imageError = false;
   imageLoading = true;
+
+  // Zoom state
+  zoomState: PhotoZoomState | null = null;
+  isDragging = false;
+  lastPanPoint = { x: 0, y: 0 };
+
+  // Touch gesture state
+  private touchStartDistance = 0;
+  private touchStartCenter = { x: 0, y: 0 };
+  private isMultiTouch = false;
 
   // Store observables
   currentPhoto$: Observable<Photo | null>;
@@ -46,7 +62,8 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
 
   constructor(
     private store: Store<AppState>,
-    private imagePreloader: ImagePreloaderService
+    private imagePreloader: ImagePreloaderService,
+    private photoZoomService: PhotoZoomService
   ) {
     this.currentPhoto$ = this.store.select(PhotosSelectors.selectCurrentPhoto);
     this.photosLoading$ = this.store.select(PhotosSelectors.selectPhotosLoading);
@@ -63,11 +80,21 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
           this.photo = photo;
           if (photo) {
             this.resetImageState();
+            this.resetZoom();
             this.preloadNextPhoto();
           }
         }
       })
     );
+
+    // Subscribe to zoom state changes
+    if (this.enableZoom) {
+      this.subscriptions.add(
+        this.photoZoomService.zoomState$.subscribe(state => {
+          this.zoomState = state;
+        })
+      );
+    }
 
     // Preload all photos when they become available
     this.subscriptions.add(
@@ -91,6 +118,11 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     this.imageLoaded = true;
     this.imageError = false;
     this.imageLoading = false;
+    
+    // Initialize zoom after image loads
+    if (this.enableZoom) {
+      setTimeout(() => this.initializeZoom(), 0);
+    }
   }
 
   /**
@@ -187,5 +219,202 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     if (this.imageError) return 'Failed to load photograph';
     if (this.imageLoaded) return 'Photograph loaded successfully';
     return 'Photograph';
+  }
+
+  /**
+   * Initialize zoom functionality after image loads
+   */
+  private initializeZoom(): void {
+    if (!this.enableZoom || !this.photoContainer || !this.photoImage) return;
+
+    const container = this.photoContainer.nativeElement;
+    const image = this.photoImage.nativeElement;
+
+    this.photoZoomService.initializeZoom(
+      container.clientWidth,
+      container.clientHeight,
+      image.naturalWidth,
+      image.naturalHeight
+    );
+  }
+
+  /**
+   * Reset zoom to default state
+   */
+  private resetZoom(): void {
+    if (this.enableZoom) {
+      this.photoZoomService.reset();
+    }
+  }
+
+  /**
+   * Get CSS transform for zoomed image
+   */
+  getImageTransform(): string {
+    if (!this.enableZoom || !this.zoomState) return '';
+    return this.photoZoomService.getTransform();
+  }
+
+  /**
+   * Handle mouse down for pan start
+   */
+  onMouseDown(event: MouseEvent): void {
+    if (!this.enableZoom || !this.zoomState || this.zoomState.zoomLevel <= 1) return;
+    
+    event.preventDefault();
+    this.isDragging = true;
+    this.lastPanPoint = { x: event.clientX, y: event.clientY };
+  }
+
+  /**
+   * Handle mouse move for panning
+   */
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(event: MouseEvent): void {
+    if (!this.isDragging || !this.enableZoom) return;
+
+    const deltaX = event.clientX - this.lastPanPoint.x;
+    const deltaY = event.clientY - this.lastPanPoint.y;
+
+    this.photoZoomService.pan(deltaX, deltaY);
+    this.lastPanPoint = { x: event.clientX, y: event.clientY };
+  }
+
+  /**
+   * Handle mouse up for pan end
+   */
+  @HostListener('document:mouseup')
+  onMouseUp(): void {
+    this.isDragging = false;
+  }
+
+  /**
+   * Handle touch start for pan and pinch gestures
+   */
+  onTouchStart(event: TouchEvent): void {
+    if (!this.enableZoom) return;
+
+    event.preventDefault();
+
+    if (event.touches.length === 1) {
+      // Single touch - start pan
+      this.isDragging = true;
+      this.isMultiTouch = false;
+      this.lastPanPoint = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+      };
+    } else if (event.touches.length === 2) {
+      // Multi-touch - start pinch
+      this.isDragging = false;
+      this.isMultiTouch = true;
+      
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      
+      this.touchStartDistance = this.getTouchDistance(touch1, touch2);
+      this.touchStartCenter = this.getTouchCenter(touch1, touch2);
+    }
+  }
+
+  /**
+   * Handle touch move for pan and pinch gestures
+   */
+  onTouchMove(event: TouchEvent): void {
+    if (!this.enableZoom) return;
+
+    event.preventDefault();
+
+    if (event.touches.length === 1 && this.isDragging && !this.isMultiTouch) {
+      // Single touch pan
+      const touch = event.touches[0];
+      const deltaX = touch.clientX - this.lastPanPoint.x;
+      const deltaY = touch.clientY - this.lastPanPoint.y;
+
+      this.photoZoomService.pan(deltaX, deltaY);
+      this.lastPanPoint = { x: touch.clientX, y: touch.clientY };
+    } else if (event.touches.length === 2 && this.isMultiTouch) {
+      // Pinch zoom
+      const touch1 = event.touches[0];
+      const touch2 = event.touches[1];
+      
+      const currentDistance = this.getTouchDistance(touch1, touch2);
+      const currentCenter = this.getTouchCenter(touch1, touch2);
+      
+      if (this.touchStartDistance > 0) {
+        const scale = currentDistance / this.touchStartDistance;
+        this.photoZoomService.handlePinchZoom(
+          scale,
+          currentCenter.x,
+          currentCenter.y
+        );
+      }
+      
+      this.touchStartDistance = currentDistance;
+      this.touchStartCenter = currentCenter;
+    }
+  }
+
+  /**
+   * Handle touch end
+   */
+  onTouchEnd(event: TouchEvent): void {
+    if (!this.enableZoom) return;
+
+    if (event.touches.length === 0) {
+      this.isDragging = false;
+      this.isMultiTouch = false;
+      this.touchStartDistance = 0;
+    } else if (event.touches.length === 1 && this.isMultiTouch) {
+      // Transition from multi-touch to single touch
+      this.isMultiTouch = false;
+      this.isDragging = true;
+      this.lastPanPoint = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+      };
+    }
+  }
+
+  /**
+   * Handle window resize to update zoom container dimensions
+   */
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    if (this.enableZoom && this.photoContainer && this.imageLoaded) {
+      setTimeout(() => {
+        const container = this.photoContainer.nativeElement;
+        this.photoZoomService.updateContainerDimensions(
+          container.clientWidth,
+          container.clientHeight
+        );
+      }, 100);
+    }
+  }
+
+  /**
+   * Calculate distance between two touch points
+   */
+  private getTouchDistance(touch1: Touch, touch2: Touch): number {
+    const dx = touch1.clientX - touch2.clientX;
+    const dy = touch1.clientY - touch2.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * Calculate center point between two touches
+   */
+  private getTouchCenter(touch1: Touch, touch2: Touch): { x: number; y: number } {
+    return {
+      x: (touch1.clientX + touch2.clientX) / 2,
+      y: (touch1.clientY + touch2.clientY) / 2
+    };
+  }
+
+  /**
+   * Check if zoom is enabled and active
+   */
+  isZoomEnabled(): boolean {
+    return this.enableZoom && this.imageLoaded && !this.imageError;
   }
 }
