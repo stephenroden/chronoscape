@@ -5,6 +5,7 @@ import { map, switchMap, catchError, filter } from 'rxjs/operators';
 import { Photo, validatePhotoMetadata } from '../models/photo.model';
 import { Coordinates } from '../models/coordinates.model';
 import { CacheService } from './cache.service';
+import { FormatValidationService } from './format-validation.service';
 
 /**
  * Raw response structure from Wikimedia Commons API
@@ -51,7 +52,8 @@ export class PhotoService {
 
   constructor(
     private http: HttpClient,
-    private cacheService: CacheService
+    private cacheService: CacheService,
+    private formatValidationService: FormatValidationService
   ) { }
 
   /**
@@ -96,9 +98,9 @@ export class PhotoService {
   /**
    * Processes raw Wikimedia data into Photo objects
    * @param rawData - Raw API response data
-   * @returns Processed Photo object or null if invalid
+   * @returns Promise resolving to processed Photo object or null if invalid
    */
-  processPhotoData(rawData: any): Photo | null {
+  async processPhotoData(rawData: any): Promise<Photo | null> {
     try {
       if (!rawData) return null;
       const imageInfo = rawData.imageinfo?.[0];
@@ -117,7 +119,34 @@ export class PhotoService {
       const coordinates = this.extractCoordinates(extmetadata, metadata);
       if (!coordinates || (coordinates.latitude === 0 && coordinates.longitude === 0)) return null;
 
-      // Create photo object
+      // Perform format validation before creating Photo object
+      const formatValidation = await this.formatValidationService.validateImageFormat(
+        imageInfo.url,
+        extmetadata.MimeType?.value,
+        { extmetadata }
+      );
+
+      if (!formatValidation.isValid) {
+        console.log(`Photo rejected due to format validation: ${formatValidation.rejectionReason}`, {
+          url: imageInfo.url,
+          detectedFormat: formatValidation.detectedFormat,
+          detectedMimeType: formatValidation.detectedMimeType,
+          detectionMethod: formatValidation.detectionMethod,
+          confidence: formatValidation.confidence
+        });
+        return null;
+      }
+
+      // Log successful format validation
+      console.log(`Photo format validation successful`, {
+        url: imageInfo.url,
+        detectedFormat: formatValidation.detectedFormat,
+        detectedMimeType: formatValidation.detectedMimeType,
+        detectionMethod: formatValidation.detectionMethod,
+        confidence: formatValidation.confidence
+      });
+
+      // Create photo object with format metadata
       const photo: Photo = {
         id: rawData.title.replace('File:', ''),
         url: imageInfo.url,
@@ -130,7 +159,9 @@ export class PhotoService {
           photographer: this.extractArtist(extmetadata),
           license: this.extractLicense(extmetadata),
           originalSource: imageInfo.url,
-          dateCreated: new Date(year, 0, 1) // Use January 1st of the year
+          dateCreated: new Date(year, 0, 1), // Use January 1st of the year
+          format: formatValidation.detectedFormat,
+          mimeType: formatValidation.detectedMimeType
         }
       };
 
@@ -479,16 +510,22 @@ export class PhotoService {
 
         return this.http.get<WikimediaImageInfoResponse>(this.API_BASE_URL, { params })
           .pipe(
-            map(response => {
+            switchMap(async response => {
               const pages = response.query?.pages || {};
               const photos: Photo[] = [];
 
-              Object.values(pages).forEach(page => {
-                const photo = this.processPhotoData(page);
-                if (photo) {
-                  photos.push(photo);
+              // Process photos sequentially to handle async format validation
+              for (const page of Object.values(pages)) {
+                try {
+                  const photo = await this.processPhotoData(page);
+                  if (photo) {
+                    photos.push(photo);
+                  }
+                } catch (error) {
+                  console.error('Error processing individual photo:', error);
+                  // Continue processing other photos
                 }
-              });
+              }
 
               return photos;
             }),
@@ -514,16 +551,53 @@ export class PhotoService {
   }
 
   /**
-   * Filters photos to ensure they meet game requirements
+   * Filters photos to ensure they meet game requirements including format validation
    */
   private filterValidPhotos(photos: Photo[]): Photo[] {
     return photos.filter(photo => {
-      // Ensure diverse geographical distribution by checking if coordinates are not too clustered
-      return this.validatePhotoMetadata(photo) &&
+      // Basic metadata validation
+      const hasValidMetadata = this.validatePhotoMetadata(photo) &&
         photo.year >= this.MIN_YEAR &&
         photo.year <= this.MAX_YEAR &&
         photo.coordinates.latitude !== 0 &&
         photo.coordinates.longitude !== 0;
+
+      if (!hasValidMetadata) {
+        console.log(`Photo filtered out due to invalid metadata`, {
+          url: photo.url,
+          year: photo.year,
+          coordinates: photo.coordinates,
+          hasValidMetadata: false
+        });
+        return false;
+      }
+
+      // Format validation - check if photo has format metadata indicating it passed validation
+      const hasValidFormat = photo.metadata?.format && 
+        this.formatValidationService.isFormatSupported(photo.metadata.format);
+
+      if (!hasValidFormat) {
+        console.log(`Photo filtered out due to format validation failure`, {
+          url: photo.url,
+          detectedFormat: photo.metadata?.format,
+          supportedFormats: this.formatValidationService.getSupportedFormats(),
+          rejectionReason: photo.metadata?.format ? 
+            `Format '${photo.metadata.format}' is not supported` : 
+            'No format detected during processing'
+        });
+        return false;
+      }
+
+      // Log successful filtering
+      console.log(`Photo passed all filtering criteria`, {
+        url: photo.url,
+        year: photo.year,
+        format: photo.metadata.format,
+        mimeType: photo.metadata.mimeType,
+        coordinates: photo.coordinates
+      });
+
+      return true;
     });
   }
 

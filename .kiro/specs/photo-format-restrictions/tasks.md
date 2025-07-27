@@ -40,7 +40,7 @@
   - Write unit tests for enhanced photo model validation
   - _Requirements: 5.3, 6.1, 6.2_
 
-- [ ] 6. Integrate format validation into PhotoService
+- [x] 6. Integrate format validation into PhotoService
 
   - Modify processPhotoData method to include format validation
   - Add format validation before creating Photo objects
@@ -48,7 +48,7 @@
   - Write unit tests for PhotoService integration with format validation
   - _Requirements: 1.1, 1.2, 1.4, 5.1, 5.2, 5.4_
 
-- [ ] 7. Enhance photo filtering with format restrictions
+- [x] 7. Enhance photo filtering with format restrictions
 
   - Update filterValidPhotos method to include format validation
   - Add format-based rejection logic with detailed logging
