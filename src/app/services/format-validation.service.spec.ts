@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { HttpErrorResponse } from '@angular/common/http';
-import { FormatValidationService } from './format-validation.service';
+import { FormatValidationService, FormatValidationResult } from './format-validation.service';
 import { FormatValidationLoggerService } from './format-validation-logger.service';
 import { FormatConfigService } from './format-config.service';
 
