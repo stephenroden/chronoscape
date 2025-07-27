@@ -51,6 +51,24 @@ export interface FormatDetectionStrategy {
 }
 
 /**
+ * Cache entry for format validation results
+ */
+interface FormatValidationCacheEntry {
+  result: FormatValidationResult;
+  timestamp: number;
+  expiresAt: number;
+}
+
+/**
+ * Cache configuration for format validation
+ */
+interface FormatValidationCacheConfig {
+  ttl: number; // Time to live in milliseconds
+  maxSize: number; // Maximum number of entries
+  enabled: boolean;
+}
+
+/**
  * Service for validating image formats to ensure web compatibility
  */
 @Injectable({
@@ -106,11 +124,216 @@ export class FormatValidationService {
 
   private detectionStrategies: FormatDetectionStrategy[] = [];
 
+  // Cache for format validation results
+  private validationCache = new Map<string, FormatValidationCacheEntry>();
+  private cacheAccessOrder = new Map<string, number>(); // Track access order for LRU
+  private cacheAccessCounter = 0;
+  
+  // Cache configuration
+  private readonly cacheConfig: FormatValidationCacheConfig = {
+    ttl: 60 * 60 * 1000, // 1 hour TTL for format validation results
+    maxSize: 500, // Store up to 500 validation results
+    enabled: true
+  };
+
+  // Cache statistics for monitoring
+  private cacheStats = {
+    hits: 0,
+    misses: 0,
+    evictions: 0,
+    keyGenerationErrors: 0
+  };
+
   constructor(
     private http: HttpClient,
     private logger: FormatValidationLoggerService
   ) {
     this.initializeDetectionStrategies();
+    
+    // Set up periodic cache cleanup (every 10 minutes)
+    setInterval(() => {
+      this.cleanupExpiredCacheEntries();
+    }, 10 * 60 * 1000);
+  }
+
+  /**
+   * Generates cache key for format validation results based on URL and metadata
+   * @param url - Image URL
+   * @param mimeType - Optional MIME type from metadata
+   * @param metadata - Optional metadata object
+   * @returns Cache key string or null if key generation fails
+   */
+  private generateCacheKey(url: string, mimeType?: string, metadata?: any): string | null {
+    try {
+      if (!url || typeof url !== 'string') {
+        return null;
+      }
+
+      // Normalize URL by removing query parameters and fragments for consistent caching
+      let normalizedUrl: string;
+      try {
+        const urlObj = new URL(url);
+        normalizedUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+      } catch {
+        // If URL parsing fails, use the original URL
+        normalizedUrl = url;
+      }
+
+      // Create cache key components
+      const keyComponents: string[] = [normalizedUrl];
+
+      // Add MIME type if available
+      if (mimeType && typeof mimeType === 'string') {
+        keyComponents.push(`mime:${mimeType.trim().toLowerCase()}`);
+      }
+
+      // Add relevant metadata if available
+      if (metadata?.extmetadata) {
+        const wikimediaMimeType = this.extractMimeTypeFromWikimediaMetadata(metadata.extmetadata);
+        if (wikimediaMimeType && wikimediaMimeType !== mimeType) {
+          keyComponents.push(`wikimedia-mime:${wikimediaMimeType.trim().toLowerCase()}`);
+        }
+      }
+
+      // Join components with a delimiter
+      return keyComponents.join('|');
+    } catch (error) {
+      this.cacheStats.keyGenerationErrors++;
+      console.warn('Error generating cache key for format validation:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Gets format validation result from cache
+   * @param cacheKey - Cache key
+   * @returns Cached validation result or null if not found or expired
+   */
+  private getCachedValidationResult(cacheKey: string): FormatValidationResult | null {
+    if (!this.cacheConfig.enabled || !cacheKey) {
+      return null;
+    }
+
+    const entry = this.validationCache.get(cacheKey);
+    
+    if (!entry) {
+      this.cacheStats.misses++;
+      return null;
+    }
+    
+    // Check if entry has expired
+    if (Date.now() > entry.expiresAt) {
+      this.validationCache.delete(cacheKey);
+      this.cacheAccessOrder.delete(cacheKey);
+      this.cacheStats.misses++;
+      return null;
+    }
+    
+    // Update access order for LRU
+    this.cacheAccessOrder.set(cacheKey, ++this.cacheAccessCounter);
+    this.cacheStats.hits++;
+    
+    return entry.result;
+  }
+
+  /**
+   * Stores format validation result in cache
+   * @param cacheKey - Cache key
+   * @param result - Validation result to cache
+   */
+  private setCachedValidationResult(cacheKey: string, result: FormatValidationResult): void {
+    if (!this.cacheConfig.enabled || !cacheKey) {
+      return;
+    }
+
+    // Only cache successful results or definitive failures (high confidence)
+    // Don't cache network errors or temporary failures
+    if (result.confidence < 0.6 || result.rejectionReason?.includes('HTTP request failed') || 
+        result.rejectionReason?.includes('Network') || result.rejectionReason?.includes('timeout')) {
+      return;
+    }
+
+    const entry: FormatValidationCacheEntry = {
+      result,
+      timestamp: Date.now(),
+      expiresAt: Date.now() + this.cacheConfig.ttl
+    };
+    
+    // Check if we need to evict entries to make room
+    if (this.validationCache.size >= this.cacheConfig.maxSize && !this.validationCache.has(cacheKey)) {
+      this.evictLRUCacheEntry();
+    }
+    
+    this.validationCache.set(cacheKey, entry);
+    this.cacheAccessOrder.set(cacheKey, ++this.cacheAccessCounter);
+  }
+
+  /**
+   * Evicts the least recently used cache entry
+   */
+  private evictLRUCacheEntry(): void {
+    if (this.cacheAccessOrder.size === 0) return;
+    
+    // Find the key with the smallest access counter (least recently used)
+    let lruKey: string | null = null;
+    let minAccess = Infinity;
+    
+    this.cacheAccessOrder.forEach((accessTime, key) => {
+      if (accessTime < minAccess) {
+        minAccess = accessTime;
+        lruKey = key;
+      }
+    });
+    
+    if (lruKey) {
+      this.validationCache.delete(lruKey);
+      this.cacheAccessOrder.delete(lruKey);
+      this.cacheStats.evictions++;
+    }
+  }
+
+  /**
+   * Cleans up expired cache entries
+   */
+  private cleanupExpiredCacheEntries(): void {
+    const now = Date.now();
+    const expiredKeys: string[] = [];
+    
+    this.validationCache.forEach((entry, key) => {
+      if (now > entry.expiresAt) {
+        expiredKeys.push(key);
+      }
+    });
+    
+    expiredKeys.forEach(key => {
+      this.validationCache.delete(key);
+      this.cacheAccessOrder.delete(key);
+    });
+  }
+
+  /**
+   * Gets cache statistics for monitoring
+   * @returns Cache statistics object
+   */
+  getCacheStats(): { hits: number; misses: number; evictions: number; size: number; hitRate: number; keyGenerationErrors: number } {
+    const total = this.cacheStats.hits + this.cacheStats.misses;
+    const hitRate = total > 0 ? (this.cacheStats.hits / total) * 100 : 0;
+    
+    return {
+      ...this.cacheStats,
+      size: this.validationCache.size,
+      hitRate: Math.round(hitRate * 100) / 100
+    };
+  }
+
+  /**
+   * Clears the format validation cache
+   */
+  clearCache(): void {
+    this.validationCache.clear();
+    this.cacheAccessOrder.clear();
+    this.cacheAccessCounter = 0;
+    this.cacheStats = { hits: 0, misses: 0, evictions: 0, keyGenerationErrors: 0 };
   }
 
   /**
@@ -137,6 +360,24 @@ export class FormatValidationService {
       return result;
     }
 
+    // Check cache first
+    const cacheKey = this.generateCacheKey(url, mimeType, metadata);
+    if (cacheKey) {
+      const cachedResult = this.getCachedValidationResult(cacheKey);
+      if (cachedResult) {
+        const validationTime = Date.now() - startTime;
+        
+        // Log cache hit with original detection method
+        if (cachedResult.isValid) {
+          this.logger.logSuccess(url, { ...cachedResult, detectionMethod: `${cachedResult.detectionMethod}-cached` }, validationTime);
+        } else {
+          this.logger.logRejection(url, { ...cachedResult, detectionMethod: `${cachedResult.detectionMethod}-cached` }, validationTime);
+        }
+        
+        return cachedResult;
+      }
+    }
+
     // Try detection strategies in priority order
     const sortedStrategies = [...this.detectionStrategies].sort((a, b) => a.priority - b.priority);
     
@@ -154,6 +395,11 @@ export class FormatValidationService {
         // If we get a definitive result (high confidence), use it
         if (result.confidence >= 0.8) {
           const validationTime = Date.now() - startTime;
+          
+          // Cache the result before returning
+          if (cacheKey) {
+            this.setCachedValidationResult(cacheKey, result);
+          }
           
           if (result.isValid) {
             this.logger.logSuccess(url, result, validationTime);
@@ -211,6 +457,8 @@ export class FormatValidationService {
             rejectionReason: this.getNetworkErrorMessage(error as Error, isTimeoutError)
           };
           
+          // Don't cache network errors as they are temporary
+          
           const validationTime = Date.now() - startTime;
           this.logger.logError(url, error as Error, validationTime, 'http-content-type', {
             networkTimeout: isTimeoutError,
@@ -227,6 +475,11 @@ export class FormatValidationService {
     
     // Return the best result found, if any
     if (bestResult) {
+      // Cache the result before returning
+      if (cacheKey) {
+        this.setCachedValidationResult(cacheKey, bestResult);
+      }
+      
       if (bestResult.isValid) {
         this.logger.logSuccess(url, bestResult, validationTime);
       } else {
@@ -237,6 +490,11 @@ export class FormatValidationService {
     
     // If we have a last result (even with low confidence), use it instead of generic failure
     if (lastResult) {
+      // Cache the result before returning
+      if (cacheKey) {
+        this.setCachedValidationResult(cacheKey, lastResult);
+      }
+      
       if (lastResult.isValid) {
         this.logger.logSuccess(url, lastResult, validationTime);
       } else {
@@ -254,6 +512,11 @@ export class FormatValidationService {
       confidence: 0.0,
       detectionMethod: 'unknown'
     };
+    
+    // Cache the final result before returning
+    if (cacheKey) {
+      this.setCachedValidationResult(cacheKey, finalResult);
+    }
     
     if (lastError) {
       this.logger.logError(url, lastError, validationTime, 'unknown');
