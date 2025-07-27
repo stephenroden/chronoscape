@@ -1,11 +1,35 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, forkJoin, of } from 'rxjs';
+import { Observable, forkJoin, of, throwError } from 'rxjs';
 import { map, switchMap, catchError, filter } from 'rxjs/operators';
 import { Photo, validatePhotoMetadata } from '../models/photo.model';
 import { Coordinates } from '../models/coordinates.model';
 import { CacheService } from './cache.service';
 import { FormatValidationService } from './format-validation.service';
+
+/**
+ * Custom error for insufficient photos after format filtering
+ */
+export class InsufficientPhotosError extends Error {
+  constructor(
+    public readonly requestedCount: number,
+    public readonly attemptsUsed: number,
+    message: string
+  ) {
+    super(message);
+    this.name = 'InsufficientPhotosError';
+  }
+}
+
+/**
+ * Custom error for general photo fetching failures
+ */
+export class PhotoFetchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PhotoFetchError';
+  }
+}
 
 /**
  * Raw response structure from Wikimedia Commons API
@@ -49,6 +73,12 @@ export class PhotoService {
   // Cache configuration
   private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes for API responses
   private readonly PHOTO_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for processed photos
+  
+  // Retry configuration
+  private readonly MAX_RETRY_ATTEMPTS = 3;
+  private readonly BASE_SEARCH_RADIUS = 10000; // 10km base radius
+  private readonly SEARCH_MULTIPLIER_PER_RETRY = 1.5; // Expand search by 50% each retry
+  private readonly PHOTOS_PER_LOCATION_MULTIPLIER = 2; // Double photos per location on retry
 
   constructor(
     private http: HttpClient,
@@ -57,7 +87,7 @@ export class PhotoService {
   ) { }
 
   /**
-   * Fetches random historical photos from Wikimedia Commons using geosearch
+   * Fetches random historical photos from Wikimedia Commons using geosearch with retry logic
    * @param count - Number of photos to fetch
    * @returns Observable of Photo array
    */
@@ -66,23 +96,84 @@ export class PhotoService {
     
     return this.cacheService.getOrSet(
       cacheKey,
-      () => {
-        const locations = this.getRandomLocations(count);
-
-        return forkJoin(
-          locations.map(location => this.searchPhotosByLocation(location))
-        ).pipe(
-          map(locationResults => locationResults.flat()),
-          switchMap(searchResults => this.getPhotoDetails(searchResults)),
-          map(photos => this.filterValidPhotos(photos)),
-          map(photos => this.selectDiversePhotos(photos, count)),
-          catchError(error => {
-            console.error('Error fetching photos:', error);
-            return of([]);
-          })
-        );
-      },
+      () => this.fetchPhotosWithRetry(count, 0),
       { ttl: this.PHOTO_CACHE_TTL }
+    );
+  }
+
+  /**
+   * Fetches photos with retry logic for insufficient valid photos
+   * @param count - Number of photos needed
+   * @param retryAttempt - Current retry attempt (0-based)
+   * @returns Observable of Photo array
+   */
+  private fetchPhotosWithRetry(count: number, retryAttempt: number): Observable<Photo[]> {
+    // Calculate search parameters based on retry attempt
+    const searchRadius = this.BASE_SEARCH_RADIUS * Math.pow(this.SEARCH_MULTIPLIER_PER_RETRY, retryAttempt);
+    const photosPerLocation = 20 * Math.pow(this.PHOTOS_PER_LOCATION_MULTIPLIER, retryAttempt);
+    const locationCount = Math.min(count * (1 + retryAttempt), 50); // Increase locations but cap at 50
+
+    console.log(`Fetching photos - Attempt ${retryAttempt + 1}/${this.MAX_RETRY_ATTEMPTS + 1}`, {
+      count,
+      searchRadius,
+      photosPerLocation,
+      locationCount,
+      retryAttempt
+    });
+
+    const locations = this.getRandomLocations(locationCount);
+
+    return forkJoin(
+      locations.map(location => this.searchPhotosByLocation(location, searchRadius, photosPerLocation))
+    ).pipe(
+      map(locationResults => locationResults.flat()),
+      switchMap(searchResults => this.getPhotoDetails(searchResults)),
+      map(photos => this.filterValidPhotos(photos)),
+      switchMap(validPhotos => {
+        console.log(`Photos after filtering - Attempt ${retryAttempt + 1}`, {
+          requested: count,
+          found: validPhotos.length,
+          retryAttempt
+        });
+
+        if (validPhotos.length >= count) {
+          // Success - we have enough photos
+          return of(this.selectDiversePhotos(validPhotos, count));
+        } else if (retryAttempt < this.MAX_RETRY_ATTEMPTS) {
+          // Retry with expanded search parameters
+          console.log(`Insufficient photos found (${validPhotos.length}/${count}). Retrying with expanded search...`);
+          return this.fetchPhotosWithRetry(count, retryAttempt + 1);
+        } else {
+          // Max retries reached - return what we have or throw error
+          if (validPhotos.length > 0) {
+            console.warn(`Max retries reached. Returning ${validPhotos.length} photos instead of requested ${count}`);
+            return of(this.selectDiversePhotos(validPhotos, validPhotos.length));
+          } else {
+            return throwError(() => new InsufficientPhotosError(
+              count,
+              retryAttempt + 1,
+              'Unable to find photos in supported formats after multiple retry attempts. This may be due to strict format restrictions or limited photo availability in the searched areas.'
+            ));
+          }
+        }
+      }),
+      catchError(error => {
+        if (error instanceof InsufficientPhotosError) {
+          // Re-throw our custom error
+          return throwError(() => error);
+        }
+        
+        console.error(`Error fetching photos on attempt ${retryAttempt + 1}:`, error);
+        
+        if (retryAttempt < this.MAX_RETRY_ATTEMPTS) {
+          console.log(`Retrying due to error...`);
+          return this.fetchPhotosWithRetry(count, retryAttempt + 1);
+        } else {
+          return throwError(() => new PhotoFetchError(
+            `Failed to fetch photos after ${retryAttempt + 1} attempts: ${error.message}`
+          ));
+        }
+      })
     );
   }
 
@@ -439,9 +530,16 @@ export class PhotoService {
 
   /**
    * Searches for photos near a specific location using geosearch
+   * @param location - Geographic coordinates to search around
+   * @param radius - Search radius in meters (default: 10000)
+   * @param limit - Maximum number of results per location (default: 20)
    */
-  private searchPhotosByLocation(location: Coordinates): Observable<any[]> {
-    const cacheKey = `geosearch-${location.latitude}-${location.longitude}`;
+  private searchPhotosByLocation(
+    location: Coordinates, 
+    radius: number = this.BASE_SEARCH_RADIUS, 
+    limit: number = 20
+  ): Observable<any[]> {
+    const cacheKey = `geosearch-${location.latitude}-${location.longitude}-${radius}-${limit}`;
     
     return this.cacheService.getOrSet(
       cacheKey,
@@ -450,8 +548,8 @@ export class PhotoService {
           .set('action', 'query')
           .set('list', 'geosearch')
           .set('gscoord', `${location.latitude}|${location.longitude}`)
-          .set('gsradius', '10000') // 10km radius
-          .set('gslimit', '20') // Get more results per location
+          .set('gsradius', radius.toString())
+          .set('gslimit', Math.min(limit, 500).toString()) // API limit is 500
           .set('gsnamespace', '6') // File namespace
           .set('format', 'json')
           .set('origin', '*');

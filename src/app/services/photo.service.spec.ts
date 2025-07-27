@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
-import { PhotoService } from './photo.service';
+import { PhotoService, InsufficientPhotosError, PhotoFetchError } from './photo.service';
 import { Photo } from '../models/photo.model';
 import { FormatValidationService, FormatValidationResult } from './format-validation.service';
 
@@ -1344,6 +1344,682 @@ describe('PhotoService', () => {
       expect(result[0]).toBe(originalPhoto); // Should be the same object reference
       expect(result[0].description).toBe('A test photo');
       expect(result[0].metadata.photographer).toBe('Test Photographer');
+    });
+  });
+
+  describe('retry logic for insufficient valid photos', () => {
+    beforeEach(() => {
+      // Mock console methods to avoid noise in tests
+      spyOn(console, 'log');
+      spyOn(console, 'warn');
+      spyOn(console, 'error');
+    });
+
+    it('should succeed on first attempt when enough valid photos are found', () => {
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Photo2.jpg', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 },
+            { title: 'File:Photo3.jpg', pageid: 3, lat: 48.8566, lon: 2.3522, dist: 300 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo1.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1950:01:01 00:00:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  LicenseShortName: { value: 'CC BY 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Photo2.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo2.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1960:01:01 00:00:00' },
+                  GPSLatitude: { value: '51.5074' },
+                  GPSLongitude: { value: '-0.1278' },
+                  LicenseShortName: { value: 'Public Domain' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '3': {
+              title: 'File:Photo3.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo3.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1970:01:01 00:00:00' },
+                  GPSLatitude: { value: '48.8566' },
+                  GPSLongitude: { value: '2.3522' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      service.fetchRandomPhotos(3).subscribe(photos => {
+        expect(photos.length).toBe(3);
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Fetching photos - Attempt 1\/4/),
+          jasmine.any(Object)
+        );
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Photos after filtering - Attempt 1/),
+          jasmine.objectContaining({ requested: 3, found: 3, retryAttempt: 0 })
+        );
+      });
+
+      // Handle geosearch requests
+      const geosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs.length).toBe(3); // 3 locations for 3 photos
+      geosearchReqs.forEach(req => req.flush(mockGeosearchResponse));
+
+      // Handle image info request
+      const imageInfoReq = httpMock.expectOne(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      imageInfoReq.flush(mockImageInfoResponse);
+    });
+
+    it('should retry with expanded search when insufficient photos found', () => {
+      const mockValidFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      const mockInvalidFormatValidation: FormatValidationResult = {
+        isValid: false,
+        detectedFormat: 'tiff',
+        rejectionReason: 'Limited browser support',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      // First attempt: return mix of valid and invalid photos
+      // Second attempt: return enough valid photos
+      let attemptCount = 0;
+      formatValidationService.validateImageFormat.and.callFake((url: string) => {
+        attemptCount++;
+        if (attemptCount <= 2) {
+          // First attempt: only 1 valid photo out of 2
+          return Promise.resolve(url.includes('photo1') ? mockValidFormatValidation : mockInvalidFormatValidation);
+        } else {
+          // Second attempt: all valid
+          return Promise.resolve(mockValidFormatValidation);
+        }
+      });
+
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Photo2.tiff', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 }
+          ]
+        }
+      };
+
+      const mockGeosearchResponseRetry = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo3.jpg', pageid: 3, lat: 48.8566, lon: 2.3522, dist: 100 },
+            { title: 'File:Photo4.jpg', pageid: 4, lat: 35.6762, lon: 139.6503, dist: 200 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse1 = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo1.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1950:01:01 00:00:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  LicenseShortName: { value: 'CC BY 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Photo2.tiff',
+              imageinfo: [{
+                url: 'https://example.com/photo2.tiff',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1960:01:01 00:00:00' },
+                  GPSLatitude: { value: '51.5074' },
+                  GPSLongitude: { value: '-0.1278' },
+                  LicenseShortName: { value: 'Public Domain' },
+                  MimeType: { value: 'image/tiff' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      const mockImageInfoResponse2 = {
+        query: {
+          pages: {
+            '3': {
+              title: 'File:Photo3.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo3.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1970:01:01 00:00:00' },
+                  GPSLatitude: { value: '48.8566' },
+                  GPSLongitude: { value: '2.3522' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '4': {
+              title: 'File:Photo4.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo4.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1980:01:01 00:00:00' },
+                  GPSLatitude: { value: '35.6762' },
+                  GPSLongitude: { value: '139.6503' },
+                  LicenseShortName: { value: 'MIT' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      service.fetchRandomPhotos(2).subscribe(photos => {
+        expect(photos.length).toBe(2);
+        
+        // Should log retry attempt
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Insufficient photos found \(1\/2\)\. Retrying with expanded search\.\.\./),
+        );
+        
+        // Should log both attempts
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Fetching photos - Attempt 1\/4/),
+          jasmine.any(Object)
+        );
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Fetching photos - Attempt 2\/4/),
+          jasmine.any(Object)
+        );
+      });
+
+      // Handle first attempt geosearch requests
+      const geosearchReqs1 = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs1.length).toBe(2); // 2 locations for first attempt
+      geosearchReqs1.forEach(req => req.flush(mockGeosearchResponse));
+
+      // Handle first attempt image info request
+      const imageInfoReq1 = httpMock.expectOne(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      imageInfoReq1.flush(mockImageInfoResponse1);
+
+      // Handle second attempt geosearch requests
+      const geosearchReqs2 = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs2.length).toBe(3); // 3 locations for second attempt (count * (1 + retryAttempt))
+      geosearchReqs2.forEach(req => req.flush(mockGeosearchResponseRetry));
+
+      // Handle second attempt image info request
+      const imageInfoReq2 = httpMock.expectOne(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      imageInfoReq2.flush(mockImageInfoResponse2);
+    });
+
+    it('should return partial results when max retries reached but some photos found', () => {
+      const mockInvalidFormatValidation: FormatValidationResult = {
+        isValid: false,
+        detectedFormat: 'tiff',
+        rejectionReason: 'Limited browser support',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      const mockValidFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      // Always return only 1 valid photo per attempt
+      let callCount = 0;
+      formatValidationService.validateImageFormat.and.callFake((url: string) => {
+        callCount++;
+        // Only first photo of each batch is valid
+        return Promise.resolve(callCount % 2 === 1 ? mockValidFormatValidation : mockInvalidFormatValidation);
+      });
+
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Valid.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Invalid.tiff', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Valid.jpg',
+              imageinfo: [{
+                url: 'https://example.com/valid.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1950:01:01 00:00:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  LicenseShortName: { value: 'CC BY 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Invalid.tiff',
+              imageinfo: [{
+                url: 'https://example.com/invalid.tiff',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1960:01:01 00:00:00' },
+                  GPSLatitude: { value: '51.5074' },
+                  GPSLongitude: { value: '-0.1278' },
+                  LicenseShortName: { value: 'Public Domain' },
+                  MimeType: { value: 'image/tiff' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      service.fetchRandomPhotos(5).subscribe(photos => {
+        expect(photos.length).toBe(1); // Should return the 1 valid photo found
+        expect(console.warn).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Max retries reached\. Returning 1 photos instead of requested 5/)
+        );
+      });
+
+      // Handle all geosearch requests for all attempts (4 attempts total)
+      const allGeosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      
+      // Each attempt will have different number of locations
+      // Attempt 1: 5 locations, Attempt 2: 6 locations, Attempt 3: 7 locations, Attempt 4: 8 locations
+      expect(allGeosearchReqs.length).toBeGreaterThan(20); // Total across all attempts
+      allGeosearchReqs.forEach(req => req.flush(mockGeosearchResponse));
+
+      // Handle all image info requests for all attempts
+      const allImageInfoReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      expect(allImageInfoReqs.length).toBe(4); // One per attempt
+      allImageInfoReqs.forEach(req => req.flush(mockImageInfoResponse));
+    });
+
+    it('should throw InsufficientPhotosError when no valid photos found after max retries', () => {
+      const mockInvalidFormatValidation: FormatValidationResult = {
+        isValid: false,
+        detectedFormat: 'tiff',
+        rejectionReason: 'Limited browser support',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockInvalidFormatValidation));
+
+      const mockGeosearchResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Invalid1.tiff', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Invalid2.tiff', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Invalid1.tiff',
+              imageinfo: [{
+                url: 'https://example.com/invalid1.tiff',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1950:01:01 00:00:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  LicenseShortName: { value: 'CC BY 4.0' },
+                  MimeType: { value: 'image/tiff' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Invalid2.tiff',
+              imageinfo: [{
+                url: 'https://example.com/invalid2.tiff',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1960:01:01 00:00:00' },
+                  GPSLatitude: { value: '51.5074' },
+                  GPSLongitude: { value: '-0.1278' },
+                  LicenseShortName: { value: 'Public Domain' },
+                  MimeType: { value: 'image/tiff' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      service.fetchRandomPhotos(3).subscribe({
+        next: () => fail('Should have thrown an error'),
+        error: (error) => {
+          expect(error).toBeInstanceOf(InsufficientPhotosError);
+          expect(error.requestedCount).toBe(3);
+          expect(error.attemptsUsed).toBe(4); // MAX_RETRY_ATTEMPTS + 1
+          expect(error.message).toContain('Unable to find photos in supported formats');
+          expect(error.message).toContain('strict format restrictions');
+        }
+      });
+
+      // Handle all geosearch requests for all attempts
+      const allGeosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      allGeosearchReqs.forEach(req => req.flush(mockGeosearchResponse));
+
+      // Handle all image info requests for all attempts
+      const allImageInfoReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      allImageInfoReqs.forEach(req => req.flush(mockImageInfoResponse));
+    });
+
+    it('should throw PhotoFetchError when network errors occur after max retries', () => {
+      service.fetchRandomPhotos(2).subscribe({
+        next: () => fail('Should have thrown an error'),
+        error: (error) => {
+          expect(error).toBeInstanceOf(PhotoFetchError);
+          expect(error.message).toContain('Failed to fetch photos after 4 attempts');
+          expect(error.message).toContain('Network error');
+        }
+      });
+
+      // Handle all geosearch requests for all attempts and make them fail
+      const allGeosearchReqs = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      allGeosearchReqs.forEach(req => req.error(new ProgressEvent('Network error')));
+    });
+
+    it('should use expanding search parameters on retry attempts', () => {
+      const mockValidFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      // First attempt returns insufficient photos, second attempt succeeds
+      let attemptCount = 0;
+      formatValidationService.validateImageFormat.and.callFake(() => {
+        attemptCount++;
+        // First attempt: only 1 valid photo, second attempt: enough photos
+        return Promise.resolve(attemptCount <= 1 ? mockValidFormatValidation : mockValidFormatValidation);
+      });
+
+      const mockGeosearchResponse1 = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 }
+          ]
+        }
+      };
+
+      const mockGeosearchResponse2 = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo2.jpg', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 100 },
+            { title: 'File:Photo3.jpg', pageid: 3, lat: 48.8566, lon: 2.3522, dist: 200 }
+          ]
+        }
+      };
+
+      const mockImageInfoResponse1 = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo1.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1950:01:01 00:00:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  LicenseShortName: { value: 'CC BY 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      const mockImageInfoResponse2 = {
+        query: {
+          pages: {
+            '2': {
+              title: 'File:Photo2.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo2.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1960:01:01 00:00:00' },
+                  GPSLatitude: { value: '51.5074' },
+                  GPSLongitude: { value: '-0.1278' },
+                  LicenseShortName: { value: 'Public Domain' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '3': {
+              title: 'File:Photo3.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo3.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1970:01:01 00:00:00' },
+                  GPSLatitude: { value: '48.8566' },
+                  GPSLongitude: { value: '2.3522' },
+                  LicenseShortName: { value: 'CC BY-SA 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      service.fetchRandomPhotos(2).subscribe(photos => {
+        expect(photos.length).toBe(2);
+        
+        // Verify that search parameters were expanded on retry
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Fetching photos - Attempt 1\/4/),
+          jasmine.objectContaining({
+            count: 2,
+            searchRadius: 10000, // Base radius
+            photosPerLocation: 20, // Base photos per location
+            locationCount: 2, // count * (1 + 0)
+            retryAttempt: 0
+          })
+        );
+        
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Fetching photos - Attempt 2\/4/),
+          jasmine.objectContaining({
+            count: 2,
+            searchRadius: 15000, // Base radius * 1.5
+            photosPerLocation: 40, // Base photos per location * 2
+            locationCount: 3, // count * (1 + 1)
+            retryAttempt: 1
+          })
+        );
+      });
+
+      // Handle first attempt
+      const geosearchReqs1 = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs1.length).toBe(2);
+      
+      // Verify first attempt uses base search radius
+      geosearchReqs1.forEach(req => {
+        expect(req.request.params.get('gsradius')).toBe('10000');
+        expect(req.request.params.get('gslimit')).toBe('20');
+        req.flush(mockGeosearchResponse1);
+      });
+
+      const imageInfoReq1 = httpMock.expectOne(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      imageInfoReq1.flush(mockImageInfoResponse1);
+
+      // Handle second attempt
+      const geosearchReqs2 = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs2.length).toBe(3);
+      
+      // Verify second attempt uses expanded search radius
+      geosearchReqs2.forEach(req => {
+        expect(req.request.params.get('gsradius')).toBe('15000');
+        expect(req.request.params.get('gslimit')).toBe('40');
+        req.flush(mockGeosearchResponse2);
+      });
+
+      const imageInfoReq2 = httpMock.expectOne(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      imageInfoReq2.flush(mockImageInfoResponse2);
+    });
+
+    it('should handle retry logic when API returns empty results', () => {
+      const mockEmptyResponse = { query: { geosearch: [] } };
+      const mockValidResponse = {
+        query: {
+          geosearch: [
+            { title: 'File:Photo1.jpg', pageid: 1, lat: 40.7128, lon: -74.0060, dist: 100 },
+            { title: 'File:Photo2.jpg', pageid: 2, lat: 51.5074, lon: -0.1278, dist: 200 }
+          ]
+        }
+      };
+
+      const mockFormatValidation: FormatValidationResult = {
+        isValid: true,
+        detectedFormat: 'jpeg',
+        confidence: 0.9,
+        detectionMethod: 'mime-type'
+      };
+
+      formatValidationService.validateImageFormat.and.returnValue(Promise.resolve(mockFormatValidation));
+
+      const mockImageInfoResponse = {
+        query: {
+          pages: {
+            '1': {
+              title: 'File:Photo1.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo1.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1950:01:01 00:00:00' },
+                  GPSLatitude: { value: '40.7128' },
+                  GPSLongitude: { value: '-74.0060' },
+                  LicenseShortName: { value: 'CC BY 4.0' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            },
+            '2': {
+              title: 'File:Photo2.jpg',
+              imageinfo: [{
+                url: 'https://example.com/photo2.jpg',
+                extmetadata: {
+                  DateTimeOriginal: { value: '1960:01:01 00:00:00' },
+                  GPSLatitude: { value: '51.5074' },
+                  GPSLongitude: { value: '-0.1278' },
+                  LicenseShortName: { value: 'Public Domain' },
+                  MimeType: { value: 'image/jpeg' }
+                }
+              }]
+            }
+          }
+        }
+      };
+
+      service.fetchRandomPhotos(2).subscribe(photos => {
+        expect(photos.length).toBe(2);
+        expect(console.log).toHaveBeenCalledWith(
+          jasmine.stringMatching(/Insufficient photos found \(0\/2\)\. Retrying with expanded search\.\.\./),
+        );
+      });
+
+      // First attempt: return empty results for all locations
+      const geosearchReqs1 = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs1.length).toBe(2);
+      geosearchReqs1.forEach(req => req.flush(mockEmptyResponse));
+
+      // Second attempt: return valid results
+      const geosearchReqs2 = httpMock.match(req => 
+        req.url === API_BASE_URL && req.params.get('list') === 'geosearch'
+      );
+      expect(geosearchReqs2.length).toBe(3);
+      geosearchReqs2.forEach(req => req.flush(mockValidResponse));
+
+      const imageInfoReq = httpMock.expectOne(req => 
+        req.url === API_BASE_URL && req.params.get('prop') === 'imageinfo'
+      );
+      imageInfoReq.flush(mockImageInfoResponse);
     });
   });
 });
