@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Observable, of, firstValueFrom, TimeoutError } from 'rxjs';
+import { Observable, of, firstValueFrom, TimeoutError, forkJoin } from 'rxjs';
 import { map, catchError, timeout } from 'rxjs/operators';
 import { FormatValidationLoggerService } from './format-validation-logger.service';
 import { FormatConfigService, FormatConfig } from './format-config.service';
+import { FormatValidationPerformanceService } from './format-validation-performance.service';
 
 // FormatConfig interface is now imported from FormatConfigService
 
@@ -79,7 +80,8 @@ export class FormatValidationService {
   constructor(
     private http: HttpClient,
     private logger: FormatValidationLoggerService,
-    private formatConfigService: FormatConfigService
+    private formatConfigService: FormatConfigService,
+    private performanceService: FormatValidationPerformanceService
   ) {
     this.initializeDetectionStrategies();
     
@@ -270,6 +272,98 @@ export class FormatValidationService {
   }
 
   /**
+   * Validates multiple image formats in batch for improved performance
+   * @param validationRequests - Array of validation requests
+   * @returns Promise resolving to array of validation results
+   */
+  async validateImageFormatsBatch(validationRequests: Array<{
+    url: string;
+    mimeType?: string;
+    metadata?: any;
+  }>): Promise<FormatValidationResult[]> {
+    const batchStartTime = Date.now();
+    const batchSize = validationRequests.length;
+    
+    if (batchSize === 0) {
+      return [];
+    }
+
+    console.log(`Starting batch validation for ${batchSize} images`);
+
+    // Process validations with controlled concurrency to avoid overwhelming the system
+    const MAX_CONCURRENT = 5;
+    const results: FormatValidationResult[] = [];
+    
+    for (let i = 0; i < validationRequests.length; i += MAX_CONCURRENT) {
+      const batch = validationRequests.slice(i, i + MAX_CONCURRENT);
+      
+      // Process batch concurrently
+      const batchPromises = batch.map(async (request, index) => {
+        const token = this.performanceService.startValidation(request.url);
+        
+        try {
+          const result = await this.validateImageFormatInternal(
+            request.url, 
+            request.mimeType, 
+            request.metadata,
+            batchSize // Pass batch size for performance tracking
+          );
+          
+          this.performanceService.endValidation(
+            token,
+            request.url,
+            result.isValid,
+            result.detectionMethod,
+            result.detectionMethod.includes('cached'),
+            result.detectionMethod === 'http-content-type',
+            batchSize
+          );
+          
+          return result;
+        } catch (error) {
+          const errorResult: FormatValidationResult = {
+            isValid: false,
+            rejectionReason: `Batch validation error: ${(error as Error).message}`,
+            confidence: 0.0,
+            detectionMethod: 'batch-error'
+          };
+          
+          this.performanceService.endValidation(
+            token,
+            request.url,
+            false,
+            'batch-error',
+            false,
+            false,
+            batchSize
+          );
+          
+          return errorResult;
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+    }
+
+    const batchTotalTime = Date.now() - batchStartTime;
+    const successCount = results.filter(r => r.isValid).length;
+    
+    // Record batch performance metrics
+    this.performanceService.recordBatchValidation(batchSize, batchTotalTime, successCount);
+    
+    console.log(`Batch validation completed`, {
+      batchSize,
+      successCount,
+      failureCount: batchSize - successCount,
+      totalTime: batchTotalTime,
+      averageTimePerValidation: batchTotalTime / batchSize
+    });
+
+    return results;
+  }
+
+  /**
    * Validates image format using multiple detection strategies with comprehensive logging
    * @param url - Image URL to validate
    * @param mimeType - Optional MIME type from metadata
@@ -277,6 +371,51 @@ export class FormatValidationService {
    * @returns Promise resolving to validation result
    */
   async validateImageFormat(url: string, mimeType?: string, metadata?: any): Promise<FormatValidationResult> {
+    const token = this.performanceService.startValidation(url);
+    
+    try {
+      const result = await this.validateImageFormatInternal(url, mimeType, metadata);
+      
+      this.performanceService.endValidation(
+        token,
+        url,
+        result.isValid,
+        result.detectionMethod,
+        result.detectionMethod.includes('cached'),
+        result.detectionMethod === 'http-content-type'
+      );
+      
+      return result;
+    } catch (error) {
+      const errorResult: FormatValidationResult = {
+        isValid: false,
+        rejectionReason: `Validation error: ${(error as Error).message}`,
+        confidence: 0.0,
+        detectionMethod: 'error'
+      };
+      
+      this.performanceService.endValidation(
+        token,
+        url,
+        false,
+        'error',
+        false,
+        false
+      );
+      
+      return errorResult;
+    }
+  }
+
+  /**
+   * Internal method for validating image format (used by both single and batch validation)
+   * @param url - Image URL to validate
+   * @param mimeType - Optional MIME type from metadata
+   * @param metadata - Optional metadata object (can contain extmetadata for Wikimedia)
+   * @param batchSize - Optional batch size for performance tracking
+   * @returns Promise resolving to validation result
+   */
+  private async validateImageFormatInternal(url: string, mimeType?: string, metadata?: any, batchSize?: number): Promise<FormatValidationResult> {
     const startTime = Date.now();
     
     // Input validation with logging
@@ -1031,5 +1170,100 @@ export class FormatValidationService {
     }
     
     return `Network error during format detection: ${error.message}`;
+  }
+
+  /**
+   * Gets performance metrics for monitoring
+   * @returns Current performance metrics
+   */
+  getPerformanceMetrics() {
+    return this.performanceService.getMetrics();
+  }
+
+  /**
+   * Gets performance health check results
+   * @returns Performance health status with issues and recommendations
+   */
+  getPerformanceHealth() {
+    return this.performanceService.checkPerformanceHealth();
+  }
+
+  /**
+   * Gets performance summary for logging
+   * @returns Performance summary string
+   */
+  getPerformanceSummary(): string {
+    return this.performanceService.getPerformanceSummary();
+  }
+
+  /**
+   * Resets performance metrics (useful for testing)
+   */
+  resetPerformanceMetrics(): void {
+    this.performanceService.resetMetrics();
+  }
+
+  /**
+   * Optimizes HTTP request patterns by batching Content-Type checks
+   * @param urls - Array of URLs to check
+   * @returns Promise resolving to map of URL to Content-Type
+   */
+  private async batchHttpContentTypeCheck(urls: string[]): Promise<Map<string, string | null>> {
+    const results = new Map<string, string | null>();
+    
+    if (urls.length === 0) {
+      return results;
+    }
+
+    // Filter to only valid HTTP URLs
+    const validUrls = urls.filter(url => this.isValidHttpUrl(url));
+    
+    if (validUrls.length === 0) {
+      // Mark all invalid URLs as null
+      urls.forEach(url => results.set(url, null));
+      return results;
+    }
+
+    // Process URLs in smaller batches to avoid overwhelming the server
+    const BATCH_SIZE = 3; // Conservative batch size for HTTP requests
+    
+    for (let i = 0; i < validUrls.length; i += BATCH_SIZE) {
+      const batch = validUrls.slice(i, i + BATCH_SIZE);
+      
+      const batchPromises = batch.map(async (url) => {
+        try {
+          const contentType = await this.getContentTypeFromHttp(url);
+          return { url, contentType };
+        } catch (error) {
+          console.warn(`Batch HTTP Content-Type check failed for ${url}:`, error);
+          return { url, contentType: null };
+        }
+      });
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      batchResults.forEach((result, index) => {
+        const url = batch[index];
+        if (result.status === 'fulfilled') {
+          results.set(url, result.value.contentType);
+        } else {
+          results.set(url, null);
+        }
+      });
+      
+      // Add small delay between batches to be respectful to servers
+      if (i + BATCH_SIZE < validUrls.length) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    // Mark any remaining URLs that weren't processed
+    urls.forEach(url => {
+      if (!results.has(url)) {
+        results.set(url, null);
+      }
+    });
+
+    return results;
   }
 }

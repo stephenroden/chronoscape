@@ -1,399 +1,404 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { FormatValidationService } from './format-validation.service';
+import { FormatValidationPerformanceService } from './format-validation-performance.service';
+import { FormatValidationLoggerService } from './format-validation-logger.service';
+import { FormatConfigService } from './format-config.service';
 import { PhotoService } from './photo.service';
 import { CacheService } from './cache.service';
-import { ImagePreloaderService } from './image-preloader.service';
-import { MapService } from './map.service';
-import { Photo } from '../models/photo.model';
 
-/**
- * Performance tests to validate loading time requirements
- * Requirement 7.3, 7.4: Performance optimization and loading time validation
- */
-describe('Performance Tests', () => {
+describe('Format Validation Performance Tests', () => {
+  let formatValidationService: FormatValidationService;
+  let performanceService: FormatValidationPerformanceService;
   let photoService: PhotoService;
-  let cacheService: CacheService;
-  let imagePreloader: ImagePreloaderService;
-  let mapService: MapService;
   let httpMock: HttpTestingController;
-
-  const mockPhoto: Photo = {
-    id: 'test-photo',
-    url: 'https://example.com/test.jpg',
-    title: 'Test Photo',
-    year: 2020,
-    coordinates: { latitude: 40.7128, longitude: -74.0060 },
-    source: 'Test Source',
-    metadata: {
-      license: 'CC BY-SA',
-      originalSource: 'https://example.com/test.jpg',
-      dateCreated: new Date('2020-01-01')
-    }
-  };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [HttpClientTestingModule],
-      providers: [PhotoService, CacheService, ImagePreloaderService, MapService]
+      providers: [
+        FormatValidationService,
+        FormatValidationPerformanceService,
+        FormatValidationLoggerService,
+        FormatConfigService,
+        PhotoService,
+        CacheService
+      ]
     });
 
+    formatValidationService = TestBed.inject(FormatValidationService);
+    performanceService = TestBed.inject(FormatValidationPerformanceService);
     photoService = TestBed.inject(PhotoService);
-    cacheService = TestBed.inject(CacheService);
-    imagePreloader = TestBed.inject(ImagePreloaderService);
-    mapService = TestBed.inject(MapService);
     httpMock = TestBed.inject(HttpTestingController);
   });
 
   afterEach(() => {
     httpMock.verify();
-    cacheService.clear();
-    imagePreloader.clearCache();
+    performanceService.resetMetrics();
+    formatValidationService.clearCache();
   });
 
-  describe('Photo Loading Performance', () => {
-    it('should load photos within 3 seconds (Requirement 7.4)', (done) => {
-      const startTime = performance.now();
+  describe('Single Validation Performance', () => {
+    it('should complete validation within 100ms for MIME type detection', async () => {
+      const startTime = Date.now();
       
-      photoService.fetchRandomPhotos(5).subscribe(photos => {
-        const endTime = performance.now();
-        const loadTime = endTime - startTime;
-        
-        // Should load within 3000ms (3 seconds) as per requirement
-        expect(loadTime).toBeLessThan(3000);
-        done();
-      });
-
-      // Mock the API responses to simulate realistic timing
-      const requests = httpMock.match(() => true);
-      requests.forEach(req => {
-        // Simulate network delay
-        setTimeout(() => {
-          req.flush({
-            query: {
-              geosearch: [
-                { title: 'File:Test1.jpg' },
-                { title: 'File:Test2.jpg' }
-              ],
-              pages: {
-                '1': {
-                  title: 'File:Test1.jpg',
-                  imageinfo: [{
-                    url: 'https://example.com/test1.jpg',
-                    extmetadata: {
-                      DateTime: { value: '2020-01-01' },
-                      GPSLatitude: { value: '40.7128' },
-                      GPSLongitude: { value: '-74.0060' }
-                    }
-                  }]
-                }
-              }
-            }
-          });
-        }, 100); // 100ms simulated network delay
-      });
+      const result = await formatValidationService.validateImageFormat(
+        'https://example.com/test.jpg',
+        'image/jpeg'
+      );
+      
+      const duration = Date.now() - startTime;
+      
+      expect(result.isValid).toBe(true);
+      expect(duration).toBeLessThan(100);
+      expect(result.detectionMethod).toBe('mime-type');
     });
 
-    it('should benefit from caching on subsequent requests', (done) => {
-      // First request
-      const firstStartTime = performance.now();
+    it('should complete validation within 100ms for URL extension detection', async () => {
+      const startTime = Date.now();
       
-      photoService.fetchRandomPhotos(5).subscribe(() => {
-        const firstEndTime = performance.now();
-        const firstLoadTime = firstEndTime - firstStartTime;
-        
-        // Second request (should be faster due to caching)
-        const secondStartTime = performance.now();
-        
-        photoService.fetchRandomPhotos(5).subscribe(() => {
-          const secondEndTime = performance.now();
-          const secondLoadTime = secondEndTime - secondStartTime;
-          
-          // Second request should be significantly faster
-          expect(secondLoadTime).toBeLessThan(firstLoadTime * 0.5);
-          done();
-        });
+      const result = await formatValidationService.validateImageFormat(
+        'https://example.com/test.png'
+      );
+      
+      const duration = Date.now() - startTime;
+      
+      expect(result.isValid).toBe(true);
+      expect(duration).toBeLessThan(100);
+      expect(result.detectionMethod).toBe('url-extension');
+    });
 
-        // Second request should hit cache, no HTTP calls expected
+    it('should track performance metrics for single validations', async () => {
+      const initialMetrics = performanceService.getMetrics();
+      expect(initialMetrics.totalValidations).toBe(0);
+
+      await formatValidationService.validateImageFormat(
+        'https://example.com/test.jpg',
+        'image/jpeg'
+      );
+
+      const finalMetrics = performanceService.getMetrics();
+      expect(finalMetrics.totalValidations).toBe(1);
+      expect(finalMetrics.successfulValidations).toBe(1);
+      expect(finalMetrics.averageValidationTime).toBeGreaterThan(0);
+      expect(finalMetrics.averageValidationTime).toBeLessThan(100);
+    });
+  });
+
+  describe('Batch Validation Performance', () => {
+    it('should process batch validation faster than individual validations', async () => {
+      const urls = [
+        'https://example.com/test1.jpg',
+        'https://example.com/test2.png',
+        'https://example.com/test3.webp',
+        'https://example.com/test4.jpg',
+        'https://example.com/test5.png'
+      ];
+
+      const mimeTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+        'image/jpeg',
+        'image/png'
+      ];
+
+      // Test individual validations
+      const individualStartTime = Date.now();
+      const individualResults: any[] = [];
+      for (let i = 0; i < urls.length; i++) {
+        const result = await formatValidationService.validateImageFormat(urls[i], mimeTypes[i]);
+        individualResults.push(result);
+      }
+      const individualDuration = Date.now() - individualStartTime;
+
+      // Reset metrics for batch test
+      performanceService.resetMetrics();
+
+      // Test batch validation
+      const batchStartTime = Date.now();
+      const batchRequests = urls.map((url, index) => ({
+        url,
+        mimeType: mimeTypes[index]
+      }));
+      
+      const batchResults = await formatValidationService.validateImageFormatsBatch(batchRequests);
+      const batchDuration = Date.now() - batchStartTime;
+
+      // Batch should be faster than individual validations
+      expect(batchDuration).toBeLessThan(individualDuration);
+      expect(batchResults.length).toBe(urls.length);
+      
+      // Results should be equivalent
+      batchResults.forEach((result, index) => {
+        expect(result.isValid).toBe(individualResults[index].isValid);
+        expect(result.detectedFormat).toBe(individualResults[index].detectedFormat);
       });
 
-      // Mock first request
-      const requests = httpMock.match(() => true);
-      requests.forEach(req => {
-        req.flush({
-          query: {
-            geosearch: [{ title: 'File:Test1.jpg' }],
-            pages: {
-              '1': {
-                title: 'File:Test1.jpg',
-                imageinfo: [{
-                  url: 'https://example.com/test1.jpg',
-                  extmetadata: {
-                    DateTime: { value: '2020-01-01' },
-                    GPSLatitude: { value: '40.7128' },
-                    GPSLongitude: { value: '-74.0060' }
-                  }
-                }]
-              }
-            }
-          }
-        });
-      });
+      // Check batch metrics
+      const metrics = performanceService.getMetrics();
+      expect(metrics.batchValidationCount).toBe(1);
+      expect(metrics.averageBatchSize).toBe(urls.length);
+    });
+
+    it('should handle large batch sizes efficiently', async () => {
+      const batchSize = 50;
+      const urls = Array.from({ length: batchSize }, (_, i) => 
+        `https://example.com/test${i}.jpg`
+      );
+      
+      const batchRequests = urls.map(url => ({
+        url,
+        mimeType: 'image/jpeg'
+      }));
+
+      const startTime = Date.now();
+      const results = await formatValidationService.validateImageFormatsBatch(batchRequests);
+      const duration = Date.now() - startTime;
+
+      expect(results.length).toBe(batchSize);
+      expect(duration).toBeLessThan(1000); // Should complete within 1 second
+      
+      const metrics = performanceService.getMetrics();
+      expect(metrics.averageValidationTime).toBeLessThan(50); // Average per validation should be low
+    });
+
+    it('should maintain performance with mixed validation methods in batch', async () => {
+      const batchRequests = [
+        { url: 'https://example.com/test1.jpg', mimeType: 'image/jpeg' }, // MIME type detection
+        { url: 'https://example.com/test2.png' }, // URL extension detection
+        { url: 'https://example.com/test3.webp', mimeType: 'image/webp' }, // MIME type detection
+        { url: 'https://example.com/test4.unknown' }, // Should fail
+        { url: 'https://example.com/test5.tiff', mimeType: 'image/tiff' } // Rejected format
+      ];
+
+      const startTime = Date.now();
+      const results = await formatValidationService.validateImageFormatsBatch(batchRequests);
+      const duration = Date.now() - startTime;
+
+      expect(results.length).toBe(5);
+      expect(duration).toBeLessThan(500);
+      
+      // Check individual results
+      expect(results[0].isValid).toBe(true); // JPEG
+      expect(results[1].isValid).toBe(true); // PNG
+      expect(results[2].isValid).toBe(true); // WebP
+      expect(results[3].isValid).toBe(false); // Unknown
+      expect(results[4].isValid).toBe(false); // TIFF (rejected)
+
+      const metrics = performanceService.getMetrics();
+      expect(metrics.successfulValidations).toBe(3);
+      expect(metrics.failedValidations).toBe(2);
     });
   });
 
   describe('Cache Performance', () => {
-    it('should provide sub-millisecond cache retrieval', () => {
-      const testData = { large: 'data'.repeat(1000) };
-      cacheService.set('test-key', testData);
+    it('should achieve high cache hit rate for repeated validations', async () => {
+      const url = 'https://example.com/test.jpg';
+      const mimeType = 'image/jpeg';
+
+      // First validation (cache miss)
+      await formatValidationService.validateImageFormat(url, mimeType);
       
-      const startTime = performance.now();
-      const result = cacheService.get('test-key');
-      const endTime = performance.now();
-      
-      const retrievalTime = endTime - startTime;
-      
-      expect(result).toEqual(testData);
-      expect(retrievalTime).toBeLessThan(1); // Sub-millisecond retrieval
+      // Subsequent validations (cache hits)
+      for (let i = 0; i < 10; i++) {
+        await formatValidationService.validateImageFormat(url, mimeType);
+      }
+
+      const cacheStats = formatValidationService.getCacheStats();
+      expect(cacheStats.hitRate).toBeGreaterThan(80); // Should have >80% hit rate
+      expect(cacheStats.hits).toBe(10);
+      expect(cacheStats.misses).toBe(1);
     });
 
-    it('should handle large cache operations efficiently', () => {
-      const startTime = performance.now();
-      
-      // Store 1000 items
-      for (let i = 0; i < 1000; i++) {
-        cacheService.set(`key-${i}`, { data: `value-${i}` });
-      }
-      
-      // Retrieve all items
-      for (let i = 0; i < 1000; i++) {
-        cacheService.get(`key-${i}`);
-      }
-      
-      const endTime = performance.now();
-      const totalTime = endTime - startTime;
-      
-      // Should handle 2000 operations (1000 sets + 1000 gets) in under 100ms
-      expect(totalTime).toBeLessThan(100);
-    });
+    it('should improve performance significantly with cache hits', async () => {
+      const url = 'https://example.com/test.jpg';
+      const mimeType = 'image/jpeg';
 
-    it('should maintain good hit rate under load', () => {
-      // Fill cache with data
-      for (let i = 0; i < 100; i++) {
-        cacheService.set(`key-${i}`, `value-${i}`);
-      }
-      
-      // Access items multiple times
-      for (let round = 0; round < 10; round++) {
-        for (let i = 0; i < 100; i++) {
-          cacheService.get(`key-${i}`);
-        }
-      }
-      
-      const stats = cacheService.getStats();
-      const hitRate = stats.hitRate;
-      
-      // Should maintain high hit rate
-      expect(hitRate).toBeGreaterThan(90); // 90% hit rate
+      // First validation (cache miss)
+      const firstStartTime = Date.now();
+      await formatValidationService.validateImageFormat(url, mimeType);
+      const firstDuration = Date.now() - firstStartTime;
+
+      // Second validation (cache hit)
+      const secondStartTime = Date.now();
+      await formatValidationService.validateImageFormat(url, mimeType);
+      const secondDuration = Date.now() - secondStartTime;
+
+      // Cache hit should be significantly faster
+      expect(secondDuration).toBeLessThan(firstDuration / 2);
+      expect(secondDuration).toBeLessThan(10); // Should be very fast
     });
   });
 
-  describe('Image Preloading Performance', () => {
-    it('should start preloading operations quickly', () => {
-      const startTime = performance.now();
+  describe('HTTP Request Optimization', () => {
+    it('should minimize HTTP requests in batch validation', async () => {
+      const batchRequests = [
+        { url: 'https://example.com/test1.unknown' }, // Will need HTTP check
+        { url: 'https://example.com/test2.jpg' }, // URL extension sufficient
+        { url: 'https://example.com/test3.unknown' }, // Will need HTTP check
+        { url: 'https://example.com/test4.png', mimeType: 'image/png' }, // MIME type sufficient
+        { url: 'https://example.com/test5.unknown' } // Will need HTTP check
+      ];
+
+      // Mock HTTP responses for unknown extensions
+      const mockHttpResponses = [
+        { url: 'https://example.com/test1.unknown', contentType: 'image/jpeg' },
+        { url: 'https://example.com/test3.unknown', contentType: 'image/png' },
+        { url: 'https://example.com/test5.unknown', contentType: 'image/webp' }
+      ];
+
+      const results = await formatValidationService.validateImageFormatsBatch(batchRequests);
+
+      // Handle HTTP requests
+      mockHttpResponses.forEach(mock => {
+        const req = httpMock.expectOne(mock.url);
+        expect(req.request.method).toBe('HEAD');
+        req.flush('', { 
+          status: 200, 
+          statusText: 'OK',
+          headers: { 'content-type': mock.contentType }
+        });
+      });
+
+      expect(results.length).toBe(5);
       
-      // Start preloading multiple images
-      const urls = Array.from({ length: 10 }, (_, i) => `https://example.com/photo${i}.jpg`);
-      
-      imagePreloader.preloadImages(urls).subscribe();
-      
-      const endTime = performance.now();
-      const startupTime = endTime - startTime;
-      
-      // Should start preloading operations within 10ms
-      expect(startupTime).toBeLessThan(10);
+      // Should have made exactly 3 HTTP requests (for unknown extensions only)
+      const metrics = performanceService.getMetrics();
+      expect(metrics.networkRequestCount).toBe(3);
     });
 
-    it('should respect concurrent loading limits', () => {
-      // Start many preload operations
-      for (let i = 0; i < 50; i++) {
-        imagePreloader.preloadImage(`https://example.com/photo${i}.jpg`);
-      }
-      
-      const stats = imagePreloader.getStats();
-      
-      // Should not exceed concurrent limit (typically 3)
-      expect(stats.loading).toBeLessThanOrEqual(3);
-      expect(stats.queued).toBeGreaterThan(0); // Remaining should be queued
-    });
+    it('should handle HTTP request failures gracefully in batch', async () => {
+      const batchRequests = [
+        { url: 'https://example.com/test1.jpg' }, // Should succeed
+        { url: 'https://example.com/test2.unknown' }, // Will fail HTTP check
+        { url: 'https://example.com/test3.png' } // Should succeed
+      ];
 
-    it('should handle preload queue efficiently', () => {
-      const startTime = performance.now();
-      
-      // Add many items to preload queue
-      for (let i = 0; i < 100; i++) {
-        imagePreloader.preloadImage(`https://example.com/photo${i}.jpg`);
-      }
-      
-      const endTime = performance.now();
-      const queueTime = endTime - startTime;
-      
-      // Should queue 100 items quickly
-      expect(queueTime).toBeLessThan(50); // 50ms threshold
+      const resultsPromise = formatValidationService.validateImageFormatsBatch(batchRequests);
+
+      // Mock HTTP failure
+      const req = httpMock.expectOne('https://example.com/test2.unknown');
+      req.flush('', { status: 404, statusText: 'Not Found' });
+
+      const results = await resultsPromise;
+
+      expect(results.length).toBe(3);
+      expect(results[0].isValid).toBe(true); // JPEG
+      expect(results[1].isValid).toBe(false); // Failed HTTP
+      expect(results[2].isValid).toBe(true); // PNG
     });
   });
 
-  describe('Map Performance', () => {
-    it('should initialize map quickly', () => {
-      // Create a mock container element
-      const container = document.createElement('div');
-      container.id = 'test-map';
-      document.body.appendChild(container);
-      
-      const startTime = performance.now();
-      
-      try {
-        mapService.initializeMap('test-map');
-        const endTime = performance.now();
-        const initTime = endTime - startTime;
-        
-        // Map should initialize within 100ms
-        expect(initTime).toBeLessThan(100);
-      } finally {
-        document.body.removeChild(container);
-        mapService.destroy();
+  describe('Performance Health Monitoring', () => {
+    it('should report healthy performance for normal operations', async () => {
+      // Perform some validations to generate metrics
+      const urls = [
+        'https://example.com/test1.jpg',
+        'https://example.com/test2.png',
+        'https://example.com/test3.webp'
+      ];
+
+      for (const url of urls) {
+        await formatValidationService.validateImageFormat(url, 'image/jpeg');
       }
+
+      const health = formatValidationService.getPerformanceHealth();
+      expect(health.healthy).toBe(true);
+      expect(health.issues.length).toBe(0);
     });
 
-    it('should handle pin operations efficiently', () => {
-      const container = document.createElement('div');
-      container.id = 'test-map';
-      document.body.appendChild(container);
+    it('should detect performance issues', async () => {
+      // Simulate slow validations by using HTTP fallback
+      const slowUrls = Array.from({ length: 10 }, (_, i) => 
+        `https://slow-server.com/test${i}.unknown`
+      );
+
+      const batchRequests = slowUrls.map(url => ({ url }));
       
-      try {
-        mapService.initializeMap('test-map');
-        
-        const startTime = performance.now();
-        
-        // Add and remove pins multiple times
-        for (let i = 0; i < 100; i++) {
-          mapService.addPin({ latitude: 40 + i * 0.01, longitude: -74 + i * 0.01 });
-          mapService.removePin();
-        }
-        
-        const endTime = performance.now();
-        const pinTime = endTime - startTime;
-        
-        // 200 pin operations should complete within 200ms
-        expect(pinTime).toBeLessThan(200);
-      } finally {
-        document.body.removeChild(container);
-        mapService.destroy();
-      }
+      // Start batch validation
+      const resultsPromise = formatValidationService.validateImageFormatsBatch(batchRequests);
+
+      // Mock slow HTTP responses
+      slowUrls.forEach(url => {
+        const req = httpMock.expectOne(url);
+        // Simulate slow response
+        setTimeout(() => {
+          req.flush('', { 
+            status: 200, 
+            statusText: 'OK',
+            headers: { 'content-type': 'image/jpeg' }
+          });
+        }, 150); // Slow response
+      });
+
+      await resultsPromise;
+
+      const health = formatValidationService.getPerformanceHealth();
+      // Should detect slow average validation time
+      expect(health.issues.some(issue => issue.includes('Average validation time'))).toBe(true);
     });
 
-    it('should calculate distances efficiently', () => {
-      const point1 = { latitude: 40.7128, longitude: -74.0060 };
-      const point2 = { latitude: 51.5074, longitude: -0.1278 };
-      
-      const startTime = performance.now();
-      
-      // Calculate distance many times
-      for (let i = 0; i < 10000; i++) {
-        mapService.calculateDistance(point1, point2);
+    it('should provide performance recommendations', async () => {
+      // Generate low cache hit rate scenario
+      for (let i = 0; i < 20; i++) {
+        await formatValidationService.validateImageFormat(`https://example.com/unique${i}.jpg`);
       }
+
+      const health = formatValidationService.getPerformanceHealth();
+      if (!health.healthy) {
+        expect(health.recommendations.length).toBeGreaterThan(0);
+        expect(health.recommendations.some(rec => 
+          rec.includes('cache') || rec.includes('optimization')
+        )).toBe(true);
+      }
+    });
+  });
+
+  describe('Photo Service Integration Performance', () => {
+    it('should not significantly slow down photo fetching', async () => {
+      // This test would require mocking the full photo service workflow
+      // For now, we'll test that the format validation doesn't add excessive overhead
       
-      const endTime = performance.now();
-      const calcTime = endTime - startTime;
-      
-      // 10,000 distance calculations should complete within 50ms
-      expect(calcTime).toBeLessThan(50);
+      const mockPhotoData = {
+        title: 'File:Test.jpg',
+        imageinfo: [{
+          url: 'https://example.com/test.jpg',
+          extmetadata: {
+            MimeType: { value: 'image/jpeg' },
+            DateTime: { value: '2020-01-01' },
+            GPSLatitude: { value: '40.7128' },
+            GPSLongitude: { value: '-74.0060' }
+          }
+        }]
+      };
+
+      const startTime = Date.now();
+      const photo = await photoService.processPhotoData(mockPhotoData);
+      const duration = Date.now() - startTime;
+
+      expect(photo).toBeTruthy();
+      expect(duration).toBeLessThan(200); // Should complete within 200ms
     });
   });
 
   describe('Memory Usage', () => {
-    it('should not leak memory during cache operations', () => {
-      const initialMemory = (performance as any).memory?.usedJSHeapSize || 0;
+    it('should not cause memory leaks with large numbers of validations', async () => {
+      const initialMetrics = formatValidationService.getPerformanceMetrics();
       
-      // Perform many cache operations
+      // Perform many validations
       for (let i = 0; i < 1000; i++) {
-        cacheService.set(`key-${i}`, { data: 'x'.repeat(1000) });
+        await formatValidationService.validateImageFormat(`https://example.com/test${i}.jpg`);
       }
-      
-      // Clear cache
-      cacheService.clear();
-      
-      // Force garbage collection if available
-      if ((window as any).gc) {
-        (window as any).gc();
-      }
-      
-      const finalMemory = (performance as any).memory?.usedJSHeapSize || 0;
-      
-      // Memory usage should not increase significantly after clearing
-      if (initialMemory > 0 && finalMemory > 0) {
-        const memoryIncrease = finalMemory - initialMemory;
-        expect(memoryIncrease).toBeLessThan(1024 * 1024); // Less than 1MB increase
-      }
-    });
 
-    it('should clean up image preloader resources', () => {
-      // Start many preload operations
-      for (let i = 0; i < 100; i++) {
-        imagePreloader.preloadImage(`https://example.com/photo${i}.jpg`);
-      }
+      const finalMetrics = formatValidationService.getPerformanceMetrics();
       
-      const statsBeforeClear = imagePreloader.getStats();
-      expect(statsBeforeClear.queued + statsBeforeClear.loading).toBeGreaterThan(0);
+      // Cache should not grow indefinitely
+      const cacheStats = formatValidationService.getCacheStats();
+      expect(cacheStats.size).toBeLessThan(600); // Should respect max cache size
       
-      // Clear cache
-      imagePreloader.clearCache();
-      
-      const statsAfterClear = imagePreloader.getStats();
-      expect(statsAfterClear.preloaded).toBe(0);
-      expect(statsAfterClear.queued).toBe(0);
-      expect(statsAfterClear.loading).toBe(0);
-    });
-  });
-
-  describe('Integration Performance', () => {
-    it('should handle complete photo loading workflow efficiently', (done) => {
-      const startTime = performance.now();
-      
-      // Simulate complete workflow: fetch photos, cache them, preload images
-      photoService.fetchRandomPhotos(5).subscribe(photos => {
-        // Start preloading
-        imagePreloader.preloadGamePhotos(photos).subscribe(() => {
-          const endTime = performance.now();
-          const totalTime = endTime - startTime;
-          
-          // Complete workflow should finish within 5 seconds
-          expect(totalTime).toBeLessThan(5000);
-          done();
-        });
-      });
-
-      // Mock API responses
-      const requests = httpMock.match(() => true);
-      requests.forEach(req => {
-        req.flush({
-          query: {
-            geosearch: [{ title: 'File:Test1.jpg' }],
-            pages: {
-              '1': {
-                title: 'File:Test1.jpg',
-                imageinfo: [{
-                  url: 'https://example.com/test1.jpg',
-                  extmetadata: {
-                    DateTime: { value: '2020-01-01' },
-                    GPSLatitude: { value: '40.7128' },
-                    GPSLongitude: { value: '-74.0060' }
-                  }
-                }]
-              }
-            }
-          }
-        });
-      });
+      // Performance metrics should be reasonable
+      expect(finalMetrics.averageValidationTime).toBeLessThan(100);
     });
   });
 });

@@ -187,6 +187,71 @@ export class PhotoService {
   }
 
   /**
+   * Processes raw Wikimedia data into Photo objects using pre-computed validation results
+   * @param rawData - Raw API response data
+   * @param validationMap - Map of URL to validation results
+   * @returns Promise resolving to processed Photo object or null if invalid
+   */
+  async processPhotoDataWithValidation(rawData: any, validationMap: Map<string, any>): Promise<Photo | null> {
+    try {
+      if (!rawData) return null;
+      const imageInfo = rawData.imageinfo?.[0];
+      if (!imageInfo) return null;
+
+      const extmetadata = imageInfo.extmetadata || {};
+      const metadata = imageInfo.metadata || [];
+
+      // Extract year from various date fields
+      const year = this.extractYear(extmetadata);
+      if (!year || year < this.MIN_YEAR || year > this.MAX_YEAR) {
+        return null;
+      }
+
+      // Extract coordinates
+      const coordinates = this.extractCoordinates(extmetadata, metadata);
+      if (!coordinates || (coordinates.latitude === 0 && coordinates.longitude === 0)) return null;
+
+      // Get pre-computed format validation result
+      const formatValidation = validationMap.get(imageInfo.url);
+      
+      if (!formatValidation || !formatValidation.isValid) {
+        // Detailed logging is now handled by FormatValidationLoggerService
+        // Just log a summary for PhotoService context
+        console.log(`Photo rejected due to format validation`, {
+          url: imageInfo.url,
+          reason: formatValidation?.rejectionReason || 'No validation result',
+          method: formatValidation?.detectionMethod || 'unknown'
+        });
+        return null;
+      }
+
+      // Create photo object with format metadata
+      const photo: Photo = {
+        id: rawData.title.replace('File:', ''),
+        url: imageInfo.url,
+        title: this.cleanTitle(rawData.title),
+        description: this.extractDescription(extmetadata),
+        year,
+        coordinates,
+        source: 'Wikimedia Commons',
+        metadata: {
+          photographer: this.extractArtist(extmetadata),
+          license: this.extractLicense(extmetadata),
+          originalSource: imageInfo.url,
+          dateCreated: new Date(year, 0, 1), // Use January 1st of the year
+          format: formatValidation.detectedFormat,
+          mimeType: formatValidation.detectedMimeType
+        }
+      };
+
+      return this.validatePhotoMetadata(photo) ? photo : null;
+    } catch (error) {
+      console.error('Error processing photo data with validation:', error);
+      return null;
+    }
+  }
+
+  /**
    * Processes raw Wikimedia data into Photo objects
    * @param rawData - Raw API response data
    * @returns Promise resolving to processed Photo object or null if invalid
@@ -601,12 +666,41 @@ export class PhotoService {
           .pipe(
             switchMap(async response => {
               const pages = response.query?.pages || {};
-              const photos: Photo[] = [];
+              const pageValues = Object.values(pages);
+              
+              if (pageValues.length === 0) {
+                return [];
+              }
 
-              // Process photos sequentially to handle async format validation
-              for (const page of Object.values(pages)) {
+              // Prepare batch validation requests
+              const validationRequests = pageValues
+                .filter(page => page.imageinfo?.[0]?.url) // Only process pages with valid image info
+                .map(page => {
+                  const imageInfo = page.imageinfo[0];
+                  const extmetadata = imageInfo.extmetadata || {};
+                  
+                  return {
+                    url: imageInfo.url,
+                    mimeType: extmetadata.MimeType?.value,
+                    metadata: { extmetadata }
+                  };
+                });
+
+              // Perform batch format validation
+              const validationResults = await this.formatValidationService.validateImageFormatsBatch(validationRequests);
+              
+              // Create a map of URL to validation result for quick lookup
+              const validationMap = new Map<string, any>();
+              validationRequests.forEach((request, index) => {
+                validationMap.set(request.url, validationResults[index]);
+              });
+
+              // Process photos with validation results
+              const photos: Photo[] = [];
+              
+              for (const page of pageValues) {
                 try {
-                  const photo = await this.processPhotoData(page);
+                  const photo = await this.processPhotoDataWithValidation(page, validationMap);
                   if (photo) {
                     photos.push(photo);
                   }
