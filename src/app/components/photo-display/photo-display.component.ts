@@ -2,10 +2,12 @@ import { Component, Input, OnInit, OnDestroy, ElementRef, ViewChild, HostListene
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subscription } from 'rxjs';
+import { distinctUntilChanged, filter } from 'rxjs/operators';
 import { Photo } from '../../models/photo.model';
 import { AppState } from '../../state/app.state';
 import { ImagePreloaderService } from '../../services/image-preloader.service';
 import { PhotoZoomService, PhotoZoomState } from '../../services/photo-zoom.service';
+import { InterfaceToggleService } from '../../services/interface-toggle.service';
 import { PhotoZoomControlsComponent } from '../photo-zoom-controls/photo-zoom-controls.component';
 import * as PhotosSelectors from '../../state/photos/photos.selectors';
 import * as GameSelectors from '../../state/game/game.selectors';
@@ -47,9 +49,9 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   lastPanPoint = { x: 0, y: 0 };
 
   // Touch gesture state
-  private touchStartDistance = 0;
-  private touchStartCenter = { x: 0, y: 0 };
-  private isMultiTouch = false;
+  public touchStartDistance = 0;
+  public touchStartCenter = { x: 0, y: 0 };
+  public isMultiTouch = false;
 
   // Store observables
   currentPhoto$: Observable<Photo | null>;
@@ -63,7 +65,8 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   constructor(
     private store: Store<AppState>,
     private imagePreloader: ImagePreloaderService,
-    private photoZoomService: PhotoZoomService
+    private photoZoomService: PhotoZoomService,
+    private interfaceToggleService: InterfaceToggleService
   ) {
     this.currentPhoto$ = this.store.select(PhotosSelectors.selectCurrentPhoto);
     this.photosLoading$ = this.store.select(PhotosSelectors.selectPhotosLoading);
@@ -75,23 +78,40 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     // Subscribe to current photo changes
     this.subscriptions.add(
-      this.currentPhoto$.subscribe(photo => {
+      this.currentPhoto$.pipe(
+        distinctUntilChanged((prev, curr) => prev?.id === curr?.id)
+      ).subscribe(photo => {
         if (photo !== this.photo) {
           this.photo = photo;
           if (photo) {
             this.resetImageState();
-            this.resetZoom();
+            this.resetZoomForNewPhoto();
             this.preloadNextPhoto();
           }
         }
       })
     );
 
-    // Subscribe to zoom state changes
+    // Subscribe to zoom state changes from PhotoZoomService
     if (this.enableZoom) {
       this.subscriptions.add(
         this.photoZoomService.zoomState$.subscribe(state => {
           this.zoomState = state;
+          // Sync zoom state with InterfaceToggleService for preservation during toggles
+          this.syncZoomStateWithInterface(state);
+        })
+      );
+
+      // Subscribe to interface toggle service for zoom state restoration
+      this.subscriptions.add(
+        this.interfaceToggleService.photoZoomState$.pipe(
+          filter(state => !!state),
+          distinctUntilChanged()
+        ).subscribe(interfaceZoomState => {
+          // Restore zoom state when switching back to photo view
+          if (this.interfaceToggleService.getCurrentActiveView() === 'photo') {
+            this.restoreZoomStateFromInterface(interfaceZoomState);
+          }
         })
       );
     }
@@ -248,6 +268,55 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Reset zoom for new photo (requirement 5.4)
+   * This ensures each round starts with a clean slate
+   */
+  private resetZoomForNewPhoto(): void {
+    if (this.enableZoom) {
+      this.photoZoomService.reset();
+      // Also reset the interface toggle service zoom state
+      this.interfaceToggleService.resetPhotoZoom();
+    }
+  }
+
+  /**
+   * Sync zoom state with InterfaceToggleService for preservation during toggles (requirement 2.5)
+   */
+  private syncZoomStateWithInterface(zoomState: PhotoZoomState): void {
+    if (this.enableZoom && zoomState) {
+      // Convert PhotoZoomService state to InterfaceToggleService state format
+      this.interfaceToggleService.setPhotoZoomState({
+        zoomLevel: zoomState.zoomLevel,
+        position: zoomState.position,
+        minZoom: zoomState.minZoom,
+        maxZoom: zoomState.maxZoom
+      });
+    }
+  }
+
+  /**
+   * Restore zoom state from InterfaceToggleService when switching back to photo view
+   */
+  private restoreZoomStateFromInterface(interfaceZoomState: any): void {
+    if (this.enableZoom && interfaceZoomState && this.photoContainer && this.photoImage) {
+      const container = this.photoContainer.nativeElement;
+      const image = this.photoImage.nativeElement;
+
+      // Initialize zoom service with current dimensions
+      this.photoZoomService.initializeZoom(
+        container.clientWidth,
+        container.clientHeight,
+        image.naturalWidth,
+        image.naturalHeight
+      );
+
+      // Restore the zoom level and position
+      this.photoZoomService.setZoomLevel(interfaceZoomState.zoomLevel);
+      this.photoZoomService.setPosition(interfaceZoomState.position.x, interfaceZoomState.position.y);
+    }
+  }
+
+  /**
    * Get CSS transform for zoomed image
    */
   getImageTransform(): string {
@@ -267,15 +336,17 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle mouse move for panning
+   * Handle mouse move for panning with boundary constraints
    */
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(event: MouseEvent): void {
-    if (!this.isDragging || !this.enableZoom) return;
+    if (!this.isDragging || !this.enableZoom || !this.zoomState || this.zoomState.zoomLevel <= 1) return;
 
+    event.preventDefault();
     const deltaX = event.clientX - this.lastPanPoint.x;
     const deltaY = event.clientY - this.lastPanPoint.y;
 
+    // Apply pan with boundary constraints
     this.photoZoomService.pan(deltaX, deltaY);
     this.lastPanPoint = { x: event.clientX, y: event.clientY };
   }
@@ -318,7 +389,7 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle touch move for pan and pinch gestures
+   * Handle touch move for pan and pinch gestures with boundary constraints
    */
   onTouchMove(event: TouchEvent): void {
     if (!this.enableZoom) return;
@@ -326,15 +397,17 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     event.preventDefault();
 
     if (event.touches.length === 1 && this.isDragging && !this.isMultiTouch) {
-      // Single touch pan
-      const touch = event.touches[0];
-      const deltaX = touch.clientX - this.lastPanPoint.x;
-      const deltaY = touch.clientY - this.lastPanPoint.y;
+      // Single touch pan with boundary constraints
+      if (this.zoomState && this.zoomState.zoomLevel > 1) {
+        const touch = event.touches[0];
+        const deltaX = touch.clientX - this.lastPanPoint.x;
+        const deltaY = touch.clientY - this.lastPanPoint.y;
 
-      this.photoZoomService.pan(deltaX, deltaY);
-      this.lastPanPoint = { x: touch.clientX, y: touch.clientY };
+        this.photoZoomService.pan(deltaX, deltaY);
+        this.lastPanPoint = { x: touch.clientX, y: touch.clientY };
+      }
     } else if (event.touches.length === 2 && this.isMultiTouch) {
-      // Pinch zoom
+      // Pinch zoom with smooth scaling
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
       
@@ -343,6 +416,8 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
       
       if (this.touchStartDistance > 0) {
         const scale = currentDistance / this.touchStartDistance;
+        
+        // Apply pinch zoom with center point
         this.photoZoomService.handlePinchZoom(
           scale,
           currentCenter.x,
@@ -416,5 +491,38 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
    */
   isZoomEnabled(): boolean {
     return this.enableZoom && this.imageLoaded && !this.imageError;
+  }
+
+  /**
+   * Check if photo is currently zoomed
+   */
+  isPhotoZoomed(): boolean {
+    return this.zoomState ? this.zoomState.zoomLevel > 1 : false;
+  }
+
+  /**
+   * Get current zoom level for display
+   */
+  getCurrentZoomLevel(): number {
+    return this.zoomState ? Math.round(this.zoomState.zoomLevel * 10) / 10 : 1;
+  }
+
+  /**
+   * Handle zoom controls events
+   */
+  onZoomControlsEvent(event: 'zoomIn' | 'zoomOut' | 'reset'): void {
+    if (!this.enableZoom) return;
+
+    switch (event) {
+      case 'zoomIn':
+        this.photoZoomService.zoomIn();
+        break;
+      case 'zoomOut':
+        this.photoZoomService.zoomOut();
+        break;
+      case 'reset':
+        this.photoZoomService.reset();
+        break;
+    }
   }
 }

@@ -394,7 +394,7 @@ describe('PhotoMapToggleComponent', () => {
       const liveRegion = fixture.debugElement.query(By.css('[aria-live="polite"]'));
       const spans = liveRegion.queryAll(By.css('span'));
       const transitionSpan = spans.find(span => span.nativeElement.textContent.includes('Switching views'));
-      expect(transitionSpan.nativeElement.textContent.trim()).toBe('Switching views...');
+      expect(transitionSpan?.nativeElement.textContent.trim()).toBe('Switching views...');
     });
 
     it('should set tabindex correctly based on active view', () => {

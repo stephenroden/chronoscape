@@ -81,7 +81,10 @@
       <!-- Zoom controls overlay -->
       <app-photo-zoom-controls 
         *ngIf="isZoomEnabled()"
-        [disabled]="imageLoading || imageError">
+        [disabled]="imageLoading || imageError"
+        (zoomIn)="onZoomControlsEvent('zoomIn')"
+        (zoomOut)="onZoomControlsEvent('zoomOut')"
+        (reset)="onZoomControlsEvent('reset')">
       </app-photo-zoom-controls>
     </div>
 
