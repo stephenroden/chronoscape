@@ -336,4 +336,62 @@ describe('YearGuessComponent', () => {
       expect(slider.getAttribute('step')).toBe('1');
     });
   });
+
+  describe('Reset Functionality', () => {
+    beforeEach(() => {
+      fixture.detectChanges();
+    });
+
+    it('should reset year to 1966 when guess is reset (requirement 5.1)', () => {
+      // Set initial year to something different
+      component.selectedYear = 1980;
+      component.yearForm.patchValue({ year: 1980 });
+
+      // Mock store to return guess with year 1966 (reset state)
+      mockStore.select.and.returnValue(of({
+        year: 1966,
+        coordinates: { latitude: 0, longitude: 0 }
+      }));
+
+      // Trigger ngOnInit to subscribe to store changes
+      component.ngOnInit();
+
+      expect(component.selectedYear).toBe(1966);
+      expect(component.yearForm.get('year')?.value).toBe(1966);
+    });
+
+    it('should handle reset to 1966 even when current year is different', () => {
+      // Set initial year
+      component.selectedYear = 2000;
+      component.yearForm.patchValue({ year: 2000 });
+
+      // Mock store to return reset guess
+      mockStore.select.and.returnValue(of({
+        year: 1966,
+        coordinates: { latitude: 0, longitude: 0 }
+      }));
+
+      component.ngOnInit();
+
+      expect(component.selectedYear).toBe(1966);
+      expect(component.yearForm.get('year')?.value).toBe(1966);
+    });
+
+    it('should not reset when year is not 1966', () => {
+      // Set initial year
+      component.selectedYear = 1950;
+      component.yearForm.patchValue({ year: 1950 });
+
+      // Mock store to return different guess
+      mockStore.select.and.returnValue(of({
+        year: 1975,
+        coordinates: { latitude: 40, longitude: -74 }
+      }));
+
+      component.ngOnInit();
+
+      expect(component.selectedYear).toBe(1975);
+      expect(component.yearForm.get('year')?.value).toBe(1975);
+    });
+  });
 });

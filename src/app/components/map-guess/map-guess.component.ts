@@ -365,7 +365,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   /**
-   * Reset map state for new photo
+   * Reset map state for new photo (requirements 5.2, 5.3)
    */
   resetMapForNewPhoto(): void {
     if (!this.isMapInitialized) {
@@ -373,19 +373,16 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     try {
-      // Clear any existing pins
-      this.clearAllPins();
-      
-      // Reset map to default view
-      this.resetToDefaultView();
+      // Use the new map service reset method
+      this.mapService.resetForNewPhoto();
       
       // Clear local state
       this.userPin = null;
       
-      // Update store with placeholder coordinates
+      // Update store with placeholder coordinates (requirement 5.3)
       this.updateCurrentGuess({ latitude: 0, longitude: 0 });
       
-      // If in toggle container, reset toggle service map state
+      // If in toggle container, reset toggle service map state (requirement 5.2)
       if (this.isInToggleContainer) {
         this.interfaceToggleService.resetMapState();
       }

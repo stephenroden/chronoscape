@@ -6,6 +6,8 @@ import { Action } from '@ngrx/store';
 import { GameEffects } from './game.effects';
 import * as GameActions from './game.actions';
 import * as PhotosActions from '../photos/photos.actions';
+import * as ScoringActions from '../scoring/scoring.actions';
+import * as InterfaceActions from '../interface/interface.actions';
 import * as GameSelectors from './game.selectors';
 import { AppState } from '../app.state';
 import { GameStatus } from '../../models/game-state.model';
@@ -95,6 +97,55 @@ describe('GameEffects', () => {
       effects.syncCurrentPhotoOnStart$.subscribe(result => {
         expect(result).toEqual(expectedAction);
         done();
+      });
+    });
+  });
+
+  describe('resetForNewPhoto$', () => {
+    it('should dispatch reset actions when nextPhoto action is dispatched', (done) => {
+      const action = GameActions.nextPhoto();
+      const expectedActions = [
+        ScoringActions.resetYearGuessTo1966(),
+        InterfaceActions.resetForNewPhoto()
+      ];
+
+      actions$ = of(action);
+
+      let actionCount = 0;
+      effects.resetForNewPhoto$.subscribe(result => {
+        expect(result).toEqual(expectedActions[actionCount]);
+        actionCount++;
+        if (actionCount === expectedActions.length) {
+          done();
+        }
+      });
+    });
+
+    it('should reset year guess to 1966 (requirement 5.1)', (done) => {
+      const action = GameActions.nextPhoto();
+      actions$ = of(action);
+
+      let actionCount = 0;
+      effects.resetForNewPhoto$.subscribe(result => {
+        if (actionCount === 0) {
+          expect(result).toEqual(ScoringActions.resetYearGuessTo1966());
+          done();
+        }
+        actionCount++;
+      });
+    });
+
+    it('should reset interface state (requirements 5.2, 5.3, 5.4)', (done) => {
+      const action = GameActions.nextPhoto();
+      actions$ = of(action);
+
+      let actionCount = 0;
+      effects.resetForNewPhoto$.subscribe(result => {
+        if (actionCount === 1) {
+          expect(result).toEqual(InterfaceActions.resetForNewPhoto());
+          done();
+        }
+        actionCount++;
       });
     });
   });

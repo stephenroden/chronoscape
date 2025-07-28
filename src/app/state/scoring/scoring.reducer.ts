@@ -30,6 +30,14 @@ export const scoringReducer = createReducer(
     currentGuess: null
   })),
 
+  on(ScoringActions.resetYearGuessTo1966, (state): ScoringState => ({
+    ...state,
+    currentGuess: {
+      year: 1966,
+      coordinates: { latitude: 0, longitude: 0 }
+    }
+  })),
+
   on(ScoringActions.addScore, (state, { score }): ScoringState => {
     // Remove any existing score for this photo to avoid duplicates
     const filteredScores = state.scores.filter(s => s.photoId !== score.photoId);

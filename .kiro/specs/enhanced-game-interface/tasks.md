@@ -68,7 +68,7 @@
   - Write unit tests for enhanced results display functionality
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
 
-- [ ] 8. Implement reset functionality for new photos
+- [x] 8. Implement reset functionality for new photos
 
   - Add reset logic to clear previous guess markers from map
   - Implement year input reset to 1966 when advancing to new photos

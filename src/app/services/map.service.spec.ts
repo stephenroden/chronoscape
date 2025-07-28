@@ -586,4 +586,50 @@ describe('MapService', () => {
       });
     });
   });
+
+  describe('resetForNewPhoto', () => {
+    beforeEach(() => {
+      service.initializeMap('test-map');
+    });
+
+    it('should clear all pins and reset to default view (requirements 5.2, 5.3)', () => {
+      // Add some pins first
+      const coord1: Coordinates = { latitude: 40.7128, longitude: -74.0060 };
+      const coord2: Coordinates = { latitude: 34.0522, longitude: -118.2437 };
+      
+      service.addPin(coord1);
+      service.addAdditionalPin(coord2);
+      service.setMapView(coord1, 10);
+
+      // Verify pins exist and map is not at default
+      expect(service.getPinCoordinates()).not.toBeNull();
+      expect(service.getAllMarkerPositions().length).toBe(2);
+
+      // Reset for new photo
+      service.resetForNewPhoto();
+
+      // Verify all pins are cleared and map is at default view
+      expect(service.getPinCoordinates()).toBeNull();
+      expect(service.getAllMarkerPositions().length).toBe(0);
+      
+      const center = service.getMapCenter();
+      expect(center?.latitude).toBe(20);
+      expect(center?.longitude).toBe(0);
+      expect(service.getCurrentZoom()).toBe(2);
+    });
+
+    it('should handle reset when no pins exist', () => {
+      expect(() => service.resetForNewPhoto()).not.toThrow();
+      
+      const center = service.getMapCenter();
+      expect(center?.latitude).toBe(20);
+      expect(center?.longitude).toBe(0);
+      expect(service.getCurrentZoom()).toBe(2);
+    });
+
+    it('should handle reset when map is not initialized', () => {
+      service.destroy();
+      expect(() => service.resetForNewPhoto()).not.toThrow();
+    });
+  });
 });

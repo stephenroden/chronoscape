@@ -47,6 +47,10 @@ export class YearGuessComponent implements OnInit, OnDestroy {
         if (guess?.year && this.selectedYear !== guess.year) {
           this.selectedYear = guess.year;
           this.yearForm.patchValue({ year: guess.year });
+        } else if (guess?.year === 1966 && this.selectedYear !== 1966) {
+          // Handle reset to 1966 (requirement 5.1)
+          this.selectedYear = 1966;
+          this.yearForm.patchValue({ year: 1966 });
         }
       });
     

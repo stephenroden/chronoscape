@@ -51,6 +51,9 @@ export const guessValidationFailure = createAction(
   props<{ error: string }>()
 );
 
+// Reset actions for new photo
+export const resetYearGuessTo1966 = createAction('[Scoring] Reset Year Guess To 1966');
+
 // Loading and error management actions
 export const setScoringLoading = createAction(
   '[Scoring] Set Scoring Loading',

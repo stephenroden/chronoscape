@@ -478,6 +478,14 @@ export class MapService {
   }
 
   /**
+   * Reset map for new photo (requirement 5.2, 5.3)
+   * Clears all pins and resets to default view
+   */
+  resetForNewPhoto(): void {
+    this.resetToDefault();
+  }
+
+  /**
    * Force map to recalculate its size (useful after container resize)
    */
   invalidateSize(): void {

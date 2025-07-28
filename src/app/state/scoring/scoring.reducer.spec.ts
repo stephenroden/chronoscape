@@ -63,6 +63,33 @@ describe('Scoring Reducer', () => {
     });
   });
 
+  describe('resetYearGuessTo1966 action', () => {
+    it('should reset year guess to 1966 (requirement 5.1)', () => {
+      const state = {
+        ...initialScoringState,
+        currentGuess: mockGuess
+      };
+
+      const action = ScoringActions.resetYearGuessTo1966();
+      const result = scoringReducer(state, action);
+
+      expect(result.currentGuess).toEqual({
+        year: 1966,
+        coordinates: { latitude: 0, longitude: 0 }
+      });
+    });
+
+    it('should reset year guess to 1966 even when no current guess exists', () => {
+      const action = ScoringActions.resetYearGuessTo1966();
+      const result = scoringReducer(initialScoringState, action);
+
+      expect(result.currentGuess).toEqual({
+        year: 1966,
+        coordinates: { latitude: 0, longitude: 0 }
+      });
+    });
+  });
+
   describe('addScore action', () => {
     it('should add new score and update total', () => {
       const action = ScoringActions.addScore({ score: mockScore });
