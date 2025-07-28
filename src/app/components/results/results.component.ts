@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, TitleCasePipe } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest, of } from 'rxjs';
 import { takeUntil, map, switchMap } from 'rxjs/operators';
@@ -8,16 +8,19 @@ import { AppState } from '../../state/app.state';
 import { Photo } from '../../models/photo.model';
 import { Score, Guess } from '../../models/scoring.model';
 import { Coordinates } from '../../models/coordinates.model';
+import { EnhancedFeedback } from '../../models/enhanced-feedback.model';
 
 import { selectCurrentPhoto } from '../../state/photos/photos.selectors';
 import { selectCurrentGuess, selectScoreByPhotoId } from '../../state/scoring/scoring.selectors';
+import { nextPhoto } from '../../state/game/game.actions';
 
 import { MapService } from '../../services/map.service';
+import { EnhancedFeedbackService } from '../../services/enhanced-feedback.service';
 
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TitleCasePipe],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss']
 })
@@ -34,6 +37,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
     photo: Photo | null;
     guess: Guess | null;
     score: Score | null;
+    enhancedFeedback: EnhancedFeedback | null;
   }>;
 
   // Map container ID for results map
@@ -42,12 +46,13 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   constructor(
     private store: Store<AppState>,
-    private mapService: MapService
+    private mapService: MapService,
+    private enhancedFeedbackService: EnhancedFeedbackService
   ) {
     this.currentPhoto$ = this.store.select(selectCurrentPhoto);
     this.currentGuess$ = this.store.select(selectCurrentGuess);
 
-    // Combine all data streams with dynamic score selection
+    // Combine all data streams with dynamic score selection and enhanced feedback
     this.resultsData$ = combineLatest([
       this.currentPhoto$,
       this.currentGuess$
@@ -56,17 +61,26 @@ export class ResultsComponent implements OnInit, OnDestroy {
         if (photo) {
           // Get the score for the current photo
           return this.store.select(selectScoreByPhotoId(photo.id)).pipe(
-            map(score => ({
-              photo,
-              guess,
-              score
-            }))
+            map(score => {
+              // Generate enhanced feedback if both photo and guess are available
+              const enhancedFeedback = (photo && guess) ? 
+                this.enhancedFeedbackService.generateFeedback(photo, guess) : 
+                null;
+
+              return {
+                photo,
+                guess,
+                score,
+                enhancedFeedback
+              };
+            })
           );
         }
         return of({
           photo,
           guess,
-          score: null
+          score: null,
+          enhancedFeedback: null
         });
       })
     );
@@ -78,7 +92,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
       takeUntil(this.destroy$)
     ).subscribe(data => {
       if (data && data.photo && data.guess && !this.mapInitialized) {
-        setTimeout(() => this.initializeResultsMap(data.photo!, data.guess!), 100);
+        setTimeout(() => this.initializeResultsMap(data.photo!, data.guess!, data.enhancedFeedback), 100);
       }
     });
   }
@@ -91,7 +105,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
   /**
    * Initialize the results map showing both user guess and correct location
    */
-  private initializeResultsMap(photo: Photo, guess: Guess): void {
+  private initializeResultsMap(photo: Photo, guess: Guess, enhancedFeedback: EnhancedFeedback | null): void {
     try {
       this.mapService.initializeMap(this.mapContainerId);
       
@@ -110,9 +124,27 @@ export class ResultsComponent implements OnInit, OnDestroy {
       // Set map view to show both pins
       this.mapService.fitBounds([guess.coordinates, photo.coordinates]);
       
+      // Add distance line if enhanced feedback is available
+      if (enhancedFeedback) {
+        this.addDistanceLine(guess.coordinates, photo.coordinates);
+      }
+      
       this.mapInitialized = true;
     } catch (error) {
       console.error('Error initializing results map:', error);
+    }
+  }
+
+  /**
+   * Add a line showing the distance between guess and correct location
+   */
+  private addDistanceLine(guessCoords: Coordinates, correctCoords: Coordinates): void {
+    try {
+      // This would be implemented if the MapService supports drawing lines
+      // For now, we'll rely on the visual connection between the two pins
+      console.log('Distance line would be drawn between:', guessCoords, 'and', correctCoords);
+    } catch (error) {
+      console.error('Error adding distance line:', error);
     }
   }
 
@@ -177,6 +209,7 @@ export class ResultsComponent implements OnInit, OnDestroy {
    */
   onNextPhoto(): void {
     this.mapInitialized = false; // Reset map for next photo
+    this.store.dispatch(nextPhoto());
     this.nextPhoto.emit();
   }
 }

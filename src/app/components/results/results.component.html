@@ -4,7 +4,10 @@
     <h2>Results</h2>
     <div class="photo-info" *ngIf="data.photo">
       <h3>{{ data.photo.title }}</h3>
-      <p class="photo-description" *ngIf="data.photo.description">
+      <p class="photo-description" *ngIf="data.enhancedFeedback?.photoContext?.detailedDescription">
+        {{ data.enhancedFeedback?.photoContext?.detailedDescription }}
+      </p>
+      <p class="photo-description" *ngIf="!data.enhancedFeedback?.photoContext?.detailedDescription && data.photo.description">
         {{ data.photo.description }}
       </p>
     </div>
@@ -12,22 +15,44 @@
 
   <!-- Results Content -->
   <div class="results-content" *ngIf="data.photo && data.guess">
+    <!-- Enhanced Performance Summary -->
+    <div class="result-section performance-summary" *ngIf="data.enhancedFeedback">
+      <h4>Performance Summary</h4>
+      <div class="summary-text">
+        {{ data.enhancedFeedback.performanceSummary }}
+      </div>
+    </div>
+
     <!-- Year Results -->
     <div class="result-section year-results">
       <h4>Year Guess</h4>
+      <div class="prominent-answer">
+        <div class="correct-year-display">
+          <span class="label">Correct Year:</span>
+          <span class="year-value">{{ data.photo.year }}</span>
+        </div>
+      </div>
+      
       <div class="guess-comparison">
         <div class="guess-item user-guess">
           <span class="label">Your Guess:</span>
           <span class="value">{{ data.guess.year }}</span>
         </div>
-        <div class="guess-item correct-answer">
-          <span class="label">Correct Year:</span>
-          <span class="value">{{ data.photo.year }}</span>
-        </div>
         <div class="difference">
-          <span class="difference-text">
+          <span class="difference-text" *ngIf="data.enhancedFeedback">
+            {{ data.enhancedFeedback.yearDifference === 0 ? 'Perfect match!' : 
+               data.enhancedFeedback.yearDifference + ' year' + (data.enhancedFeedback.yearDifference === 1 ? '' : 's') + ' off' }}
+          </span>
+          <span class="difference-text" *ngIf="!data.enhancedFeedback">
             {{ formatYearDifference(data.guess.year, data.photo.year) }}
           </span>
+        </div>
+      </div>
+      
+      <!-- Enhanced Year Performance -->
+      <div class="enhanced-performance" *ngIf="data.enhancedFeedback">
+        <div class="accuracy-badge" [class]="'accuracy-' + data.enhancedFeedback.yearAccuracy">
+          {{ data.enhancedFeedback.yearAccuracy | titlecase }} Year Accuracy
         </div>
       </div>
       
@@ -46,25 +71,38 @@
     <!-- Location Results -->
     <div class="result-section location-results">
       <h4>Location Guess</h4>
+      <div class="prominent-answer">
+        <div class="correct-location-display">
+          <span class="label">Correct Location:</span>
+          <span class="location-value">
+            {{ data.photo?.coordinates?.latitude?.toFixed(4) }}°, 
+            {{ data.photo?.coordinates?.longitude?.toFixed(4) }}°
+          </span>
+        </div>
+      </div>
+      
       <div class="guess-comparison">
         <div class="guess-item user-guess">
           <span class="label">Your Guess:</span>
           <span class="value">
-            {{ data.guess.coordinates.latitude.toFixed(4) }}°, 
-            {{ data.guess.coordinates.longitude.toFixed(4) }}°
-          </span>
-        </div>
-        <div class="guess-item correct-answer">
-          <span class="label">Correct Location:</span>
-          <span class="value">
-            {{ data.photo.coordinates.latitude.toFixed(4) }}°, 
-            {{ data.photo.coordinates.longitude.toFixed(4) }}°
+            {{ data.guess?.coordinates?.latitude?.toFixed(4) }}°, 
+            {{ data.guess?.coordinates?.longitude?.toFixed(4) }}°
           </span>
         </div>
         <div class="difference">
-          <span class="difference-text">
+          <span class="difference-text" *ngIf="data.enhancedFeedback">
+            {{ formatDistance(data.enhancedFeedback.distanceKm) }} away
+          </span>
+          <span class="difference-text" *ngIf="!data.enhancedFeedback && data.guess?.coordinates && data.photo?.coordinates">
             {{ formatDistance(calculateDistance(data.guess.coordinates, data.photo.coordinates)) }} away
           </span>
+        </div>
+      </div>
+      
+      <!-- Enhanced Location Performance -->
+      <div class="enhanced-performance" *ngIf="data.enhancedFeedback">
+        <div class="accuracy-badge" [class]="'accuracy-' + data.enhancedFeedback.locationAccuracy">
+          {{ data.enhancedFeedback.locationAccuracy | titlecase }} Location Accuracy
         </div>
       </div>
       
@@ -95,6 +133,45 @@
             <span>Correct Location</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Enhanced Photo Information -->
+    <div class="result-section photo-context" *ngIf="data.enhancedFeedback?.photoContext">
+      <h4>About This Photo</h4>
+      
+      <!-- Historical Context -->
+      <div class="context-section" *ngIf="data.enhancedFeedback?.photoContext?.historicalContext">
+        <h5>Historical Context</h5>
+        <p class="context-text">{{ data.enhancedFeedback?.photoContext?.historicalContext }}</p>
+      </div>
+      
+      <!-- Era Information -->
+      <div class="context-section" *ngIf="data.enhancedFeedback?.photoContext?.era">
+        <h5>Era</h5>
+        <p class="era-text">{{ data.enhancedFeedback?.photoContext?.era }}</p>
+      </div>
+      
+      <!-- Photographer -->
+      <div class="context-section" *ngIf="data.enhancedFeedback?.photoContext?.photographer">
+        <h5>Photographer</h5>
+        <p class="photographer-text">{{ data.enhancedFeedback?.photoContext?.photographer }}</p>
+      </div>
+      
+      <!-- Interesting Facts -->
+      <div class="context-section" *ngIf="data.enhancedFeedback?.photoContext?.interestingFacts?.length">
+        <h5>Interesting Facts</h5>
+        <ul class="facts-list">
+          <li *ngFor="let fact of data.enhancedFeedback?.photoContext?.interestingFacts" class="fact-item">
+            {{ fact }}
+          </li>
+        </ul>
+      </div>
+      
+      <!-- Significance -->
+      <div class="context-section" *ngIf="data.enhancedFeedback?.photoContext?.significance">
+        <h5>Historical Significance</h5>
+        <p class="significance-text">{{ data.enhancedFeedback?.photoContext?.significance }}</p>
       </div>
     </div>
 

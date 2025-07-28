@@ -4,9 +4,11 @@ import { of } from 'rxjs';
 
 import { ResultsComponent } from './results.component';
 import { MapService } from '../../services/map.service';
+import { EnhancedFeedbackService } from '../../services/enhanced-feedback.service';
 import { AppState } from '../../state/app.state';
 import { Photo } from '../../models/photo.model';
 import { Guess, Score } from '../../models/scoring.model';
+import { EnhancedFeedback } from '../../models/enhanced-feedback.model';
 import { nextPhoto } from '../../state/game/game.actions';
 import * as photosSelectors from '../../state/photos/photos.selectors';
 import * as scoringSelectors from '../../state/scoring/scoring.selectors';
@@ -16,6 +18,7 @@ describe('ResultsComponent', () => {
   let fixture: ComponentFixture<ResultsComponent>;
   let mockStore: jasmine.SpyObj<Store<AppState>>;
   let mockMapService: jasmine.SpyObj<MapService>;
+  let mockEnhancedFeedbackService: jasmine.SpyObj<EnhancedFeedbackService>;
 
   const mockPhoto: Photo = {
     id: 'test-photo-1',
@@ -45,6 +48,25 @@ describe('ResultsComponent', () => {
     totalScore: 5500
   };
 
+  const mockEnhancedFeedback: EnhancedFeedback = {
+    correctYear: 1950,
+    correctLocation: { latitude: 40.7128, longitude: -74.0060 },
+    userGuess: mockGuess,
+    distanceKm: 123.45,
+    yearAccuracy: 'good',
+    locationAccuracy: 'fair',
+    photoContext: {
+      photographer: 'Test Photographer',
+      detailedDescription: 'Enhanced detailed description of the test photo',
+      historicalContext: 'This photo was taken during a significant historical period',
+      interestingFacts: ['Fact 1', 'Fact 2', 'Fact 3'],
+      era: 'Mid-Century Modern',
+      significance: 'This photo has historical significance'
+    },
+    yearDifference: 5,
+    performanceSummary: 'Good year guess! You were 5 years off. Fair location guess. You were 123.45 km away from the correct location.'
+  };
+
   beforeEach(async () => {
     const storeSpy = jasmine.createSpyObj('Store', ['select', 'dispatch']);
     const mapServiceSpy = jasmine.createSpyObj('MapService', [
@@ -54,9 +76,15 @@ describe('ResultsComponent', () => {
       'fitBounds',
       'calculateDistance'
     ]);
+    const enhancedFeedbackServiceSpy = jasmine.createSpyObj('EnhancedFeedbackService', [
+      'generateFeedback',
+      'calculateDistance'
+    ]);
 
-    // Setup default return value for calculateDistance
+    // Setup default return values
     mapServiceSpy.calculateDistance.and.returnValue(123.456);
+    enhancedFeedbackServiceSpy.generateFeedback.and.returnValue(mockEnhancedFeedback);
+    enhancedFeedbackServiceSpy.calculateDistance.and.returnValue(123.45);
 
     // Setup default store behavior BEFORE component creation
     storeSpy.select.and.returnValue(of(null));
@@ -65,12 +93,14 @@ describe('ResultsComponent', () => {
       imports: [ResultsComponent],
       providers: [
         { provide: Store, useValue: storeSpy },
-        { provide: MapService, useValue: mapServiceSpy }
+        { provide: MapService, useValue: mapServiceSpy },
+        { provide: EnhancedFeedbackService, useValue: enhancedFeedbackServiceSpy }
       ]
     }).compileComponents();
 
     mockStore = TestBed.inject(Store) as jasmine.SpyObj<Store<AppState>>;
     mockMapService = TestBed.inject(MapService) as jasmine.SpyObj<MapService>;
+    mockEnhancedFeedbackService = TestBed.inject(EnhancedFeedbackService) as jasmine.SpyObj<EnhancedFeedbackService>;
   });
 
   it('should create', () => {
@@ -130,7 +160,8 @@ describe('ResultsComponent', () => {
       expect(titleElement).toBeTruthy();
       expect(titleElement.textContent).toContain(mockPhoto.title);
       expect(descriptionElement).toBeTruthy();
-      expect(descriptionElement.textContent).toContain(mockPhoto.description);
+      // Should now show enhanced description instead of original
+      expect(descriptionElement.textContent).toContain(mockEnhancedFeedback.photoContext.detailedDescription);
     });
 
     it('should display year comparison correctly', async () => {
@@ -227,6 +258,18 @@ describe('ResultsComponent', () => {
       ]);
     }));
 
+    it('should initialize map with enhanced feedback data', fakeAsync(() => {
+      fixture.detectChanges();
+      tick(100); // Wait for setTimeout in initializeResultsMap
+
+      // Verify that the map is initialized with enhanced feedback
+      expect(mockMapService.initializeMap).toHaveBeenCalledWith('results-map');
+      // The addDistanceLine method should be called (though it's currently just a console.log)
+      spyOn(console, 'log');
+      component['addDistanceLine'](mockGuess.coordinates, mockPhoto.coordinates);
+      expect(console.log).toHaveBeenCalledWith('Distance line would be drawn between:', mockGuess.coordinates, 'and', mockPhoto.coordinates);
+    }));
+
     it('should handle map initialization errors gracefully', fakeAsync(() => {
       mockMapService.initializeMap.and.throwError('Map error');
       spyOn(console, 'error');
@@ -236,6 +279,15 @@ describe('ResultsComponent', () => {
 
       expect(console.error).toHaveBeenCalledWith('Error initializing results map:', jasmine.any(Error));
     }));
+
+    it('should handle distance line errors gracefully', () => {
+      spyOn(console, 'error');
+      spyOn(console, 'log').and.throwError('Distance line error');
+
+      component['addDistanceLine'](mockGuess.coordinates, mockPhoto.coordinates);
+
+      expect(console.error).toHaveBeenCalledWith('Error adding distance line:', jasmine.any(Error));
+    });
   });
 
   describe('Distance Calculation', () => {
@@ -356,6 +408,144 @@ describe('ResultsComponent', () => {
       component['mapInitialized'] = true;
       component.onNextPhoto();
       expect(component['mapInitialized']).toBe(false);
+    });
+  });
+
+  describe('Enhanced Feedback Integration', () => {
+    beforeEach(() => {
+      mockStore.select.and.callFake((selector: any) => {
+        if (selector === photosSelectors.selectCurrentPhoto) {
+          return of(mockPhoto);
+        }
+        if (selector === scoringSelectors.selectCurrentGuess) {
+          return of(mockGuess);
+        }
+        if (typeof selector === 'function') {
+          return of(mockScore);
+        }
+        return of(null);
+      });
+
+      fixture = TestBed.createComponent(ResultsComponent);
+      component = fixture.componentInstance;
+    });
+
+    it('should generate enhanced feedback when photo and guess are available', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(mockEnhancedFeedbackService.generateFeedback).toHaveBeenCalledWith(mockPhoto, mockGuess);
+    });
+
+    it('should display enhanced performance summary', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const summarySection = compiled.querySelector('.performance-summary');
+      expect(summarySection).toBeTruthy();
+      expect(summarySection.textContent).toContain(mockEnhancedFeedback.performanceSummary);
+    });
+
+    it('should display prominent correct year', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const correctYearDisplay = compiled.querySelector('.correct-year-display .year-value');
+      expect(correctYearDisplay).toBeTruthy();
+      expect(correctYearDisplay.textContent?.trim()).toBe(mockPhoto.year.toString());
+    });
+
+    it('should display prominent correct location', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const correctLocationDisplay = compiled.querySelector('.correct-location-display .location-value');
+      expect(correctLocationDisplay).toBeTruthy();
+      expect(correctLocationDisplay.textContent).toContain(mockPhoto.coordinates.latitude.toFixed(4));
+      expect(correctLocationDisplay.textContent).toContain(mockPhoto.coordinates.longitude.toFixed(4));
+    });
+
+    it('should display enhanced accuracy badges', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const yearAccuracyBadge = compiled.querySelector('.year-results .accuracy-badge');
+      const locationAccuracyBadge = compiled.querySelector('.location-results .accuracy-badge');
+
+      expect(yearAccuracyBadge).toBeTruthy();
+      expect(yearAccuracyBadge.textContent).toContain('Good Year Accuracy');
+      expect(yearAccuracyBadge.classList).toContain('accuracy-good');
+
+      expect(locationAccuracyBadge).toBeTruthy();
+      expect(locationAccuracyBadge.textContent).toContain('Fair Location Accuracy');
+      expect(locationAccuracyBadge.classList).toContain('accuracy-fair');
+    });
+
+    it('should display enhanced photo context information', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const photoContextSection = compiled.querySelector('.photo-context');
+      expect(photoContextSection).toBeTruthy();
+
+      // Check for historical context
+      const historicalContext = compiled.querySelector('.context-text');
+      expect(historicalContext).toBeTruthy();
+      expect(historicalContext.textContent).toContain(mockEnhancedFeedback.photoContext.historicalContext);
+
+      // Check for era
+      const era = compiled.querySelector('.era-text');
+      expect(era).toBeTruthy();
+      expect(era.textContent).toContain(mockEnhancedFeedback.photoContext.era);
+
+      // Check for photographer
+      const photographer = compiled.querySelector('.photographer-text');
+      expect(photographer).toBeTruthy();
+      expect(photographer.textContent).toContain(mockEnhancedFeedback.photoContext.photographer);
+
+      // Check for interesting facts
+      const factsList = compiled.querySelector('.facts-list');
+      expect(factsList).toBeTruthy();
+      const factItems = compiled.querySelectorAll('.fact-item');
+      expect(factItems.length).toBe(mockEnhancedFeedback.photoContext.interestingFacts!.length);
+
+      // Check for significance
+      const significance = compiled.querySelector('.significance-text');
+      expect(significance).toBeTruthy();
+      expect(significance.textContent).toContain(mockEnhancedFeedback.photoContext.significance);
+    });
+
+    it('should use enhanced detailed description when available', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const description = compiled.querySelector('.photo-description');
+      expect(description).toBeTruthy();
+      expect(description.textContent).toContain(mockEnhancedFeedback.photoContext.detailedDescription);
+    });
+
+    it('should display enhanced distance calculation', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      const compiled = fixture.nativeElement;
+      const distanceText = compiled.querySelector('.location-results .difference-text');
+      expect(distanceText).toBeTruthy();
+      // Should use the enhanced feedback distance, not the calculated one
+      expect(distanceText.textContent).toContain('123km'); // Formatted from 123.45
     });
   });
 
