@@ -53,6 +53,9 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   public touchStartCenter = { x: 0, y: 0 };
   public isMultiTouch = false;
 
+  // Performance optimization
+  private resizeTimeout: any;
+
   // Store observables
   currentPhoto$: Observable<Photo | null>;
   photosLoading$: Observable<boolean>;
@@ -95,23 +98,16 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     // Subscribe to zoom state changes from PhotoZoomService
     if (this.enableZoom) {
       this.subscriptions.add(
-        this.photoZoomService.zoomState$.subscribe(state => {
+        this.photoZoomService.zoomState$.pipe(
+          distinctUntilChanged((prev, curr) => 
+            prev.zoomLevel === curr.zoomLevel && 
+            prev.position.x === curr.position.x && 
+            prev.position.y === curr.position.y
+          )
+        ).subscribe(state => {
           this.zoomState = state;
-          // Sync zoom state with InterfaceToggleService for preservation during toggles
-          this.syncZoomStateWithInterface(state);
-        })
-      );
-
-      // Subscribe to interface toggle service for zoom state restoration
-      this.subscriptions.add(
-        this.interfaceToggleService.photoZoomState$.pipe(
-          filter(state => !!state),
-          distinctUntilChanged()
-        ).subscribe(interfaceZoomState => {
-          // Restore zoom state when switching back to photo view
-          if (this.interfaceToggleService.getCurrentActiveView() === 'photo') {
-            this.restoreZoomStateFromInterface(interfaceZoomState);
-          }
+          // Only sync with interface service when view is actually changing
+          // This prevents circular updates during normal zoom operations
         })
       );
     }
@@ -128,6 +124,11 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
+    
+    // Clean up resize timeout
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
   }
 
   /**
@@ -281,39 +282,20 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
 
   /**
    * Sync zoom state with InterfaceToggleService for preservation during toggles (requirement 2.5)
+   * DISABLED: This method was causing circular updates and browser crashes
    */
   private syncZoomStateWithInterface(zoomState: PhotoZoomState): void {
-    if (this.enableZoom && zoomState) {
-      // Convert PhotoZoomService state to InterfaceToggleService state format
-      this.interfaceToggleService.setPhotoZoomState({
-        zoomLevel: zoomState.zoomLevel,
-        position: zoomState.position,
-        minZoom: zoomState.minZoom,
-        maxZoom: zoomState.maxZoom
-      });
-    }
+    // Temporarily disabled to prevent circular updates
+    // TODO: Implement proper state preservation without circular dependencies
   }
 
   /**
    * Restore zoom state from InterfaceToggleService when switching back to photo view
+   * DISABLED: This method was causing circular updates and browser crashes
    */
   private restoreZoomStateFromInterface(interfaceZoomState: any): void {
-    if (this.enableZoom && interfaceZoomState && this.photoContainer && this.photoImage) {
-      const container = this.photoContainer.nativeElement;
-      const image = this.photoImage.nativeElement;
-
-      // Initialize zoom service with current dimensions
-      this.photoZoomService.initializeZoom(
-        container.clientWidth,
-        container.clientHeight,
-        image.naturalWidth,
-        image.naturalHeight
-      );
-
-      // Restore the zoom level and position
-      this.photoZoomService.setZoomLevel(interfaceZoomState.zoomLevel);
-      this.photoZoomService.setPosition(interfaceZoomState.position.x, interfaceZoomState.position.y);
-    }
+    // Temporarily disabled to prevent circular updates
+    // TODO: Implement proper state restoration without circular dependencies
   }
 
   /**
@@ -346,9 +328,11 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     const deltaX = event.clientX - this.lastPanPoint.x;
     const deltaY = event.clientY - this.lastPanPoint.y;
 
-    // Apply pan with boundary constraints
-    this.photoZoomService.pan(deltaX, deltaY);
-    this.lastPanPoint = { x: event.clientX, y: event.clientY };
+    // Only update if movement is significant (reduces excessive updates)
+    if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+      this.photoZoomService.pan(deltaX, deltaY);
+      this.lastPanPoint = { x: event.clientX, y: event.clientY };
+    }
   }
 
   /**
@@ -403,8 +387,11 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
         const deltaX = touch.clientX - this.lastPanPoint.x;
         const deltaY = touch.clientY - this.lastPanPoint.y;
 
-        this.photoZoomService.pan(deltaX, deltaY);
-        this.lastPanPoint = { x: touch.clientX, y: touch.clientY };
+        // Only update if movement is significant (reduces excessive updates)
+        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+          this.photoZoomService.pan(deltaX, deltaY);
+          this.lastPanPoint = { x: touch.clientX, y: touch.clientY };
+        }
       }
     } else if (event.touches.length === 2 && this.isMultiTouch) {
       // Pinch zoom with smooth scaling
@@ -417,16 +404,18 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
       if (this.touchStartDistance > 0) {
         const scale = currentDistance / this.touchStartDistance;
         
-        // Apply pinch zoom with center point
-        this.photoZoomService.handlePinchZoom(
-          scale,
-          currentCenter.x,
-          currentCenter.y
-        );
+        // Only update if scale change is significant (reduces excessive updates)
+        if (Math.abs(scale - 1) > 0.01) {
+          this.photoZoomService.handlePinchZoom(
+            scale,
+            currentCenter.x,
+            currentCenter.y
+          );
+          
+          this.touchStartDistance = currentDistance;
+          this.touchStartCenter = currentCenter;
+        }
       }
-      
-      this.touchStartDistance = currentDistance;
-      this.touchStartCenter = currentCenter;
     }
   }
 
@@ -457,13 +446,19 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   @HostListener('window:resize')
   onWindowResize(): void {
     if (this.enableZoom && this.photoContainer && this.imageLoaded) {
-      setTimeout(() => {
+      // Throttle resize events to prevent excessive updates
+      if (this.resizeTimeout) {
+        clearTimeout(this.resizeTimeout);
+      }
+      
+      this.resizeTimeout = setTimeout(() => {
         const container = this.photoContainer.nativeElement;
         this.photoZoomService.updateContainerDimensions(
           container.clientWidth,
           container.clientHeight
         );
-      }, 100);
+        this.resizeTimeout = null;
+      }, 250);
     }
   }
 

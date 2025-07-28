@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Observable, Subscription, combineLatest } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, take } from 'rxjs/operators';
 import { AppState } from '../../state/app.state';
 import { GameStatus } from '../../models/game-state.model';
 import { validateGuess } from '../../models/scoring.model';
@@ -91,7 +91,7 @@ export class GameComponent implements OnInit, OnDestroy {
     
     // Track if we're showing results for current photo
     this.showingResults$ = this.store.select(ScoringSelectors.selectCurrentScore).pipe(
-      map(score => !!score && !this.showingResults)
+      map(score => !!score)
     );
   }
 
@@ -111,10 +111,8 @@ export class GameComponent implements OnInit, OnDestroy {
     
     // Subscribe to score additions to show results
     this.subscriptions.add(
-      this.store.select(ScoringSelectors.selectCurrentScore).subscribe(score => {
-        if (score && !this.showingResults) {
-          this.showingResults = true;
-        }
+      this.showingResults$.subscribe(showing => {
+        this.showingResults = showing;
       })
     );
   }
@@ -141,13 +139,14 @@ export class GameComponent implements OnInit, OnDestroy {
    * Requirement 2.1, 3.1: Submit year and location guesses for scoring.
    */
   submitGuess(): void {
-    this.subscriptions.add(
-      this.currentGuess$.subscribe(guess => {
-        if (guess && validateGuess(guess)) {
-          this.store.dispatch(ScoringActions.submitGuess({ guess }));
-        }
-      }).unsubscribe()
-    );
+    // Use take(1) to get the current guess value once and automatically unsubscribe
+    this.currentGuess$.pipe(
+      take(1)
+    ).subscribe(guess => {
+      if (guess && validateGuess(guess)) {
+        this.store.dispatch(ScoringActions.submitGuess({ guess }));
+      }
+    });
   }
 
   /**

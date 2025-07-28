@@ -169,12 +169,15 @@ export class PhotoZoomService {
 
     const constrainedPosition = this.constrainPosition(newPosition, currentState.zoomLevel);
 
-    const newState: PhotoZoomState = {
-      ...currentState,
-      position: constrainedPosition
-    };
+    // Only emit if position actually changed (prevents excessive updates)
+    if (constrainedPosition.x !== currentState.position.x || constrainedPosition.y !== currentState.position.y) {
+      const newState: PhotoZoomState = {
+        ...currentState,
+        position: constrainedPosition
+      };
 
-    this.zoomStateSubject.next(newState);
+      this.zoomStateSubject.next(newState);
+    }
   }
 
   /**
@@ -223,6 +226,11 @@ export class PhotoZoomService {
       currentState.minZoom,
       Math.min(currentState.zoomLevel * scale, currentState.maxZoom)
     );
+
+    // Only proceed if zoom level actually changed
+    if (Math.abs(newZoomLevel - currentState.zoomLevel) < 0.01) {
+      return;
+    }
 
     // Calculate position adjustment to zoom towards the pinch center
     const zoomRatio = newZoomLevel / currentState.zoomLevel;
