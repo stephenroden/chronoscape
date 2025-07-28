@@ -74,6 +74,22 @@ describe('Game Workflow Integration', () => {
       currentGuess: null,
       loading: false,
       error: null
+    },
+    interface: {
+      activeView: 'photo',
+      photoZoom: {
+        zoomLevel: 1,
+        position: { x: 0, y: 0 },
+        minZoom: 0.5,
+        maxZoom: 4
+      },
+      mapState: {
+        zoomLevel: 2,
+        center: { latitude: 20, longitude: 0 },
+        defaultZoom: 2,
+        defaultCenter: { latitude: 20, longitude: 0 }
+      },
+      transitionInProgress: false
     }
   };
 
