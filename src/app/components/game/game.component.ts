@@ -7,31 +7,45 @@ import { map, take } from 'rxjs/operators';
 import { AppState } from '../../state/app.state';
 import { GameStatus } from '../../models/game-state.model';
 import { validateGuess } from '../../models/scoring.model';
+import { Photo } from '../../models/photo.model';
+import { ActiveView, PhotoZoomState, MapState } from '../../models/interface-state.model';
 import * as GameActions from '../../state/game/game.actions';
 import * as GameSelectors from '../../state/game/game.selectors';
 import * as PhotosActions from '../../state/photos/photos.actions';
 import * as PhotosSelectors from '../../state/photos/photos.selectors';
 import * as ScoringActions from '../../state/scoring/scoring.actions';
 import * as ScoringSelectors from '../../state/scoring/scoring.selectors';
-import { PhotoDisplayComponent } from '../photo-display/photo-display.component';
+import * as InterfaceActions from '../../state/interface/interface.actions';
+import * as InterfaceSelectors from '../../state/interface/interface.selectors';
+import { PhotoMapToggleComponent } from '../photo-map-toggle/photo-map-toggle.component';
 import { YearGuessComponent } from '../year-guess/year-guess.component';
-import { MapGuessComponent } from '../map-guess/map-guess.component';
 import { ResultsComponent } from '../results/results.component';
 
 /**
  * Main game container component that orchestrates the overall game flow and state.
  * Manages game lifecycle (start, progress tracking, completion) and connects to NgRx store.
+ * Integrates enhanced interface with photo/map toggle functionality and zoom capabilities.
  * 
  * Features:
  * - Game lifecycle management (start, progress, completion)
  * - Progress indicators showing current photo number out of five
  * - NgRx store integration for game state management
+ * - Enhanced interface with photo/map toggle and zoom functionality
+ * - Interface state reset for new photos and game transitions
+ * - Error handling for enhanced interface features
  * - Responsive UI for different game states
+ * 
+ * Requirements addressed:
+ * - 6.1: Preserve existing guess submission functionality
+ * - 6.2: Maintain current scoring and progression logic
+ * - 6.3: Reset zoom levels and toggle states appropriately
+ * - 6.4: Display final results with enhanced feedback format
+ * - 6.5: Reset all interface elements to default states
  */
 @Component({
   selector: 'app-game',
   standalone: true,
-  imports: [CommonModule, PhotoDisplayComponent, YearGuessComponent, MapGuessComponent, ResultsComponent],
+  imports: [CommonModule, PhotoMapToggleComponent, YearGuessComponent, ResultsComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -56,6 +70,11 @@ export class GameComponent implements OnInit, OnDestroy {
   currentGuess$: Observable<any>;
   canSubmitGuess$: Observable<boolean>;
   showingResults$: Observable<boolean>;
+  
+  // Interface state observables
+  activeView$: Observable<ActiveView>;
+  transitionInProgress$: Observable<boolean>;
+  currentPhoto$: Observable<Photo | null>;
   
   // Subscriptions to manage
   private subscriptions: Subscription = new Subscription();
@@ -93,6 +112,11 @@ export class GameComponent implements OnInit, OnDestroy {
     this.showingResults$ = this.store.select(ScoringSelectors.selectCurrentScore).pipe(
       map(score => !!score)
     );
+    
+    // Interface state observables
+    this.activeView$ = this.store.select(InterfaceSelectors.selectActiveView);
+    this.transitionInProgress$ = this.store.select(InterfaceSelectors.selectTransitionInProgress);
+    this.currentPhoto$ = this.store.select(PhotosSelectors.selectCurrentPhoto);
   }
 
   ngOnInit(): void {
@@ -125,8 +149,12 @@ export class GameComponent implements OnInit, OnDestroy {
   /**
    * Starts a new game by loading photos and initializing game state.
    * Requirement 1.1: Display the first of five photographs when game starts.
+   * Requirement 6.5: Reset all interface elements to default states
    */
   startGame(): void {
+    // Reset interface state for new game
+    this.store.dispatch(InterfaceActions.resetInterfaceState());
+    
     // First load photos from the API
     this.store.dispatch(PhotosActions.loadPhotos());
     
@@ -153,9 +181,12 @@ export class GameComponent implements OnInit, OnDestroy {
    * Advances to the next photo in the game sequence.
    * Called from results component after user views results.
    * Requirement 1.3: Advance to next photo when user completes their guess.
+   * Requirement 5.1, 5.2, 5.3, 5.4, 5.5: Reset interface state for new photo.
    */
   onNextPhoto(): void {
     this.showingResults = false;
+    // Reset interface state for new photo (Requirements 5.1-5.5)
+    this.store.dispatch(InterfaceActions.resetForNewPhoto());
     this.store.dispatch(GameActions.nextPhoto());
   }
 
@@ -169,9 +200,11 @@ export class GameComponent implements OnInit, OnDestroy {
 
   /**
    * Resets the game state and navigates to start screen.
+   * Requirement 6.5: Reset all interface elements to default states
    */
   resetGame(): void {
     this.store.dispatch(GameActions.resetGame());
+    this.store.dispatch(InterfaceActions.resetInterfaceState());
     this.router.navigate(['/']);
   }
 
@@ -228,5 +261,51 @@ export class GameComponent implements OnInit, OnDestroy {
   getLoadingMessage(): string {
     // This method will be called by the template to provide accessible loading messages
     return 'Loading game content, please wait';
+  }
+
+  /**
+   * Handle view toggle from PhotoMapToggleComponent
+   * Requirement 6.1: Preserve existing guess submission functionality
+   */
+  onViewToggled(activeView: ActiveView): void {
+    // View toggle is handled by the PhotoMapToggleComponent and InterfaceToggleService
+    // No additional action needed here, but we could add analytics or logging
+  }
+
+  /**
+   * Handle photo zoom changes from PhotoMapToggleComponent
+   * Requirement 6.3: Reset zoom levels appropriately during transitions
+   */
+  onPhotoZoomChanged(zoomState: PhotoZoomState): void {
+    // Zoom state is managed by the InterfaceToggleService
+    // This handler allows for additional logic if needed (e.g., analytics)
+  }
+
+  /**
+   * Handle map state changes from PhotoMapToggleComponent
+   * Requirement 6.3: Reset zoom levels appropriately during transitions
+   */
+  onMapStateChanged(mapState: MapState): void {
+    // Map state is managed by the InterfaceToggleService
+    // This handler allows for additional logic if needed (e.g., analytics)
+  }
+
+  /**
+   * Reset interface state when starting a new game
+   * Requirement 6.5: Reset all interface elements to default states
+   */
+  resetInterfaceState(): void {
+    this.store.dispatch(InterfaceActions.resetInterfaceState());
+  }
+
+  /**
+   * Handle interface-related errors gracefully
+   * Requirement 6.4: Maintain game flow despite interface issues
+   */
+  handleInterfaceError(error: string): void {
+    console.warn('Interface error occurred:', error);
+    // For now, we'll just log the error and continue
+    // In a production app, we might want to show a user-friendly message
+    // or fall back to a simpler interface
   }
 }

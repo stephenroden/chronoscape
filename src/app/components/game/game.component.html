@@ -43,38 +43,40 @@
     <section class="game-play" *ngIf="(isGameInProgress$ | async) && !(showingResults$ | async)" aria-labelledby="game-play-heading">
       <h2 id="game-play-heading" class="sr-only">Game in Progress</h2>
       
-      <!-- Photo display component -->
-      <div class="photo-section" role="region" aria-labelledby="photo-heading">
-        <h3 id="photo-heading" class="sr-only">Historical Photograph</h3>
-        <app-photo-display></app-photo-display>
+      <!-- Enhanced photo/map toggle interface -->
+      <div class="photo-map-section" role="region" aria-labelledby="photo-map-heading">
+        <h3 id="photo-map-heading" class="sr-only">Historical Photograph and Map</h3>
+        <app-photo-map-toggle 
+          [photo]="currentPhoto$ | async"
+          [enableZoom]="true"
+          [showMetadata]="false"
+          [transitionDuration]="300"
+          (viewToggled)="onViewToggled($event)"
+          (photoZoomChanged)="onPhotoZoomChanged($event)"
+          (mapStateChanged)="onMapStateChanged($event)">
+        </app-photo-map-toggle>
       </div>
 
-      <!-- Guessing components -->
-      <div class="guess-container" role="region" aria-labelledby="guessing-heading">
-        <h3 id="guessing-heading" class="sr-only">Make Your Guesses</h3>
-        
-        <div class="year-guess-section" role="region" aria-labelledby="year-guess-heading">
-          <h4 id="year-guess-heading" class="sr-only">Year Guess</h4>
-          <app-year-guess></app-year-guess>
-        </div>
-        
-        <div class="map-guess-section" role="region" aria-labelledby="location-guess-heading">
-          <h4 id="location-guess-heading" class="sr-only">Location Guess</h4>
-          <app-map-guess></app-map-guess>
-        </div>
+      <!-- Year guess component -->
+      <div class="year-guess-section" role="region" aria-labelledby="year-guess-heading">
+        <h3 id="year-guess-heading" class="sr-only">Year Guess</h3>
+        <app-year-guess></app-year-guess>
       </div>
 
       <!-- Submit guess button -->
       <div class="submit-container" role="region" aria-label="Submit your guess">
         <button class="primary-button submit-guess-btn" 
                 (click)="submitGuess()" 
-                [disabled]="!(canSubmitGuess$ | async)"
+                [disabled]="!(canSubmitGuess$ | async) || (transitionInProgress$ | async)"
                 type="button"
                 [attr.aria-label]="(canSubmitGuess$ | async) ? 'Submit your year and location guess' : 'Complete both year and location guesses to submit'">
           Submit Guess
         </button>
         <p class="submit-help-text" *ngIf="!(canSubmitGuess$ | async)">
           Please make both a year guess and place a pin on the map to submit.
+        </p>
+        <p class="submit-help-text" *ngIf="(transitionInProgress$ | async)">
+          Please wait for the interface transition to complete.
         </p>
       </div>
     </section>
