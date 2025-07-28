@@ -443,6 +443,82 @@ export class MapService {
   }
 
   /**
+   * Get current map zoom level
+   * @returns The current zoom level or null if map is not initialized
+   */
+  getCurrentZoom(): number | null {
+    if (!this.map) {
+      return null;
+    }
+    return this.map.getZoom();
+  }
+
+  /**
+   * Reset map to default state (clear pins, reset view)
+   * @param defaultCenter - Optional default center coordinates
+   * @param defaultZoom - Optional default zoom level
+   */
+  resetToDefault(defaultCenter?: Coordinates, defaultZoom?: number): void {
+    if (!this.map) {
+      return;
+    }
+
+    try {
+      // Clear all markers
+      this.removePin();
+      this.clearAdditionalMarkers();
+
+      // Reset to default view
+      const center = defaultCenter || { latitude: 20, longitude: 0 };
+      const zoom = defaultZoom || 2;
+      this.setMapView(center, zoom);
+    } catch (error) {
+      console.error('Error resetting map to default:', error);
+    }
+  }
+
+  /**
+   * Force map to recalculate its size (useful after container resize)
+   */
+  invalidateSize(): void {
+    if (this.map) {
+      try {
+        this.map.invalidateSize();
+      } catch (error) {
+        console.warn('Error invalidating map size:', error);
+      }
+    }
+  }
+
+  /**
+   * Check if map has any pins
+   * @returns true if map has pins, false otherwise
+   */
+  hasPins(): boolean {
+    return this.currentPin !== null || this.markers.length > 0;
+  }
+
+  /**
+   * Get all current marker positions
+   * @returns Array of coordinates for all markers
+   */
+  getAllMarkerPositions(): Coordinates[] {
+    const positions: Coordinates[] = [];
+    
+    if (this.currentPin) {
+      const latLng = this.currentPin.getLatLng();
+      positions.push({ latitude: latLng.lat, longitude: latLng.lng });
+    }
+    
+    this.markers.forEach(marker => {
+      const latLng = marker.getLatLng();
+      positions.push({ latitude: latLng.lat, longitude: latLng.lng });
+    });
+    
+    return positions;
+  }
+
+  /**
    * Clean up the map instance and remove all event listeners
    */
   destroy(): void {

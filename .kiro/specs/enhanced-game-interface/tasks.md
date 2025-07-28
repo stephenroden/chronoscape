@@ -38,7 +38,7 @@
   - Write unit tests for enhanced photo display functionality
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 5.4_
 
-- [ ] 5. Enhance MapGuessComponent for toggle integration
+- [x] 5. Enhance MapGuessComponent for toggle integration
 
   - Modify MapGuessComponent to work within toggle container
   - Implement map reset functionality (zoom out, recenter, clear pins)

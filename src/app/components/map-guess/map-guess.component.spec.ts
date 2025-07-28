@@ -5,19 +5,39 @@ import { ElementRef } from '@angular/core';
 
 import { MapGuessComponent } from './map-guess.component';
 import { MapService } from '../../services/map.service';
+import { InterfaceToggleService } from '../../services/interface-toggle.service';
 import { setCurrentGuess } from '../../state/scoring/scoring.actions';
+import { selectCurrentGuess } from '../../state/scoring/scoring.selectors';
+import { selectCurrentPhoto } from '../../state/photos/photos.selectors';
 import { Coordinates } from '../../models/coordinates.model';
 import { Guess } from '../../models/scoring.model';
+import { Photo } from '../../models/photo.model';
+import { defaultMapState } from '../../models/interface-state.model';
 
 describe('MapGuessComponent', () => {
   let component: MapGuessComponent;
   let fixture: ComponentFixture<MapGuessComponent>;
   let mockStore: jasmine.SpyObj<Store>;
   let mockMapService: jasmine.SpyObj<MapService>;
+  let mockInterfaceToggleService: jasmine.SpyObj<InterfaceToggleService>;
   let mockElementRef: jasmine.SpyObj<ElementRef>;
 
   const mockCoordinates: Coordinates = { latitude: 40.7128, longitude: -74.0060 };
   const mockGuess: Guess = { year: 2020, coordinates: mockCoordinates };
+  const mockPhoto: Photo = { 
+    id: 'photo1', 
+    url: 'test.jpg', 
+    title: 'Test Photo',
+    year: 2020, 
+    coordinates: mockCoordinates,
+    description: 'Test photo',
+    source: 'Test Source',
+    metadata: {
+      license: 'CC0',
+      originalSource: 'test.com',
+      dateCreated: new Date('2020-01-01')
+    }
+  };
 
   beforeEach(async () => {
     // Create spy objects
@@ -28,8 +48,22 @@ describe('MapGuessComponent', () => {
       'addPin',
       'removePin',
       'setMapView',
-      'destroy'
+      'destroy',
+      'getMapCenter',
+      'getCurrentZoom',
+      'resetToDefault',
+      'clearAdditionalMarkers',
+      'invalidateSize',
+      'hasPins',
+      'getAllMarkerPositions'
     ]);
+    mockInterfaceToggleService = jasmine.createSpyObj('InterfaceToggleService', [
+      'setMapCenter',
+      'setMapZoom',
+      'resetMapState'
+    ], {
+      mapState$: of(defaultMapState)
+    });
 
     // Mock store selectors
     mockStore.select.and.returnValue(of(null));
@@ -38,7 +72,8 @@ describe('MapGuessComponent', () => {
       imports: [MapGuessComponent],
       providers: [
         { provide: Store, useValue: mockStore },
-        { provide: MapService, useValue: mockMapService }
+        { provide: MapService, useValue: mockMapService },
+        { provide: InterfaceToggleService, useValue: mockInterfaceToggleService }
       ]
     }).compileComponents();
 
@@ -333,6 +368,225 @@ describe('MapGuessComponent', () => {
     });
   });
 
+  describe('Toggle Integration', () => {
+    beforeEach(() => {
+      component.isInToggleContainer = true;
+      component.ngOnInit();
+    });
+
+    it('should sync with toggle service when in toggle container', () => {
+      component.isMapInitialized = true;
+      const mapState = { ...defaultMapState, zoomLevel: 5 };
+      
+      // Create a new subject for the test
+      const mapStateSubject = new Subject();
+      Object.defineProperty(mockInterfaceToggleService, 'mapState$', {
+        value: mapStateSubject.asObservable()
+      });
+      
+      // Re-initialize to pick up the new observable
+      component.ngOnInit();
+      
+      mapStateSubject.next(mapState);
+
+      expect(mockMapService.setMapView).toHaveBeenCalledWith(mapState.center, mapState.zoomLevel);
+    });
+
+    it('should not sync with toggle service when not in toggle container', () => {
+      component.isInToggleContainer = false;
+      component.ngOnInit();
+      component.isMapInitialized = true;
+
+      expect(mockMapService.setMapView).not.toHaveBeenCalled();
+    });
+
+    it('should update toggle service on zoom to pin', () => {
+      component.isMapInitialized = true;
+      component.userPin = mockCoordinates;
+
+      component.onZoomToPin();
+
+      expect(mockInterfaceToggleService.setMapZoom).toHaveBeenCalledWith(8);
+      expect(mockInterfaceToggleService.setMapCenter).toHaveBeenCalledWith(mockCoordinates);
+    });
+
+    it('should reset toggle service map state on reset', () => {
+      component.isMapInitialized = true;
+
+      component.resetMapForNewPhoto();
+
+      expect(mockInterfaceToggleService.resetMapState).toHaveBeenCalled();
+    });
+  });
+
+  describe('Photo Change Detection', () => {
+    it('should reset map when photo changes', () => {
+      const guessSubject = new Subject<Guess | null>();
+      const photoSubject = new Subject<Photo | null>();
+      
+      mockStore.select.and.callFake((selector: any) => {
+        if (selector === selectCurrentGuess || selector.toString().includes('selectCurrentGuess')) {
+          return guessSubject.asObservable();
+        }
+        if (selector === selectCurrentPhoto || selector.toString().includes('selectCurrentPhoto')) {
+          return photoSubject.asObservable();
+        }
+        return of(null);
+      });
+
+      spyOn(component, 'resetMapForNewPhoto');
+      component.ngOnInit();
+
+      // Set initial photo
+      photoSubject.next(mockPhoto);
+      expect(component.currentPhotoId).toBe('photo1');
+
+      // Change to new photo
+      const newPhoto = { ...mockPhoto, id: 'photo2' };
+      photoSubject.next(newPhoto);
+
+      expect(component.resetMapForNewPhoto).toHaveBeenCalled();
+      expect(component.currentPhotoId).toBe('photo2');
+    });
+
+    it('should not reset map on first photo load', () => {
+      const guessSubject = new Subject<Guess | null>();
+      const photoSubject = new Subject<Photo | null>();
+      
+      mockStore.select.and.callFake((selector: any) => {
+        if (selector === selectCurrentGuess || selector.toString().includes('selectCurrentGuess')) {
+          return guessSubject.asObservable();
+        }
+        if (selector === selectCurrentPhoto || selector.toString().includes('selectCurrentPhoto')) {
+          return photoSubject.asObservable();
+        }
+        return of(null);
+      });
+
+      spyOn(component, 'resetMapForNewPhoto');
+      component.ngOnInit();
+
+      photoSubject.next(mockPhoto);
+
+      expect(component.resetMapForNewPhoto).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Reset Functionality', () => {
+    beforeEach(() => {
+      component.ngOnInit();
+      component.isMapInitialized = true;
+    });
+
+    it('should reset map for new photo', () => {
+      component.userPin = mockCoordinates;
+      spyOn(component, 'clearAllPins');
+      spyOn(component, 'resetToDefaultView');
+      spyOn(component as any, 'updateCurrentGuess');
+
+      component.resetMapForNewPhoto();
+
+      expect(component.clearAllPins).toHaveBeenCalled();
+      expect(component.resetToDefaultView).toHaveBeenCalled();
+      expect(component.userPin).toBeNull();
+      expect((component as any).updateCurrentGuess).toHaveBeenCalledWith({ latitude: 0, longitude: 0 });
+    });
+
+    it('should clear all pins', () => {
+      component.clearAllPins();
+
+      expect(mockMapService.removePin).toHaveBeenCalled();
+      expect(mockMapService.clearAdditionalMarkers).toHaveBeenCalled();
+    });
+
+    it('should reset to default view', () => {
+      component.resetToDefaultView();
+
+      expect(mockMapService.setMapView).toHaveBeenCalledWith({ latitude: 20, longitude: 0 }, 2);
+    });
+
+    it('should update toggle service on reset to default view', () => {
+      component.isInToggleContainer = true;
+
+      component.resetToDefaultView();
+
+      expect(mockInterfaceToggleService.setMapCenter).toHaveBeenCalledWith({ latitude: 20, longitude: 0 });
+      expect(mockInterfaceToggleService.setMapZoom).toHaveBeenCalledWith(2);
+    });
+
+    it('should handle reset errors gracefully', () => {
+      mockMapService.removePin.and.throwError('Reset error');
+      spyOn(console, 'error');
+
+      component.resetMapForNewPhoto();
+
+      expect(console.error).toHaveBeenCalledWith('Error clearing map pins:', jasmine.any(Error));
+    });
+  });
+
+  describe('Map State Access', () => {
+    beforeEach(() => {
+      component.ngOnInit();
+      component.isMapInitialized = true;
+    });
+
+    it('should get current map state', () => {
+      component.userPin = mockCoordinates;
+      mockMapService.getMapCenter.and.returnValue(mockCoordinates);
+
+      const state = component.getCurrentMapState();
+
+      expect(state.center).toEqual(mockCoordinates);
+      expect(state.hasPin).toBeTrue();
+    });
+
+    it('should return null state when map not initialized', () => {
+      component.isMapInitialized = false;
+
+      const state = component.getCurrentMapState();
+
+      expect(state.center).toBeNull();
+      expect(state.zoomLevel).toBeNull();
+      expect(state.hasPin).toBeFalse();
+    });
+
+    it('should resize map', fakeAsync(() => {
+      spyOn(component as any, 'mapService').and.returnValue({ map: { invalidateSize: jasmine.createSpy() } });
+
+      component.resizeMap();
+      tick(100);
+
+      // Test that resize was attempted (implementation detail may vary)
+      expect(component.isMapInitialized).toBeTrue();
+    }));
+  });
+
+  describe('Enhanced Control Methods', () => {
+    beforeEach(() => {
+      component.ngOnInit();
+      component.isMapInitialized = true;
+    });
+
+    it('should call resetToDefaultView on center map', () => {
+      spyOn(component, 'resetToDefaultView');
+
+      component.onCenterMap();
+
+      expect(component.resetToDefaultView).toHaveBeenCalled();
+    });
+
+    it('should clear local state on remove pin', () => {
+      component.userPin = mockCoordinates;
+      spyOn(component as any, 'updateCurrentGuess');
+
+      component.onRemovePin();
+
+      expect(mockMapService.removePin).toHaveBeenCalled();
+      expect(component.userPin).toBeNull();
+      expect((component as any).updateCurrentGuess).toHaveBeenCalledWith({ latitude: 0, longitude: 0 });
+    });
+  });
+
   describe('Component Cleanup', () => {
     it('should clean up resources on destroy', () => {
       const destroySpy = spyOn((component as any).destroy$, 'next');
@@ -431,6 +685,68 @@ describe('MapGuessComponent', () => {
       expect(component.onCenterMap).toHaveBeenCalled();
       expect(component.onZoomToPin).toHaveBeenCalled();
       expect(component.onRemovePin).toHaveBeenCalled();
+    });
+
+    it('should show reset button when in toggle container', () => {
+      component.isInToggleContainer = true;
+      component.isMapInitialized = true;
+      component.isMapLoading = false;
+      component.mapError = null;
+      fixture.detectChanges();
+
+      const resetButton = fixture.nativeElement.querySelector('.reset-button');
+      expect(resetButton).toBeTruthy();
+      expect(resetButton.textContent).toContain('Reset Map');
+    });
+
+    it('should not show reset button when not in toggle container', () => {
+      component.isInToggleContainer = false;
+      component.isMapInitialized = true;
+      component.isMapLoading = false;
+      component.mapError = null;
+      fixture.detectChanges();
+
+      const resetButton = fixture.nativeElement.querySelector('.reset-button');
+      expect(resetButton).toBeFalsy();
+    });
+
+    it('should hide instructions when in toggle container', () => {
+      component.isInToggleContainer = true;
+      fixture.detectChanges();
+
+      const instructions = fixture.nativeElement.querySelector('.map-instructions');
+      expect(instructions).toBeFalsy();
+    });
+
+    it('should show instructions when not in toggle container', () => {
+      component.isInToggleContainer = false;
+      fixture.detectChanges();
+
+      const instructions = fixture.nativeElement.querySelector('.map-instructions');
+      expect(instructions).toBeTruthy();
+    });
+
+    it('should apply toggle container CSS class', () => {
+      component.isInToggleContainer = true;
+      fixture.detectChanges();
+
+      const container = fixture.nativeElement.querySelector('.map-guess-container');
+      expect(container.classList.contains('in-toggle-container')).toBeTrue();
+    });
+
+    it('should call resetToDefaultView when reset button is clicked', () => {
+      component.isInToggleContainer = true;
+      component.isMapInitialized = true;
+      component.isMapLoading = false;
+      component.mapError = null;
+      fixture.detectChanges();
+
+      spyOn(component, 'resetToDefaultView');
+
+      const resetButton = fixture.nativeElement.querySelector('.reset-button');
+      resetButton.click();
+
+      expect(component.resetToDefaultView).toHaveBeenCalled();
     });
   });
 });

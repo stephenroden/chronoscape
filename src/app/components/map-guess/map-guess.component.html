@@ -1,6 +1,9 @@
-<div class="map-guess-container" role="region" aria-labelledby="map-guess-heading">
-  <!-- Map Instructions -->
-  <div class="map-instructions">
+<div class="map-guess-container" 
+     [class.in-toggle-container]="isInToggleContainer"
+     role="region" 
+     aria-labelledby="map-guess-heading">
+  <!-- Map Instructions (hidden when in toggle container) -->
+  <div class="map-instructions" *ngIf="!isInToggleContainer">
     <h3 id="map-guess-heading">Where was this photo taken?</h3>
     <p class="instruction-text" id="map-instructions-text">{{ mapInstructions }}</p>
   </div>
@@ -98,6 +101,19 @@
         <span aria-hidden="true">🗑️</span> Remove Pin
       </button>
       <div id="remove-pin-help" class="sr-only">Removes your current location guess from the map</div>
+
+      <!-- Reset button for toggle container mode -->
+      <button 
+        *ngIf="isInToggleContainer"
+        class="control-button reset-button"
+        (click)="resetToDefaultView()"
+        type="button"
+        aria-label="Reset map to default view and clear pins"
+        [attr.aria-describedby]="'reset-map-help'"
+      >
+        <span aria-hidden="true">🔄</span> Reset Map
+      </button>
+      <div id="reset-map-help" class="sr-only">Resets the map to world view and clears all pins</div>
     </div>
   </div>
 

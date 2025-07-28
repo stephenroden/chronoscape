@@ -1,13 +1,15 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ElementRef, ViewChild, Input } from '@angular/core';
 import { Store } from '@ngrx/store';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, combineLatest } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
 import { AppState } from '../../state/app.state';
 import { MapService } from '../../services/map.service';
+import { InterfaceToggleService } from '../../services/interface-toggle.service';
 import { Coordinates } from '../../models/coordinates.model';
 import { setCurrentGuess } from '../../state/scoring/scoring.actions';
 import { selectCurrentGuess } from '../../state/scoring/scoring.selectors';
+import { selectCurrentPhoto } from '../../state/photos/photos.selectors';
 import { Guess } from '../../models/scoring.model';
 
 @Component({
@@ -19,19 +21,22 @@ import { Guess } from '../../models/scoring.model';
 })
 export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('mapContainer', { static: true }) mapContainer!: ElementRef;
+  @Input() isInToggleContainer = false; // Flag to indicate if component is within toggle container
 
   currentGuess: Guess | null = null;
   userPin: Coordinates | null = null;
   isMapInitialized = false;
   isMapLoading = true;
   mapError: string | null = null;
+  currentPhotoId: string | null = null;
 
   private destroy$ = new Subject<void>();
   private readonly mapId = 'map-guess-container';
 
   constructor(
     private store: Store<AppState>,
-    private mapService: MapService
+    private mapService: MapService,
+    private interfaceToggleService: InterfaceToggleService
   ) {}
 
   ngOnInit(): void {
@@ -49,6 +54,25 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
           this.updateMapPin();
         }
       });
+
+    // Subscribe to current photo to detect photo changes for reset
+    this.store.select(selectCurrentPhoto)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(photo => {
+        const newPhotoId = photo?.id || null;
+        
+        // If photo changed, reset map state
+        if (this.currentPhotoId !== null && this.currentPhotoId !== newPhotoId) {
+          this.resetMapForNewPhoto();
+        }
+        
+        this.currentPhotoId = newPhotoId;
+      });
+
+    // If in toggle container, sync with interface toggle service
+    if (this.isInToggleContainer) {
+      this.syncWithToggleService();
+    }
   }
 
   ngAfterViewInit(): void {
@@ -190,7 +214,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Reset map to world view
-    this.mapService.setMapView({ latitude: 20, longitude: 0 }, 2);
+    this.resetToDefaultView();
   }
 
   onZoomToPin(): void {
@@ -200,6 +224,12 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Zoom to user's pin location
     this.mapService.setMapView(this.userPin, 8);
+    
+    // Update toggle service if in toggle container
+    if (this.isInToggleContainer) {
+      this.interfaceToggleService.setMapZoom(8);
+      this.interfaceToggleService.setMapCenter(this.userPin);
+    }
   }
 
   get hasValidPin(): boolean {
@@ -312,6 +342,148 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     if (handled) {
       event.preventDefault();
       event.stopPropagation();
+    }
+  }
+
+  /**
+   * Sync map state with interface toggle service
+   */
+  private syncWithToggleService(): void {
+    // Subscribe to map state changes from toggle service
+    this.interfaceToggleService.mapState$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(mapState => {
+        if (this.isMapInitialized && mapState) {
+          // Update map view to match toggle service state
+          this.mapService.setMapView(mapState.center, mapState.zoomLevel);
+        }
+      });
+
+    // Update toggle service when map state changes
+    // This would typically be done through map event listeners
+    // For now, we'll update it when user interacts with controls
+  }
+
+  /**
+   * Reset map state for new photo
+   */
+  resetMapForNewPhoto(): void {
+    if (!this.isMapInitialized) {
+      return;
+    }
+
+    try {
+      // Clear any existing pins
+      this.clearAllPins();
+      
+      // Reset map to default view
+      this.resetToDefaultView();
+      
+      // Clear local state
+      this.userPin = null;
+      
+      // Update store with placeholder coordinates
+      this.updateCurrentGuess({ latitude: 0, longitude: 0 });
+      
+      // If in toggle container, reset toggle service map state
+      if (this.isInToggleContainer) {
+        this.interfaceToggleService.resetMapState();
+      }
+    } catch (error) {
+      console.error('Error resetting map for new photo:', error);
+    }
+  }
+
+  /**
+   * Clear all pins from the map
+   */
+  clearAllPins(): void {
+    if (!this.isMapInitialized) {
+      return;
+    }
+
+    try {
+      // Remove current user pin
+      this.mapService.removePin();
+      
+      // Clear any additional markers (from results, etc.)
+      this.mapService.clearAdditionalMarkers();
+    } catch (error) {
+      console.error('Error clearing map pins:', error);
+    }
+  }
+
+  /**
+   * Reset map to default view (world view)
+   */
+  resetToDefaultView(): void {
+    if (!this.isMapInitialized) {
+      return;
+    }
+
+    try {
+      // Reset to world view
+      this.mapService.setMapView({ latitude: 20, longitude: 0 }, 2);
+      
+      // If in toggle container, update toggle service
+      if (this.isInToggleContainer) {
+        this.interfaceToggleService.setMapCenter({ latitude: 20, longitude: 0 });
+        this.interfaceToggleService.setMapZoom(2);
+      }
+    } catch (error) {
+      console.error('Error resetting map to default view:', error);
+    }
+  }
+
+  /**
+   * Update toggle service with current map state
+   */
+  private updateToggleServiceMapState(): void {
+    if (!this.isInToggleContainer || !this.isMapInitialized) {
+      return;
+    }
+
+    try {
+      const center = this.mapService.getMapCenter();
+      if (center) {
+        this.interfaceToggleService.setMapCenter(center);
+      }
+    } catch (error) {
+      console.error('Error updating toggle service map state:', error);
+    }
+  }
+
+
+
+  /**
+   * Get current map state for external access
+   */
+  getCurrentMapState(): { center: Coordinates | null; zoomLevel: number | null; hasPin: boolean } {
+    if (!this.isMapInitialized) {
+      return { center: null, zoomLevel: null, hasPin: false };
+    }
+
+    return {
+      center: this.mapService.getMapCenter(),
+      zoomLevel: null, // Map service doesn't expose current zoom level
+      hasPin: this.hasValidPin
+    };
+  }
+
+  /**
+   * Force map resize (useful when container size changes in toggle)
+   */
+  resizeMap(): void {
+    if (this.isMapInitialized && this.mapService) {
+      // Trigger map resize - Leaflet maps need this when container size changes
+      setTimeout(() => {
+        try {
+          // Access the private map instance to trigger resize
+          (this.mapService as any).map?.invalidateSize();
+        } catch (error) {
+          console.warn('Could not resize map:', error);
+        }
+      }, 100);
     }
   }
 }

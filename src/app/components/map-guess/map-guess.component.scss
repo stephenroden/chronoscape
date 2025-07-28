@@ -15,6 +15,42 @@
   @media (min-width: 1024px) {
     max-width: 900px;
   }
+
+  // Styles when in toggle container
+  &.in-toggle-container {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    gap: var(--spacing-sm);
+    height: 100%;
+
+    .map-wrapper {
+      flex: 1;
+      height: auto;
+      min-height: 300px;
+    }
+
+    .map-controls {
+      padding: var(--spacing-sm);
+      gap: var(--spacing-sm);
+    }
+
+    .control-buttons {
+      gap: var(--spacing-xs);
+      
+      .control-button {
+        padding: var(--spacing-xs) var(--spacing-sm);
+        font-size: var(--font-size-xs);
+        min-width: 80px;
+        min-height: 36px;
+      }
+    }
+
+    .accessibility-instructions {
+      padding: var(--spacing-sm);
+      font-size: var(--font-size-xs);
+    }
+  }
 }
 
 .map-instructions {
@@ -322,6 +358,12 @@
     background-color: #ffebee;
     border-color: var(--danger-color);
     color: var(--danger-color);
+  }
+
+  &.reset-button:hover:not(:disabled) {
+    background-color: #fff3e0;
+    border-color: #ff9800;
+    color: #f57c00;
   }
 }
 
