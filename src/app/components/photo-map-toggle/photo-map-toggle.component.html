@@ -1,0 +1,110 @@
+<div 
+  #mainContainer
+  class="photo-map-toggle-container"
+  [ngClass]="getMainContainerClasses()"
+  [attr.aria-label]="getMainContainerAriaLabel()"
+  [attr.tabindex]="0"
+  role="region"
+  aria-live="polite">
+
+  <!-- Main content area -->
+  <div class="main-content" [ngClass]="getActiveViewClasses()">
+    
+    <!-- Photo Display (when active) -->
+    <div 
+      class="photo-container"
+      [class.active]="isPhotoActive"
+      [class.hidden]="!isPhotoActive"
+      [attr.aria-hidden]="!isPhotoActive">
+      
+      <app-photo-display
+        #photoDisplay
+        [photo]="photo"
+        [showMetadata]="showMetadata"
+        [enableZoom]="enableZoom && isPhotoActive"
+        [attr.tabindex]="isPhotoActive ? 0 : -1">
+      </app-photo-display>
+    </div>
+
+    <!-- Map Display (when active) -->
+    <div 
+      class="map-container"
+      [class.active]="isMapActive"
+      [class.hidden]="!isMapActive"
+      [attr.aria-hidden]="!isMapActive">
+      
+      <app-map-guess
+        #mapGuess
+        [attr.tabindex]="isMapActive ? 0 : -1">
+      </app-map-guess>
+    </div>
+  </div>
+
+  <!-- Thumbnail toggle area -->
+  <div 
+    #thumbnailContainer
+    class="thumbnail-area"
+    [ngClass]="getThumbnailClasses()"
+    [attr.tabindex]="canPerformToggle ? 0 : -1"
+    [attr.aria-label]="getThumbnailAriaLabel()"
+    [attr.aria-disabled]="!canPerformToggle"
+    role="button"
+    (click)="onThumbnailClick()"
+    (keydown.enter)="onThumbnailClick()"
+    (keydown.space)="onThumbnailClick()">
+
+    <!-- Thumbnail image -->
+    <div class="thumbnail-image-container">
+      <img 
+        *ngIf="getThumbnailImageSrc()"
+        [src]="getThumbnailImageSrc()"
+        [alt]="getThumbnailAltText()"
+        class="thumbnail-image"
+        loading="lazy">
+      
+      <!-- Fallback for missing thumbnail -->
+      <div 
+        *ngIf="!getThumbnailImageSrc()"
+        class="thumbnail-placeholder"
+        [attr.aria-label]="getThumbnailAltText()">
+        <span class="thumbnail-icon">
+          {{ thumbnailData?.view === 'photo' ? '📷' : '🗺️' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Thumbnail overlay with toggle indicator -->
+    <div class="thumbnail-overlay">
+      <div class="toggle-indicator" [attr.aria-hidden]="true">
+        <span class="toggle-icon">⇄</span>
+      </div>
+      
+      <!-- View label -->
+      <div class="view-label">
+        {{ thumbnailData?.view === 'photo' ? 'Photo' : 'Map' }}
+      </div>
+    </div>
+
+    <!-- Loading indicator during transitions -->
+    <div 
+      *ngIf="isTransitioning"
+      class="transition-indicator"
+      [attr.aria-hidden]="true">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- Keyboard shortcuts help (hidden, for screen readers) -->
+  <div class="sr-only" aria-live="polite">
+    <span *ngIf="isTransitioning">Switching views...</span>
+    <span *ngIf="!canPerformToggle && !isTransitioning">Toggle currently disabled</span>
+  </div>
+
+  <!-- Instructions for keyboard users -->
+  <div class="keyboard-instructions sr-only">
+    Press T to toggle between photo and map views. 
+    Press P to switch to photo view. 
+    Press M to switch to map view. 
+    Press Escape to reset interface.
+  </div>
+</div>
