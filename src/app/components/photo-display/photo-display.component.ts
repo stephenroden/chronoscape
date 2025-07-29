@@ -241,6 +241,45 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Gets accessible image label for screen readers
+   */
+  getAccessibleImageLabel(): string {
+    if (!this.photo) return 'Historical photograph';
+    
+    let label = this.photo.title || 'Historical photograph';
+    label += ` from ${this.photo.year}`;
+    
+    if (this.isPhotoZoomed()) {
+      label += `. Currently zoomed to ${this.getCurrentZoomLevel()}x. Use arrow keys to pan.`;
+    } else {
+      label += '. Use plus key to zoom in.';
+    }
+    
+    return label;
+  }
+
+  /**
+   * Gets detailed photo description for screen readers
+   */
+  getDetailedPhotoDescription(): string {
+    if (!this.photo) return 'No photograph information available';
+    
+    let description = `Historical photograph titled "${this.photo.title}" from ${this.photo.year}`;
+    
+    if (this.photo.description) {
+      description += `. Description: ${this.photo.description}`;
+    }
+    
+    if (this.photo.metadata.photographer) {
+      description += `. Photographer: ${this.photo.metadata.photographer}`;
+    }
+    
+    description += `. Source: ${this.photo.source}`;
+    
+    return description;
+  }
+
+  /**
    * Gets loading state for accessibility
    */
   getLoadingAriaLabel(): string {
@@ -500,6 +539,89 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Handle keyboard shortcuts for photo zoom
+   */
+  @HostListener('keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    if (!this.enableZoom || !this.imageLoaded || this.imageError) return;
+
+    let handled = false;
+    let announcement = '';
+
+    switch (event.key) {
+      case '+':
+      case '=':
+        if (this.photoZoomService.canZoomIn()) {
+          this.photoZoomService.zoomIn();
+          announcement = `Zoomed in to ${this.getCurrentZoomLevel()}x`;
+          handled = true;
+        }
+        break;
+      case '-':
+        if (this.photoZoomService.canZoomOut()) {
+          this.photoZoomService.zoomOut();
+          announcement = `Zoomed out to ${this.getCurrentZoomLevel()}x`;
+          handled = true;
+        }
+        break;
+      case '0':
+        if (this.zoomState && this.zoomState.zoomLevel !== 1) {
+          this.photoZoomService.reset();
+          announcement = 'Zoom reset to original size';
+          handled = true;
+        }
+        break;
+      case 'ArrowUp':
+      case 'ArrowDown':
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        if (this.zoomState && this.zoomState.zoomLevel > 1) {
+          const panDistance = 20;
+          let deltaX = 0;
+          let deltaY = 0;
+
+          switch (event.key) {
+            case 'ArrowUp':
+              deltaY = panDistance;
+              break;
+            case 'ArrowDown':
+              deltaY = -panDistance;
+              break;
+            case 'ArrowLeft':
+              deltaX = panDistance;
+              break;
+            case 'ArrowRight':
+              deltaX = -panDistance;
+              break;
+          }
+
+          this.photoZoomService.pan(deltaX, deltaY);
+          announcement = `Panned ${event.key.replace('Arrow', '').toLowerCase()}`;
+          handled = true;
+        }
+        break;
+      case 'Home':
+        if (this.zoomState && this.zoomState.zoomLevel > 1) {
+          // Reset pan position to center
+          this.photoZoomService.pan(-this.zoomState.position.x, -this.zoomState.position.y);
+          announcement = 'Photo centered';
+          handled = true;
+        }
+        break;
+    }
+
+    if (handled) {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // Announce the action to screen readers
+      if (announcement) {
+        this.announceToScreenReader(announcement);
+      }
+    }
+  }
+
+  /**
    * Handle window resize to update zoom container dimensions
    */
   @HostListener('window:resize')
@@ -519,6 +641,27 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
         this.resizeTimeout = null;
       }, 250);
     }
+  }
+
+  /**
+   * Announce message to screen readers
+   */
+  private announceToScreenReader(message: string): void {
+    // Create a temporary element for screen reader announcements
+    const announcement = document.createElement('div');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.setAttribute('aria-atomic', 'true');
+    announcement.className = 'sr-only';
+    announcement.textContent = message;
+    
+    document.body.appendChild(announcement);
+    
+    // Remove after announcement
+    setTimeout(() => {
+      if (document.body.contains(announcement)) {
+        document.body.removeChild(announcement);
+      }
+    }, 1000);
   }
 
   /**

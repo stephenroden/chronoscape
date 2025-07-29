@@ -54,10 +54,27 @@
       </div>
       
       <!-- Additional keyboard instructions for screen readers -->
-      <div class="sr-only">
-        Use left and right arrow keys to adjust the year by 1. 
-        Hold Shift while using arrow keys to adjust by 10 years. 
-        Use Home key to go to {{ minYear }}, End key to go to {{ currentYear }}.
+      <div class="sr-only" role="region" aria-label="Keyboard shortcuts">
+        <h4>Year slider keyboard shortcuts:</h4>
+        <ul>
+          <li>Left/Right arrow keys: Adjust year by 1</li>
+          <li>Shift + Left/Right arrows: Adjust year by 10</li>
+          <li>Page Up/Page Down: Adjust year by 10</li>
+          <li>Home key: Go to {{ minYear }}</li>
+          <li>End key: Go to {{ currentYear }}</li>
+          <li>Plus/Minus keys: Fine adjustment</li>
+          <li>Ctrl+H or ?: Announce keyboard shortcuts</li>
+        </ul>
+      </div>
+      
+      <!-- Screen reader announcements -->
+      <div class="sr-only" aria-live="assertive" aria-atomic="true">
+        <span *ngIf="yearChangeAnnouncement">{{ yearChangeAnnouncement }}</span>
+      </div>
+      
+      <!-- Status information for screen readers -->
+      <div class="sr-only" aria-live="polite" aria-atomic="true">
+        <span *ngIf="selectedYear">Year {{ selectedYear }} selected. {{ getYearContext(selectedYear) }}</span>
       </div>
     </div>
   </div>

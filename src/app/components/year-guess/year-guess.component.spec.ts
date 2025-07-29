@@ -287,7 +287,7 @@ describe('YearGuessComponent', () => {
     it('should display help text', () => {
       const helpText = fixture.nativeElement.querySelector('.help-text');
       expect(helpText).toBeTruthy();
-      expect(helpText.textContent).toContain('Drag the slider to select a year between 1900 and');
+      expect(helpText.textContent).toContain('Use the slider or arrow keys to select a year between 1900 and');
     });
 
     it('should trigger onSliderChange when slider value changes', () => {
@@ -315,11 +315,12 @@ describe('YearGuessComponent', () => {
     });
 
     it('should have proper label association', () => {
-      const label = fixture.nativeElement.querySelector('label[for="year-slider"]');
+      const heading = fixture.nativeElement.querySelector('#year-guess-heading');
       const slider = fixture.nativeElement.querySelector('#year-slider');
       
-      expect(label).toBeTruthy();
+      expect(heading).toBeTruthy();
       expect(slider).toBeTruthy();
+      expect(slider.getAttribute('aria-describedby')).toContain('year-help-text');
     });
 
     it('should have aria-label for slider', () => {

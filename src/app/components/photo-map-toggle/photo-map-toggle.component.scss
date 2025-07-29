@@ -449,26 +449,302 @@
 // High contrast mode support
 @media (prefers-contrast: high) {
   .photo-map-toggle-container {
-    border: 2px solid #000;
+    border: 3px solid #000;
+    background: #fff;
+    
+    &:focus {
+      outline: 4px solid #ffff00;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 1px #000;
+    }
   }
   
   .thumbnail-area {
-    border: 2px solid #000;
+    border: 3px solid #000;
+    background: #fff;
+    
+    &:hover {
+      border-color: #000;
+      background: #f0f0f0;
+    }
     
     &:focus {
-      outline: 3px solid #000;
+      outline: 4px solid #ffff00;
       outline-offset: 3px;
+      box-shadow: 0 0 0 1px #000;
+    }
+    
+    &[aria-disabled="true"] {
+      border-color: #666;
+      background: #ccc;
     }
   }
   
   .thumbnail-overlay {
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.9);
+    border: 1px solid #fff;
   }
   
   .view-label,
   .toggle-icon {
     color: #fff;
-    text-shadow: none;
+    text-shadow: 0 0 2px #000;
+    font-weight: 900;
+  }
+  
+  .transition-indicator {
+    background: #fff;
+    border: 2px solid #000;
+  }
+  
+  .spinner {
+    border-color: #000;
+    border-top-color: #ffff00;
+  }
+}
+
+// Windows High Contrast Mode support
+@media screen and (-ms-high-contrast: active) {
+  .photo-map-toggle-container {
+    background: Window;
+    border: 2px solid WindowText;
+    
+    &:focus {
+      outline: 2px solid Highlight;
+    }
+  }
+  
+  .thumbnail-area {
+    background: ButtonFace;
+    border: 2px solid ButtonText;
+    
+    &:hover {
+      background: Highlight;
+    }
+    
+    &:focus {
+      outline: 2px solid Highlight;
+    }
+    
+    &[aria-disabled="true"] {
+      background: ButtonFace;
+      border-color: GrayText;
+    }
+  }
+  
+  .view-label,
+  .toggle-icon {
+    color: ButtonText;
+    
+    .thumbnail-area:hover & {
+      color: HighlightText;
+    }
+  }
+  
+  .transition-indicator {
+    background: Window;
+    border: 1px solid WindowText;
+  }
+  
+  .spinner {
+    border-color: WindowText;
+    border-top-color: Highlight;
+  }
+}
+
+// Screen reader only content - Enhanced
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+// Focus management improvements
+.photo-map-toggle-container {
+  // Ensure focus is always visible
+  &:focus-visible {
+    outline: 3px solid #007bff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px rgba(0, 123, 255, 0.25);
+  }
+  
+  // High contrast focus
+  @media (prefers-contrast: high) {
+    &:focus-visible {
+      outline: 4px solid #ffff00;
+      outline-offset: 2px;
+      box-shadow: 0 0 0 1px #000, 0 0 0 8px rgba(255, 255, 0, 0.3);
+    }
+  }
+}
+
+.thumbnail-area {
+  // Enhanced focus styles
+  &:focus-visible {
+    outline: 3px solid #007bff;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 6px rgba(0, 123, 255, 0.25);
+    transform: scale(1.05);
+  }
+  
+  // High contrast focus
+  @media (prefers-contrast: high) {
+    &:focus-visible {
+      outline: 4px solid #ffff00;
+      outline-offset: 3px;
+      box-shadow: 0 0 0 1px #000, 0 0 0 8px rgba(255, 255, 0, 0.3);
+    }
+  }
+  
+  // Keyboard activation feedback
+  &:focus:active {
+    transform: scale(0.98);
+    transition-duration: 100ms;
+  }
+}
+
+// Dark mode support
+@media (prefers-color-scheme: dark) {
+  .photo-map-toggle-container {
+    background: #1a1a1a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    
+    &:focus {
+      outline-color: #4dabf7;
+    }
+  }
+  
+  .thumbnail-area {
+    background: #2d2d2d;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    
+    &:hover {
+      background: #3d3d3d;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    }
+    
+    &:focus {
+      outline-color: #4dabf7;
+    }
+    
+    &[aria-disabled="true"] {
+      background: #1a1a1a;
+      opacity: 0.5;
+    }
+  }
+  
+  .thumbnail-placeholder {
+    background: linear-gradient(135deg, #2d2d2d, #1a1a1a);
+    color: #999;
+  }
+  
+  .transition-indicator {
+    background: rgba(26, 26, 26, 0.95);
+  }
+  
+  .spinner {
+    border-color: #444;
+    border-top-color: #4dabf7;
+  }
+}
+
+// Keyboard navigation enhancements
+.photo-map-toggle-container {
+  // Skip link support
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 6px;
+    background: #000;
+    color: #fff;
+    padding: 8px;
+    text-decoration: none;
+    border-radius: 4px;
+    z-index: 1000;
+    
+    &:focus {
+      top: 6px;
+    }
+  }
+  
+  // Keyboard shortcuts indicator
+  .keyboard-shortcuts-indicator {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 200ms ease;
+    pointer-events: none;
+    z-index: 20;
+    
+    &.show {
+      opacity: 1;
+    }
+    
+    @media (prefers-contrast: high) {
+      background: #000;
+      border: 1px solid #fff;
+    }
+  }
+}
+
+// Accessibility announcements styling
+.accessibility-announcements {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  
+  &[aria-live="assertive"] {
+    // Ensure assertive announcements are heard
+    z-index: 9999;
+  }
+}
+
+// Status information styling
+.status-info {
+  @extend .sr-only;
+  
+  // Make status updates more prominent for screen readers
+  &[aria-live="polite"] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 1px;
+    height: 1px;
+  }
+}
+
+// Keyboard instructions styling
+.keyboard-instructions {
+  @extend .sr-only;
+  
+  h3 {
+    font-size: 1rem;
+    margin: 0 0 0.5rem 0;
+  }
+  
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  
+  li {
+    margin: 0.25rem 0;
   }
 }
 

@@ -367,7 +367,7 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle keyboard navigation
+   * Handle keyboard navigation with comprehensive accessibility shortcuts
    */
   @HostListener('keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
@@ -377,12 +377,14 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     }
 
     let handled = false;
+    let announcement = '';
 
     switch (event.key) {
       case 'Tab':
         // Handle Tab key for toggle (with modifier to avoid interfering with normal tab navigation)
         if (event.shiftKey) {
           this.onToggleClick();
+          announcement = `Switched to ${this.currentActiveView === 'photo' ? 'map' : 'photo'} view`;
           handled = true;
         }
         break;
@@ -391,6 +393,7 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
       case 'T':
         // Toggle with 't' key
         this.onToggleClick();
+        announcement = `Switched to ${this.currentActiveView === 'photo' ? 'map' : 'photo'} view`;
         handled = true;
         break;
 
@@ -399,7 +402,10 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
         // Switch to photo view
         if (this.currentActiveView !== 'photo') {
           this.setActiveView('photo');
+          announcement = 'Switched to photo view';
           handled = true;
+        } else {
+          announcement = 'Already viewing photo';
         }
         break;
 
@@ -408,7 +414,10 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
         // Switch to map view
         if (this.currentActiveView !== 'map') {
           this.setActiveView('map');
+          announcement = 'Switched to map view';
           handled = true;
+        } else {
+          announcement = 'Already viewing map';
         }
         break;
 
@@ -418,6 +427,7 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
         if (event.target === this.thumbnailContainer?.nativeElement ||
             this.thumbnailContainer?.nativeElement.contains(event.target as Node)) {
           this.onThumbnailClick();
+          announcement = `Switched to ${this.currentActiveView === 'photo' ? 'map' : 'photo'} view`;
           handled = true;
         }
         break;
@@ -425,14 +435,81 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
       case 'Escape':
         // Reset interface state
         this.interfaceToggleService.resetInterfaceState();
+        announcement = 'Interface reset to default state';
         handled = true;
+        break;
+
+      case 'h':
+      case 'H':
+        // Show keyboard shortcuts help
+        if (event.ctrlKey || event.metaKey) {
+          this.announceKeyboardShortcuts();
+          handled = true;
+        }
+        break;
+
+      case '?':
+        // Show help (without modifier)
+        this.announceKeyboardShortcuts();
+        handled = true;
+        break;
+
+      case 'ArrowLeft':
+      case 'ArrowRight':
+        // Navigate between views with arrow keys
+        if (event.altKey) {
+          this.onToggleClick();
+          announcement = `Switched to ${this.currentActiveView === 'photo' ? 'map' : 'photo'} view`;
+          handled = true;
+        }
         break;
     }
 
     if (handled) {
       event.preventDefault();
       event.stopPropagation();
+      
+      // Announce the action to screen readers
+      if (announcement) {
+        this.announceToScreenReader(announcement);
+      }
     }
+  }
+
+  /**
+   * Announce keyboard shortcuts to screen readers
+   */
+  private announceKeyboardShortcuts(): void {
+    const shortcuts = [
+      'Keyboard shortcuts:',
+      'T - Toggle between photo and map views',
+      'P - Switch to photo view',
+      'M - Switch to map view',
+      'Alt + Arrow keys - Navigate between views',
+      'Escape - Reset interface',
+      'Question mark - Show this help'
+    ].join('. ');
+    
+    this.announceToScreenReader(shortcuts);
+  }
+
+  /**
+   * Announce message to screen readers
+   */
+  private announceToScreenReader(message: string): void {
+    // Create a temporary element for screen reader announcements
+    const announcement = document.createElement('div');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.setAttribute('aria-atomic', 'true');
+    announcement.className = 'sr-only';
+    announcement.textContent = message;
+    
+    document.body.appendChild(announcement);
+    
+    // Remove after announcement
+    setTimeout(() => {
+      document.body.removeChild(announcement);
+    }, 1000);
   }
 
   /**
@@ -548,6 +625,23 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   getMainContainerAriaLabel(): string {
     const viewName = this.currentActiveView === 'photo' ? 'photograph' : 'map';
     return `${viewName} view container. Press T to toggle views, P for photo, M for map.`;
+  }
+
+  /**
+   * Get photo description for screen readers
+   */
+  getPhotoDescription(): string {
+    if (!this.photo) return 'No photograph available';
+    
+    let description = this.photo.title || 'Historical photograph';
+    if (this.photo.year) {
+      description += ` from ${this.photo.year}`;
+    }
+    if (this.photo.description) {
+      description += `. ${this.photo.description}`;
+    }
+    
+    return description;
   }
 
   /**

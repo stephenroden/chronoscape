@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
 import { Subject, takeUntil } from 'rxjs';
@@ -21,7 +21,9 @@ export class YearGuessComponent implements OnInit, OnDestroy {
   currentYear = new Date().getFullYear();
   minYear = 1900;
   selectedYear: number;
+  yearChangeAnnouncement = '';
   private destroy$ = new Subject<void>();
+  private announcementTimeout: any;
 
   constructor(
     private fb: FormBuilder,
@@ -61,6 +63,10 @@ export class YearGuessComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    
+    if (this.announcementTimeout) {
+      clearTimeout(this.announcementTimeout);
+    }
   }
 
   onSliderChange(event: Event): void {
@@ -150,66 +156,181 @@ export class YearGuessComponent implements OnInit, OnDestroy {
 
   /**
    * Enhanced keyboard navigation for the year slider
-   * Supports arrow keys, Shift+arrow for larger jumps, Home/End keys
+   * Supports arrow keys, Shift+arrow for larger jumps, Home/End keys, and accessibility shortcuts
    */
   onKeyDown(event: KeyboardEvent): void {
     const target = event.target as HTMLInputElement;
     let newYear = this.selectedYear;
     let handled = false;
+    let announcement = '';
 
     switch (event.key) {
       case 'ArrowLeft':
       case 'ArrowDown':
-        newYear = event.shiftKey ? 
-          Math.max(this.minYear, this.selectedYear - 10) : 
-          Math.max(this.minYear, this.selectedYear - 1);
+        const leftStep = event.shiftKey ? 10 : 1;
+        newYear = Math.max(this.minYear, this.selectedYear - leftStep);
+        announcement = `Year decreased to ${newYear}`;
         handled = true;
         break;
         
       case 'ArrowRight':
       case 'ArrowUp':
-        newYear = event.shiftKey ? 
-          Math.min(this.currentYear, this.selectedYear + 10) : 
-          Math.min(this.currentYear, this.selectedYear + 1);
+        const rightStep = event.shiftKey ? 10 : 1;
+        newYear = Math.min(this.currentYear, this.selectedYear + rightStep);
+        announcement = `Year increased to ${newYear}`;
         handled = true;
         break;
         
       case 'Home':
         newYear = this.minYear;
+        announcement = `Year set to minimum: ${newYear}`;
         handled = true;
         break;
         
       case 'End':
         newYear = this.currentYear;
+        announcement = `Year set to maximum: ${newYear}`;
         handled = true;
         break;
         
       case 'PageUp':
         newYear = Math.min(this.currentYear, this.selectedYear + 10);
+        announcement = `Year increased by 10 to ${newYear}`;
         handled = true;
         break;
         
       case 'PageDown':
         newYear = Math.max(this.minYear, this.selectedYear - 10);
+        announcement = `Year decreased by 10 to ${newYear}`;
+        handled = true;
+        break;
+        
+      case '+':
+      case '=':
+        newYear = Math.min(this.currentYear, this.selectedYear + 1);
+        announcement = `Year increased to ${newYear}`;
+        handled = true;
+        break;
+        
+      case '-':
+        newYear = Math.max(this.minYear, this.selectedYear - 1);
+        announcement = `Year decreased to ${newYear}`;
+        handled = true;
+        break;
+        
+      case 'h':
+      case 'H':
+        if (event.ctrlKey || event.metaKey) {
+          this.announceKeyboardShortcuts();
+          handled = true;
+        }
+        break;
+        
+      case '?':
+        this.announceKeyboardShortcuts();
         handled = true;
         break;
     }
 
     if (handled) {
       event.preventDefault();
-      this.selectedYear = newYear;
-      target.value = newYear.toString();
-      this.yearForm.patchValue({ year: newYear });
+      event.stopPropagation();
       
-      // Update the store with the new year
-      if (validateYearGuess(newYear)) {
-        this.store.dispatch(setCurrentGuess({
-          guess: {
-            year: newYear,
-            coordinates: { latitude: 0, longitude: 0 }
-          }
-        }));
+      if (newYear !== this.selectedYear) {
+        this.selectedYear = newYear;
+        target.value = newYear.toString();
+        this.yearForm.patchValue({ year: newYear });
+        
+        // Announce the change
+        this.announceYearChange(announcement);
+        
+        // Update the store with the new year
+        if (validateYearGuess(newYear)) {
+          this.store.dispatch(setCurrentGuess({
+            guess: {
+              year: newYear,
+              coordinates: { latitude: 0, longitude: 0 }
+            }
+          }));
+        }
       }
+    }
+  }
+
+  /**
+   * Announce keyboard shortcuts to screen readers
+   */
+  private announceKeyboardShortcuts(): void {
+    const shortcuts = [
+      'Year slider keyboard shortcuts:',
+      'Arrow keys: Adjust by 1 year',
+      'Shift + arrows: Adjust by 10 years',
+      'Page Up/Down: Adjust by 10 years',
+      'Plus/Minus: Fine adjustment',
+      'Home: Go to 1900',
+      `End: Go to ${this.currentYear}`,
+      'Question mark: Show this help'
+    ].join('. ');
+    
+    this.announceToScreenReader(shortcuts);
+  }
+
+  /**
+   * Announce year changes to screen readers
+   */
+  private announceYearChange(message: string): void {
+    this.yearChangeAnnouncement = message;
+    
+    // Clear previous timeout
+    if (this.announcementTimeout) {
+      clearTimeout(this.announcementTimeout);
+    }
+    
+    // Clear announcement after a short delay
+    this.announcementTimeout = setTimeout(() => {
+      this.yearChangeAnnouncement = '';
+    }, 1500);
+  }
+
+  /**
+   * Announce message to screen readers
+   */
+  private announceToScreenReader(message: string): void {
+    // Create a temporary element for screen reader announcements
+    const announcement = document.createElement('div');
+    announcement.setAttribute('aria-live', 'polite');
+    announcement.setAttribute('aria-atomic', 'true');
+    announcement.className = 'sr-only';
+    announcement.textContent = message;
+    
+    document.body.appendChild(announcement);
+    
+    // Remove after announcement
+    setTimeout(() => {
+      if (document.body.contains(announcement)) {
+        document.body.removeChild(announcement);
+      }
+    }, 1000);
+  }
+
+  /**
+   * Get contextual information about a year for screen readers
+   */
+  getYearContext(year: number): string {
+    if (year < 1920) {
+      return 'Early 20th century period.';
+    } else if (year < 1940) {
+      return 'Inter-war period.';
+    } else if (year < 1950) {
+      return 'World War II era.';
+    } else if (year < 1970) {
+      return 'Post-war period.';
+    } else if (year < 1990) {
+      return 'Late 20th century.';
+    } else if (year < 2010) {
+      return 'Turn of the millennium.';
+    } else {
+      return 'Modern era.';
     }
   }
 }

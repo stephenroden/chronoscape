@@ -59,6 +59,7 @@
         #photoImage
         [src]="photo.url"
         [alt]="getImageAltText()"
+        [attr.aria-describedby]="'photo-description-' + photo.id"
         class="photo-image"
         [class.loading]="imageLoading"
         [class.loaded]="imageLoaded"
@@ -71,7 +72,10 @@
         (touchend)="onTouchEnd($event)"
         loading="eager"
         decoding="async"
-        draggable="false">
+        draggable="false"
+        tabindex="0"
+        role="img"
+        [attr.aria-label]="getAccessibleImageLabel()">
       
       <!-- Loading overlay for smooth transition -->
       <div class="image-loading-overlay" *ngIf="imageLoading">
@@ -99,6 +103,29 @@
           Photographer: {{ photo.metadata.photographer }}
         </span>
       </div>
+    </div>
+
+    <!-- Hidden description for screen readers -->
+    <div [attr.id]="'photo-description-' + photo.id" class="sr-only">
+      {{ getDetailedPhotoDescription() }}
+    </div>
+
+    <!-- Keyboard instructions for photo zoom -->
+    <div class="sr-only" role="region" aria-label="Photo zoom keyboard shortcuts" *ngIf="isZoomEnabled()">
+      <h4>Photo zoom keyboard shortcuts:</h4>
+      <ul>
+        <li>Plus (+) or Equals (=) - Zoom in</li>
+        <li>Minus (-) - Zoom out</li>
+        <li>Zero (0) - Reset zoom to original size</li>
+        <li>Arrow keys - Pan around zoomed photo</li>
+        <li>Home - Center photo when zoomed</li>
+      </ul>
+    </div>
+
+    <!-- Zoom status announcements -->
+    <div class="sr-only" aria-live="polite" aria-atomic="true">
+      <span *ngIf="isPhotoZoomed()">Photo is zoomed to {{ getCurrentZoomLevel() }}x. Use arrow keys to pan.</span>
+      <span *ngIf="!isPhotoZoomed() && isZoomEnabled()">Photo at original size. Use plus key to zoom in.</span>
     </div>
   </div>
 

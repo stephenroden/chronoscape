@@ -98,17 +98,31 @@
     </div>
   </div>
 
-  <!-- Keyboard shortcuts help (hidden, for screen readers) -->
-  <div class="sr-only" aria-live="polite">
-    <span *ngIf="isTransitioning">Switching views...</span>
+  <!-- Screen reader announcements -->
+  <div class="sr-only" aria-live="polite" aria-atomic="true">
+    <span *ngIf="isTransitioning">Switching views, please wait...</span>
     <span *ngIf="!canPerformToggle && !isTransitioning">Toggle currently disabled</span>
+    <span *ngIf="currentActiveView === 'photo' && !isTransitioning">Currently viewing photograph</span>
+    <span *ngIf="currentActiveView === 'map' && !isTransitioning">Currently viewing map</span>
   </div>
 
-  <!-- Instructions for keyboard users -->
-  <div class="keyboard-instructions sr-only">
-    Press T to toggle between photo and map views. 
-    Press P to switch to photo view. 
-    Press M to switch to map view. 
-    Press Escape to reset interface.
+  <!-- Comprehensive keyboard instructions for screen readers -->
+  <div class="keyboard-instructions sr-only" role="region" aria-label="Keyboard shortcuts">
+    <h3>Available keyboard shortcuts:</h3>
+    <ul>
+      <li>T - Toggle between photo and map views</li>
+      <li>P - Switch to photo view</li>
+      <li>M - Switch to map view</li>
+      <li>Alt + Left/Right arrows - Navigate between views</li>
+      <li>Enter or Space - Activate focused thumbnail</li>
+      <li>Escape - Reset interface to default state</li>
+      <li>Ctrl+H or ? - Announce keyboard shortcuts</li>
+    </ul>
+  </div>
+
+  <!-- Status information for screen readers -->
+  <div class="status-info sr-only" aria-live="polite">
+    <span *ngIf="photo">Photograph loaded: {{ getPhotoDescription() }}</span>
+    <span *ngIf="!photo">No photograph available</span>
   </div>
 </div>
