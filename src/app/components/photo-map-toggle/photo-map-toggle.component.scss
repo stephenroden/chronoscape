@@ -268,10 +268,35 @@
   @extend .sr-only;
 }
 
-// Responsive design
+// Responsive design - Enhanced mobile support
+@media (max-width: 1024px) {
+  .photo-map-toggle-container {
+    min-height: 350px;
+    border-radius: 6px;
+  }
+  
+  .thumbnail-area {
+    width: 110px;
+    height: 73px;
+    bottom: 14px;
+    right: 14px;
+    
+    // Larger touch targets for tablets
+    &:hover {
+      transform: scale(1.08);
+    }
+  }
+}
+
 @media (max-width: 768px) {
   .photo-map-toggle-container {
     min-height: 300px;
+    border-radius: 4px;
+    
+    // Improve touch interaction area
+    &:focus {
+      outline-width: 3px;
+    }
   }
   
   .thumbnail-area {
@@ -279,6 +304,24 @@
     height: 66px;
     bottom: 12px;
     right: 12px;
+    border-radius: 6px;
+    
+    // Enhanced touch feedback
+    &:hover {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+    
+    &:active {
+      transform: scale(1.05);
+      transition-duration: 100ms;
+    }
+    
+    // Larger focus outline for mobile
+    &:focus {
+      outline-width: 3px;
+      outline-offset: 3px;
+    }
   }
   
   .toggle-icon {
@@ -287,15 +330,54 @@
   
   .view-label {
     font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+  }
+  
+  // Improve thumbnail overlay visibility on mobile
+  .thumbnail-overlay {
+    background: rgba(0, 0, 0, 0.4);
+    
+    .thumbnail-area:hover & {
+      background: rgba(0, 0, 0, 0.5);
+    }
   }
 }
 
 @media (max-width: 480px) {
+  .photo-map-toggle-container {
+    min-height: 280px;
+    margin: 0 4px;
+  }
+  
   .thumbnail-area {
-    width: 80px;
-    height: 53px;
-    bottom: 8px;
-    right: 8px;
+    width: 85px;
+    height: 57px;
+    bottom: 10px;
+    right: 10px;
+    border-radius: 4px;
+    
+    // More pronounced mobile feedback
+    &:hover {
+      transform: scale(1.15);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+    
+    &:active {
+      transform: scale(1.08);
+    }
+    
+    // Ensure minimum touch target size (44px)
+    &::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 44px;
+      height: 44px;
+      transform: translate(-50%, -50%);
+      z-index: -1;
+    }
   }
   
   .toggle-icon {
@@ -304,11 +386,63 @@
   
   .view-label {
     font-size: 9px;
+    font-weight: 800;
   }
   
   .spinner {
     width: 16px;
     height: 16px;
+    border-width: 2px;
+  }
+  
+  // Improve text contrast on small screens
+  .thumbnail-overlay {
+    background: rgba(0, 0, 0, 0.5);
+    
+    .thumbnail-area:hover & {
+      background: rgba(0, 0, 0, 0.6);
+    }
+  }
+  
+  .toggle-icon,
+  .view-label {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+  }
+}
+
+// Extra small screens (landscape phones)
+@media (max-width: 360px) {
+  .photo-map-toggle-container {
+    min-height: 250px;
+  }
+  
+  .thumbnail-area {
+    width: 75px;
+    height: 50px;
+    bottom: 8px;
+    right: 8px;
+  }
+  
+  .toggle-icon {
+    font-size: 11px;
+  }
+  
+  .view-label {
+    font-size: 8px;
+  }
+}
+
+// Landscape orientation adjustments
+@media (max-height: 500px) and (orientation: landscape) {
+  .photo-map-toggle-container {
+    min-height: 200px;
+  }
+  
+  .thumbnail-area {
+    width: 90px;
+    height: 60px;
+    bottom: 8px;
+    right: 8px;
   }
 }
 
@@ -354,6 +488,92 @@
   .spinner {
     animation: none;
     border-top-color: transparent;
+  }
+}
+
+// Mobile device specific styles
+.photo-map-toggle-container.mobile-device {
+  // Optimize for touch interactions
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  
+  .thumbnail-area {
+    // Ensure minimum touch target size
+    min-width: 44px;
+    min-height: 44px;
+    
+    // Enhanced touch feedback
+    &.touch-active {
+      transform: scale(0.95);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      transition: all 100ms ease-out;
+    }
+  }
+}
+
+.thumbnail-container.mobile-thumbnail {
+  // Mobile-specific thumbnail optimizations
+  .thumbnail-image {
+    // Improve image rendering on mobile
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+  
+  .thumbnail-overlay {
+    // Better contrast on mobile screens
+    background: rgba(0, 0, 0, 0.6);
+    
+    .thumbnail-area:hover & {
+      background: rgba(0, 0, 0, 0.7);
+    }
+  }
+}
+
+// Touch device optimizations
+@media (hover: none) and (pointer: coarse) {
+  .photo-map-toggle-container {
+    // Improve touch responsiveness
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    
+    .thumbnail-area {
+      // Remove hover effects on touch devices
+      &:hover {
+        transform: none;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      
+      // Add active state for touch
+      &:active {
+        transform: scale(0.95);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+    }
+    
+    .photo-image {
+      // Prevent default touch behaviors
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      -khtml-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+  }
+}
+
+// Pointer device optimizations
+@media (hover: hover) and (pointer: fine) {
+  .photo-map-toggle-container {
+    .thumbnail-area {
+      // Enhanced hover effects for precise pointers
+      transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      
+      &:hover {
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      }
+    }
   }
 }
 

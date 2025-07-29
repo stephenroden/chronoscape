@@ -456,75 +456,418 @@
   100% { transform: rotate(360deg); }
 }
 
-// Responsive Design
-@media (max-width: 768px) {
+// Enhanced Responsive Design
+@media (max-width: 1024px) {
   .results-container {
-    padding: 15px;
+    padding: 18px;
+    max-width: 90%;
   }
   
   .results-header {
-    h2 {
-      font-size: 1.6rem;
-    }
+    margin-bottom: 25px;
     
-    .photo-info h3 {
-      font-size: 1.2rem;
+    h2 {
+      font-size: 1.8rem;
     }
   }
   
   .result-section {
+    padding: 18px;
+    border-radius: 10px;
+  }
+  
+  .map-results .results-map {
+    height: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .results-container {
     padding: 15px;
+    max-width: 95%;
+  }
+  
+  .results-header {
+    margin-bottom: 20px;
+    
+    h2 {
+      font-size: 1.6rem;
+      margin-bottom: 8px;
+    }
+    
+    .photo-info {
+      h3 {
+        font-size: 1.2rem;
+        margin-bottom: 6px;
+      }
+      
+      .photo-description {
+        font-size: 0.9rem;
+        line-height: 1.4;
+      }
+    }
+  }
+  
+  .results-content {
+    gap: 20px;
+  }
+  
+  .result-section {
+    padding: 15px;
+    border-radius: 8px;
+    
+    h4 {
+      font-size: 1.1rem;
+      margin-bottom: 12px;
+    }
+    
+    h5 {
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      margin-top: 12px;
+    }
   }
   
   .guess-comparison {
+    gap: 8px;
+    
     .guess-item {
       flex-direction: column;
       align-items: flex-start;
-      gap: 5px;
+      gap: 4px;
+      padding: 12px;
+      
+      .label {
+        font-size: 0.9rem;
+      }
+      
+      .value {
+        font-size: 1rem;
+        align-self: stretch;
+        text-align: center;
+      }
+    }
+    
+    .difference {
+      padding: 10px;
+      
+      .difference-text {
+        font-size: 0.9rem;
+      }
     }
   }
   
   .score-display {
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     text-align: center;
+    padding: 12px;
+    
+    .score-points .points {
+      font-size: 1.3rem;
+    }
+    
+    .performance-badge {
+      padding: 8px 16px;
+      font-size: 0.85rem;
+    }
+  }
+  
+  .prominent-answer {
+    margin-bottom: 15px;
+    
+    .correct-year-display,
+    .correct-location-display {
+      padding: 12px;
+      
+      .label {
+        font-size: 0.85rem;
+        margin-bottom: 4px;
+      }
+      
+      .year-value,
+      .location-value {
+        font-size: 1.6rem;
+      }
+    }
+  }
+  
+  .enhanced-performance {
+    margin: 12px 0;
+    
+    .accuracy-badge {
+      padding: 6px 14px;
+      font-size: 0.85rem;
+    }
+  }
+  
+  .photo-context {
+    .context-section {
+      margin-bottom: 15px;
+      
+      .context-text,
+      .era-text,
+      .photographer-text,
+      .significance-text {
+        font-size: 0.9rem;
+        line-height: 1.5;
+        padding: 12px;
+      }
+      
+      .facts-list .fact-item {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        padding: 10px 12px;
+        padding-left: 28px;
+        margin-bottom: 6px;
+      }
+    }
   }
   
   .score-breakdown {
     flex-direction: column;
-    gap: 15px;
+    gap: 12px;
+    
+    .breakdown-item {
+      .category {
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+      }
+      
+      .score {
+        font-size: 1.1rem;
+      }
+    }
   }
   
-  .map-results .results-map {
-    height: 250px;
+  .map-results {
+    .results-map {
+      height: 250px;
+      border-radius: 8px;
+    }
+    
+    .map-legend {
+      flex-direction: column;
+      align-items: center;
+      gap: 8px !important;
+      margin-top: 8px;
+      
+      .legend-item {
+        font-size: 0.85rem;
+        
+        .legend-pin {
+          width: 10px;
+          height: 10px;
+        }
+      }
+    }
   }
   
-  .map-legend {
-    flex-direction: column;
-    align-items: center;
-    gap: 10px !important;
+  .total-score {
+    .total-points {
+      margin-bottom: 12px;
+      
+      .points {
+        font-size: 1.8rem;
+      }
+      
+      .max-points {
+        font-size: 1.1rem;
+      }
+    }
+  }
+  
+  .results-actions {
+    margin-top: 25px;
+    
+    .next-photo-btn {
+      padding: 14px 28px;
+      font-size: 1rem;
+      border-radius: 8px;
+      min-height: 44px; // Minimum touch target
+    }
   }
 }
 
 @media (max-width: 480px) {
   .results-container {
-    padding: 10px;
+    padding: 12px;
+    max-width: 98%;
   }
   
-  .results-header h2 {
-    font-size: 1.4rem;
+  .results-header {
+    margin-bottom: 18px;
+    
+    h2 {
+      font-size: 1.4rem;
+      line-height: 1.3;
+    }
+    
+    .photo-info {
+      h3 {
+        font-size: 1.1rem;
+      }
+      
+      .photo-description {
+        font-size: 0.85rem;
+      }
+    }
+  }
+  
+  .results-content {
+    gap: 15px;
   }
   
   .result-section {
     padding: 12px;
+    border-radius: 6px;
+    
+    h4 {
+      font-size: 1rem;
+      margin-bottom: 10px;
+    }
+  }
+  
+  .guess-comparison .guess-item {
+    padding: 10px;
+    
+    .label {
+      font-size: 0.85rem;
+    }
+    
+    .value {
+      font-size: 0.95rem;
+    }
+  }
+  
+  .prominent-answer {
+    .correct-year-display,
+    .correct-location-display {
+      padding: 10px;
+      
+      .year-value,
+      .location-value {
+        font-size: 1.4rem;
+      }
+    }
+  }
+  
+  .photo-context .context-section {
+    .context-text,
+    .era-text,
+    .photographer-text,
+    .significance-text {
+      font-size: 0.85rem;
+      padding: 10px;
+    }
+    
+    .facts-list .fact-item {
+      font-size: 0.85rem;
+      padding: 8px 10px;
+      padding-left: 24px;
+    }
   }
   
   .map-results .results-map {
     height: 200px;
+    border-radius: 6px;
   }
   
-  .next-photo-btn {
+  .total-score .total-points .points {
+    font-size: 1.6rem;
+  }
+  
+  .results-actions .next-photo-btn {
     width: 100%;
-    padding: 15px;
+    padding: 16px;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+}
+
+// Extra small screens
+@media (max-width: 360px) {
+  .results-container {
+    padding: 10px;
+  }
+  
+  .results-header h2 {
+    font-size: 1.3rem;
+  }
+  
+  .result-section {
+    padding: 10px;
+  }
+  
+  .map-results .results-map {
+    height: 180px;
+  }
+  
+  .prominent-answer {
+    .correct-year-display,
+    .correct-location-display {
+      .year-value,
+      .location-value {
+        font-size: 1.2rem;
+      }
+    }
+  }
+}
+
+// Landscape mobile optimization
+@media (max-height: 500px) and (orientation: landscape) {
+  .results-container {
+    padding: 8px;
+  }
+  
+  .results-header {
+    margin-bottom: 15px;
+    
+    h2 {
+      font-size: 1.3rem;
+    }
+  }
+  
+  .results-content {
+    gap: 12px;
+  }
+  
+  .result-section {
+    padding: 10px;
+  }
+  
+  .map-results .results-map {
+    height: 150px;
+  }
+  
+  .results-actions {
+    margin-top: 15px;
+  }
+}
+
+// Touch device optimizations
+@media (hover: none) and (pointer: coarse) {
+  .next-photo-btn {
+    // Enhanced touch feedback
+    -webkit-tap-highlight-color: transparent;
+    transition: all 200ms ease-out;
+    
+    &:active {
+      transform: scale(0.98);
+      background: #2980b9;
+    }
+    
+    // Ensure minimum touch target
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .performance-badge,
+  .accuracy-badge {
+    // Better touch targets
+    min-height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 }

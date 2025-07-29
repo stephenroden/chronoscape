@@ -52,6 +52,10 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   public touchStartDistance = 0;
   public touchStartCenter = { x: 0, y: 0 };
   public isMultiTouch = false;
+  private touchStartZoom = 1;
+  private touchMoveThreshold = 5; // Minimum movement to register as gesture
+  private lastTouchTime = 0;
+  private doubleTapTimeout: any;
 
   // Performance optimization
   private resizeTimeout: any;
@@ -125,9 +129,13 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subscriptions.unsubscribe();
     
-    // Clean up resize timeout
+    // Clean up timeouts
     if (this.resizeTimeout) {
       clearTimeout(this.resizeTimeout);
+    }
+    
+    if (this.doubleTapTimeout) {
+      clearTimeout(this.doubleTapTimeout);
     }
   }
 
@@ -344,21 +352,39 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle touch start for pan and pinch gestures
+   * Handle touch start for pan and pinch gestures with enhanced mobile support
    */
   onTouchStart(event: TouchEvent): void {
     if (!this.enableZoom) return;
 
     event.preventDefault();
+    
+    const currentTime = Date.now();
 
     if (event.touches.length === 1) {
-      // Single touch - start pan
-      this.isDragging = true;
+      const touch = event.touches[0];
+      
+      // Check for double tap
+      if (currentTime - this.lastTouchTime < 300) {
+        this.handleDoubleTap(touch);
+        return;
+      }
+      
+      this.lastTouchTime = currentTime;
+      
+      // Single touch - start pan or prepare for double tap
+      this.isDragging = this.zoomState ? this.zoomState.zoomLevel > 1 : false;
       this.isMultiTouch = false;
       this.lastPanPoint = {
-        x: event.touches[0].clientX,
-        y: event.touches[0].clientY
+        x: touch.clientX,
+        y: touch.clientY
       };
+      
+      // Add visual feedback for touch
+      if (this.photoContainer) {
+        this.photoContainer.nativeElement.classList.add('touch-active');
+      }
+      
     } else if (event.touches.length === 2) {
       // Multi-touch - start pinch
       this.isDragging = false;
@@ -369,11 +395,18 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
       
       this.touchStartDistance = this.getTouchDistance(touch1, touch2);
       this.touchStartCenter = this.getTouchCenter(touch1, touch2);
+      this.touchStartZoom = this.zoomState ? this.zoomState.zoomLevel : 1;
+      
+      // Clear any pending double tap
+      if (this.doubleTapTimeout) {
+        clearTimeout(this.doubleTapTimeout);
+        this.doubleTapTimeout = null;
+      }
     }
   }
 
   /**
-   * Handle touch move for pan and pinch gestures with boundary constraints
+   * Handle touch move for pan and pinch gestures with enhanced mobile support
    */
   onTouchMove(event: TouchEvent): void {
     if (!this.enableZoom) return;
@@ -381,20 +414,21 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     event.preventDefault();
 
     if (event.touches.length === 1 && this.isDragging && !this.isMultiTouch) {
-      // Single touch pan with boundary constraints
+      // Single touch pan with boundary constraints and momentum
       if (this.zoomState && this.zoomState.zoomLevel > 1) {
         const touch = event.touches[0];
         const deltaX = touch.clientX - this.lastPanPoint.x;
         const deltaY = touch.clientY - this.lastPanPoint.y;
 
-        // Only update if movement is significant (reduces excessive updates)
-        if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+        // Only update if movement exceeds threshold (reduces jitter)
+        const moveDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        if (moveDistance > this.touchMoveThreshold) {
           this.photoZoomService.pan(deltaX, deltaY);
           this.lastPanPoint = { x: touch.clientX, y: touch.clientY };
         }
       }
     } else if (event.touches.length === 2 && this.isMultiTouch) {
-      // Pinch zoom with smooth scaling
+      // Enhanced pinch zoom with better scaling
       const touch1 = event.touches[0];
       const touch2 = event.touches[1];
       
@@ -402,41 +436,66 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
       const currentCenter = this.getTouchCenter(touch1, touch2);
       
       if (this.touchStartDistance > 0) {
-        const scale = currentDistance / this.touchStartDistance;
+        const rawScale = currentDistance / this.touchStartDistance;
         
-        // Only update if scale change is significant (reduces excessive updates)
-        if (Math.abs(scale - 1) > 0.01) {
+        // Apply smoothing to scale changes for better UX
+        const smoothedScale = this.smoothScale(rawScale);
+        
+        // Only update if scale change is significant
+        if (Math.abs(smoothedScale - 1) > 0.02) {
+          // Calculate new zoom level based on initial zoom
+          const newZoomLevel = this.touchStartZoom * smoothedScale;
+          
           this.photoZoomService.handlePinchZoom(
-            scale,
+            smoothedScale,
             currentCenter.x,
             currentCenter.y
           );
           
-          this.touchStartDistance = currentDistance;
-          this.touchStartCenter = currentCenter;
+          // Update reference points less frequently for smoother experience
+          if (Math.abs(rawScale - 1) > 0.1) {
+            this.touchStartDistance = currentDistance;
+            this.touchStartCenter = currentCenter;
+            this.touchStartZoom = newZoomLevel;
+          }
         }
       }
     }
   }
 
   /**
-   * Handle touch end
+   * Handle touch end with enhanced mobile support
    */
   onTouchEnd(event: TouchEvent): void {
     if (!this.enableZoom) return;
 
+    // Remove visual feedback
+    if (this.photoContainer) {
+      this.photoContainer.nativeElement.classList.remove('touch-active');
+    }
+
     if (event.touches.length === 0) {
+      // All touches ended
       this.isDragging = false;
       this.isMultiTouch = false;
       this.touchStartDistance = 0;
+      this.touchStartZoom = 1;
+      
+      // Add haptic feedback if available
+      if ('vibrate' in navigator && this.zoomState && this.zoomState.zoomLevel !== 1) {
+        navigator.vibrate(10);
+      }
+      
     } else if (event.touches.length === 1 && this.isMultiTouch) {
       // Transition from multi-touch to single touch
       this.isMultiTouch = false;
-      this.isDragging = true;
+      this.isDragging = this.zoomState ? this.zoomState.zoomLevel > 1 : false;
       this.lastPanPoint = {
         x: event.touches[0].clientX,
         y: event.touches[0].clientY
       };
+      this.touchStartDistance = 0;
+      this.touchStartZoom = 1;
     }
   }
 
@@ -479,6 +538,48 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
       x: (touch1.clientX + touch2.clientX) / 2,
       y: (touch1.clientY + touch2.clientY) / 2
     };
+  }
+
+  /**
+   * Handle double tap to zoom in/out
+   */
+  private handleDoubleTap(touch: Touch): void {
+    if (!this.enableZoom || !this.zoomState) return;
+    
+    // Clear any existing timeout
+    if (this.doubleTapTimeout) {
+      clearTimeout(this.doubleTapTimeout);
+      this.doubleTapTimeout = null;
+    }
+    
+    const isZoomed = this.zoomState.zoomLevel > 1;
+    
+    if (isZoomed) {
+      // Zoom out to fit
+      this.photoZoomService.reset();
+    } else {
+      // Zoom in to 2x at touch point
+      const containerRect = this.photoContainer.nativeElement.getBoundingClientRect();
+      const centerX = touch.clientX - containerRect.left;
+      const centerY = touch.clientY - containerRect.top;
+      
+      this.photoZoomService.zoomToPoint(2, centerX, centerY);
+    }
+    
+    // Add haptic feedback
+    if ('vibrate' in navigator) {
+      navigator.vibrate(30);
+    }
+  }
+
+  /**
+   * Smooth scale changes for better pinch zoom experience
+   */
+  private smoothScale(rawScale: number): number {
+    // Apply logarithmic smoothing to make zoom feel more natural
+    const logScale = Math.log(rawScale);
+    const smoothedLogScale = logScale * 0.8; // Reduce sensitivity
+    return Math.exp(smoothedLogScale);
   }
 
   /**

@@ -84,16 +84,100 @@
 }
 
 // Mobile responsive adjustments
+@media (max-width: 1024px) {
+  .zoom-controls {
+    top: 14px;
+    right: 14px;
+    gap: 8px;
+    padding: 8px;
+    backdrop-filter: blur(6px);
+
+    .zoom-btn {
+      width: 42px;
+      height: 42px;
+      
+      // Larger touch targets for tablets
+      &:hover:not(:disabled) {
+        transform: scale(1.08);
+      }
+
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .zoom-level-indicator {
+      font-size: 13px;
+      min-width: 30px;
+      padding: 4px 8px;
+    }
+  }
+}
+
 @media (max-width: 768px) {
   .zoom-controls {
     top: 12px;
     right: 12px;
     gap: 6px;
-    padding: 6px;
+    padding: 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(8px);
 
     .zoom-btn {
-      width: 36px;
-      height: 36px;
+      width: 44px; // Minimum touch target size
+      height: 44px;
+      border-radius: 8px;
+      
+      // Enhanced touch feedback
+      &:hover:not(:disabled) {
+        transform: scale(1.1);
+        background: rgba(255, 255, 255, 0.25);
+      }
+      
+      &:active:not(:disabled) {
+        transform: scale(1.05);
+        background: rgba(255, 255, 255, 0.3);
+      }
+
+      svg {
+        width: 20px;
+        height: 20px;
+      }
+    }
+
+    .zoom-level-indicator {
+      font-size: 12px;
+      min-width: 32px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .zoom-controls {
+    top: 10px;
+    right: 10px;
+    gap: 4px;
+    padding: 6px;
+    border-radius: 8px;
+
+    .zoom-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 6px;
+      
+      // More pronounced mobile feedback
+      &:hover:not(:disabled) {
+        transform: scale(1.15);
+        background: rgba(255, 255, 255, 0.3);
+      }
+      
+      &:active:not(:disabled) {
+        transform: scale(1.08);
+      }
 
       svg {
         width: 18px;
@@ -102,9 +186,36 @@
     }
 
     .zoom-level-indicator {
-      font-size: 12px;
+      font-size: 11px;
       min-width: 28px;
-      padding: 2px 6px;
+      padding: 3px 6px;
+      font-weight: 700;
+    }
+  }
+}
+
+// Extra small screens
+@media (max-width: 360px) {
+  .zoom-controls {
+    top: 8px;
+    right: 8px;
+    gap: 3px;
+    padding: 5px;
+
+    .zoom-btn {
+      width: 36px;
+      height: 36px;
+
+      svg {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    .zoom-level-indicator {
+      font-size: 10px;
+      min-width: 24px;
+      padding: 2px 4px;
     }
   }
 }
@@ -132,6 +243,48 @@
     .zoom-level-indicator {
       background: rgba(255, 255, 255, 0.2);
       border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+// Touch device optimizations
+@media (hover: none) and (pointer: coarse) {
+  .zoom-controls {
+    // Optimize for touch
+    -webkit-tap-highlight-color: transparent;
+    
+    .zoom-btn {
+      // Remove hover effects on touch devices
+      &:hover:not(:disabled) {
+        transform: none;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      
+      // Enhanced active state for touch
+      &:active:not(:disabled) {
+        transform: scale(0.95);
+        background: rgba(255, 255, 255, 0.3);
+        transition: all 100ms ease-out;
+      }
+      
+      // Ensure minimum touch target
+      min-width: 44px;
+      min-height: 44px;
+    }
+  }
+}
+
+// Pointer device optimizations
+@media (hover: hover) and (pointer: fine) {
+  .zoom-controls {
+    .zoom-btn {
+      // Enhanced hover effects for precise pointers
+      transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      
+      &:hover:not(:disabled) {
+        transform: scale(1.05) translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
     }
   }
 }

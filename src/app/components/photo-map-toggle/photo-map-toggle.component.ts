@@ -67,6 +67,14 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   thumbnailImageSrc: string | null = null;
   thumbnailMapSrc: string | null = null;
 
+  // Mobile and touch support
+  private isMobileDevice = false;
+  private touchStartTime = 0;
+  private touchStartPosition = { x: 0, y: 0 };
+  private longPressTimeout: any;
+  private readonly LONG_PRESS_DURATION = 500;
+  private readonly MAX_TOUCH_MOVE_DISTANCE = 10;
+
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -86,6 +94,7 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.detectMobileDevice();
     this.setupSubscriptions();
     this.initializeThumbnails();
   }
@@ -93,6 +102,20 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    
+    // Clean up touch timeouts
+    if (this.longPressTimeout) {
+      clearTimeout(this.longPressTimeout);
+    }
+  }
+
+  /**
+   * Detect if running on mobile device for enhanced touch support
+   */
+  private detectMobileDevice(): void {
+    this.isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                         ('ontouchstart' in window) ||
+                         (navigator.maxTouchPoints > 0);
   }
 
   /**
@@ -230,6 +253,108 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Handle touch start on thumbnail for enhanced mobile support
+   */
+  onThumbnailTouchStart(event: TouchEvent): void {
+    if (!this.canToggleView || this.isTransitioning) {
+      return;
+    }
+
+    event.preventDefault();
+    
+    const touch = event.touches[0];
+    this.touchStartTime = Date.now();
+    this.touchStartPosition = { x: touch.clientX, y: touch.clientY };
+    
+    // Add visual feedback for touch
+    const thumbnail = event.currentTarget as HTMLElement;
+    thumbnail.classList.add('touch-active');
+    
+    // Set up long press detection
+    this.longPressTimeout = setTimeout(() => {
+      this.handleLongPress();
+    }, this.LONG_PRESS_DURATION);
+  }
+
+  /**
+   * Handle touch move on thumbnail
+   */
+  onThumbnailTouchMove(event: TouchEvent): void {
+    if (!this.touchStartTime) return;
+    
+    const touch = event.touches[0];
+    const moveDistance = Math.sqrt(
+      Math.pow(touch.clientX - this.touchStartPosition.x, 2) +
+      Math.pow(touch.clientY - this.touchStartPosition.y, 2)
+    );
+    
+    // Cancel long press if user moves too far
+    if (moveDistance > this.MAX_TOUCH_MOVE_DISTANCE) {
+      this.cancelTouchInteraction(event.currentTarget as HTMLElement);
+    }
+  }
+
+  /**
+   * Handle touch end on thumbnail
+   */
+  onThumbnailTouchEnd(event: TouchEvent): void {
+    const thumbnail = event.currentTarget as HTMLElement;
+    thumbnail.classList.remove('touch-active');
+    
+    if (!this.touchStartTime) return;
+    
+    const touchDuration = Date.now() - this.touchStartTime;
+    
+    // Clear long press timeout
+    if (this.longPressTimeout) {
+      clearTimeout(this.longPressTimeout);
+      this.longPressTimeout = null;
+    }
+    
+    // Handle as tap if it was a short touch
+    if (touchDuration < this.LONG_PRESS_DURATION) {
+      this.performToggle();
+    }
+    
+    this.touchStartTime = 0;
+  }
+
+  /**
+   * Handle long press on thumbnail (could show additional options in future)
+   */
+  private handleLongPress(): void {
+    // For now, just perform the toggle with haptic feedback if available
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+    
+    this.performToggle();
+    this.longPressTimeout = null;
+  }
+
+  /**
+   * Handle touch cancel on thumbnail
+   */
+  onThumbnailTouchCancel(event: TouchEvent): void {
+    const thumbnail = event.currentTarget as HTMLElement;
+    this.cancelTouchInteraction(thumbnail);
+  }
+
+  /**
+   * Cancel touch interaction
+   */
+  public cancelTouchInteraction(element: HTMLElement): void {
+    element.classList.remove('touch-active');
+    
+    if (this.longPressTimeout) {
+      clearTimeout(this.longPressTimeout);
+      this.longPressTimeout = null;
+    }
+    
+    this.touchStartTime = 0;
+  }
+
+  /**
    * Perform the actual toggle operation
    */
   private performToggle(): void {
@@ -337,6 +462,11 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     
     classes.push(`active-${this.currentActiveView}`);
     
+    // Add mobile-specific classes
+    if (this.isMobileDevice) {
+      classes.push('mobile-device');
+    }
+    
     return classes;
   }
 
@@ -365,6 +495,11 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     
     if (this.isTransitioning) {
       classes.push('transitioning');
+    }
+    
+    // Add mobile-specific classes
+    if (this.isMobileDevice) {
+      classes.push('mobile-thumbnail');
     }
     
     return classes;
@@ -441,5 +576,39 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
    */
   get canPerformToggle(): boolean {
     return this.canToggleView && !this.isTransitioning;
+  }
+
+  /**
+   * Get responsive thumbnail size based on screen size
+   */
+  getResponsiveThumbnailSize(): { width: number; height: number } {
+    const screenWidth = window.innerWidth;
+    
+    if (screenWidth <= 360) {
+      return { width: 75, height: 50 };
+    } else if (screenWidth <= 480) {
+      return { width: 85, height: 57 };
+    } else if (screenWidth <= 768) {
+      return { width: 100, height: 66 };
+    } else if (screenWidth <= 1024) {
+      return { width: 110, height: 73 };
+    } else {
+      return { width: 120, height: 80 };
+    }
+  }
+
+  /**
+   * Check if device supports touch
+   */
+  get isTouchDevice(): boolean {
+    return this.isMobileDevice;
+  }
+
+  /**
+   * Get appropriate transition duration based on device capabilities
+   */
+  get adaptiveTransitionDuration(): number {
+    // Slightly faster transitions on mobile for better perceived performance
+    return this.isMobileDevice ? Math.max(200, this.transitionDuration - 100) : this.transitionDuration;
   }
 }

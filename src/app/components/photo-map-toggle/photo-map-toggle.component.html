@@ -51,7 +51,11 @@
     role="button"
     (click)="onThumbnailClick()"
     (keydown.enter)="onThumbnailClick()"
-    (keydown.space)="onThumbnailClick()">
+    (keydown.space)="onThumbnailClick()"
+    (touchstart)="onThumbnailTouchStart($event)"
+    (touchmove)="onThumbnailTouchMove($event)"
+    (touchend)="onThumbnailTouchEnd($event)"
+    (touchcancel)="onThumbnailTouchCancel($event)">
 
     <!-- Thumbnail image -->
     <div class="thumbnail-image-container">

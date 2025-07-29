@@ -386,4 +386,40 @@ export class PhotoZoomService {
 
     this.zoomStateSubject.next(newState);
   }
+
+  /**
+   * Zoom to a specific point at a given zoom level
+   * @param zoomLevel - Target zoom level
+   * @param centerX - X coordinate to zoom towards
+   * @param centerY - Y coordinate to zoom towards
+   */
+  zoomToPoint(zoomLevel: number, centerX: number, centerY: number): void {
+    const currentState = this.currentState;
+    const clampedZoom = Math.max(
+      currentState.minZoom,
+      Math.min(zoomLevel, currentState.maxZoom)
+    );
+
+    // Calculate position to center zoom on the specified point
+    const containerCenterX = currentState.containerWidth / 2;
+    const containerCenterY = currentState.containerHeight / 2;
+    
+    const offsetX = centerX - containerCenterX;
+    const offsetY = centerY - containerCenterY;
+    
+    const newPosition = {
+      x: -offsetX * (clampedZoom - 1),
+      y: -offsetY * (clampedZoom - 1)
+    };
+
+    const constrainedPosition = this.constrainPosition(newPosition, clampedZoom);
+
+    const newState: PhotoZoomState = {
+      ...currentState,
+      zoomLevel: clampedZoom,
+      position: constrainedPosition
+    };
+
+    this.zoomStateSubject.next(newState);
+  }
 }

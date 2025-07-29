@@ -419,6 +419,15 @@
   .photo-container.zoomable {
     // Improve touch responsiveness
     touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    
+    // Enhanced touch feedback
+    &.touch-active {
+      .photo-image {
+        filter: brightness(0.95);
+        transition: filter 100ms ease-out;
+      }
+    }
     
     .photo-image {
       // Prevent default touch behaviors
@@ -428,7 +437,75 @@
       -moz-user-select: none;
       -ms-user-select: none;
       user-select: none;
+      
+      // Improve image quality on mobile
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
     }
+    
+    // Better zoom indicator for touch devices
+    &.zoomed::after {
+      width: 10px;
+      height: 10px;
+      top: 12px;
+      right: 12px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    }
+  }
+}
+
+// Enhanced mobile support
+@media (max-width: 768px) {
+  .photo-display-container {
+    // Better mobile layout
+    border-radius: 6px;
+    margin: 0 8px;
+  }
+  
+  .photo-container {
+    // Optimize aspect ratio for mobile
+    &::before {
+      padding-top: 75%; // 4:3 aspect ratio
+    }
+    
+    &.zoomable {
+      // Improve mobile zoom experience
+      &.zoomed {
+        // More prominent zoom indicator on mobile
+        &::after {
+          width: 12px;
+          height: 12px;
+          background-color: #007bff;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+      }
+      
+      // Better touch feedback
+      &.touch-active .photo-image {
+        filter: brightness(0.9);
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .photo-display-container {
+    margin: 0 4px;
+    border-radius: 4px;
+  }
+  
+  .photo-container {
+    // More mobile-friendly aspect ratio
+    &::before {
+      padding-top: 80%; // Closer to square for small screens
+    }
+  }
+}
+
+// Landscape mobile optimization
+@media (max-height: 500px) and (orientation: landscape) {
+  .photo-container::before {
+    padding-top: 60%; // Wider aspect ratio for landscape
   }
 }
 
