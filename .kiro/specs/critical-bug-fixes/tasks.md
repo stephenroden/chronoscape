@@ -1,6 +1,6 @@
 # Implementation Plan
 
-- [ ] 1. Investigate and fix photo data flow issues
+- [x] 1. Investigate and fix photo data flow issues
   - Debug the currentPhoto$ observable in game component to ensure it emits valid photo data
   - Add logging to track photo data from store through to child components
   - Verify photo-map-toggle component receives non-null photo data

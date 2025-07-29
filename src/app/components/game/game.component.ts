@@ -126,6 +126,7 @@ export class GameComponent implements OnInit, OnDestroy {
     // Subscribe to game status changes to handle automatic transitions
     this.subscriptions.add(
       this.gameStatus$.subscribe(status => {
+        console.log('[GameComponent] Game status changed:', status);
         // Navigate to results when game is completed
         if (status === GameStatus.COMPLETED) {
           this.router.navigate(['/results']);
@@ -137,6 +138,53 @@ export class GameComponent implements OnInit, OnDestroy {
     this.subscriptions.add(
       this.showingResults$.subscribe(showing => {
         this.showingResults = showing;
+      })
+    );
+
+    // DEBUG: Add logging to track photo data flow (Task 1 requirement)
+    this.subscriptions.add(
+      this.currentPhoto$.subscribe(photo => {
+        console.log('[GameComponent] Current photo changed:', {
+          photo: photo ? {
+            id: photo.id,
+            title: photo.title,
+            year: photo.year,
+            url: photo.url ? photo.url.substring(0, 50) + '...' : null,
+            coordinates: photo.coordinates
+          } : null,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Verify photo data is valid (Task 1 requirement)
+        if (photo) {
+          const isValid = this.validatePhotoData(photo);
+          if (!isValid) {
+            console.error('[GameComponent] Invalid photo data detected:', photo);
+          }
+        }
+      })
+    );
+
+    // DEBUG: Track game progress and photo index synchronization
+    this.subscriptions.add(
+      this.store.select(GameSelectors.selectCurrentPhotoIndex).subscribe(index => {
+        console.log('[GameComponent] Game photo index changed:', index);
+      })
+    );
+
+    // DEBUG: Track photos loading state
+    this.subscriptions.add(
+      this.photosLoading$.subscribe(loading => {
+        console.log('[GameComponent] Photos loading state:', loading);
+      })
+    );
+
+    // DEBUG: Track photos error state
+    this.subscriptions.add(
+      this.photosError$.subscribe(error => {
+        if (error) {
+          console.error('[GameComponent] Photos error:', error);
+        }
       })
     );
   }
@@ -307,5 +355,54 @@ export class GameComponent implements OnInit, OnDestroy {
     // For now, we'll just log the error and continue
     // In a production app, we might want to show a user-friendly message
     // or fall back to a simpler interface
+  }
+
+  /**
+   * Validate photo data to ensure it meets requirements (Task 1)
+   * Requirements: 1.1, 1.3, 3.1, 4.1, 4.2
+   */
+  private validatePhotoData(photo: Photo): boolean {
+    if (!photo) {
+      console.error('[GameComponent] Photo validation failed: photo is null/undefined');
+      return false;
+    }
+
+    const validationErrors: string[] = [];
+
+    // Check required fields
+    if (!photo.id) {
+      validationErrors.push('Missing photo ID');
+    }
+    if (!photo.url) {
+      validationErrors.push('Missing photo URL');
+    }
+    if (!photo.year || photo.year < 1900 || photo.year > new Date().getFullYear()) {
+      validationErrors.push(`Invalid year: ${photo.year}`);
+    }
+    if (!photo.coordinates) {
+      validationErrors.push('Missing coordinates');
+    } else {
+      if (photo.coordinates.latitude === 0 && photo.coordinates.longitude === 0) {
+        validationErrors.push('Invalid coordinates (0,0)');
+      }
+      if (Math.abs(photo.coordinates.latitude) > 90) {
+        validationErrors.push(`Invalid latitude: ${photo.coordinates.latitude}`);
+      }
+      if (Math.abs(photo.coordinates.longitude) > 180) {
+        validationErrors.push(`Invalid longitude: ${photo.coordinates.longitude}`);
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      console.error('[GameComponent] Photo validation failed:', {
+        photoId: photo.id,
+        errors: validationErrors,
+        photo
+      });
+      return false;
+    }
+
+    console.log('[GameComponent] Photo validation passed:', photo.id);
+    return true;
   }
 }

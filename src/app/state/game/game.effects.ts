@@ -34,13 +34,21 @@ export class GameEffects {
   ) {
     /**
      * When nextPhoto action is dispatched, update the photos state with the new current photo
+     * FIXED: Get the photo index BEFORE the game reducer increments it, then use the incremented value
      */
     this.syncCurrentPhoto$ = createEffect(() =>
       this.actions$.pipe(
         ofType(GameActions.nextPhoto),
         withLatestFrom(this.store.select(GameSelectors.selectCurrentPhotoIndex)),
         map(([action, currentPhotoIndex]) => {
-          return PhotosActions.setCurrentPhoto({ photoIndex: currentPhotoIndex });
+          // The game reducer will increment the index, so we need to use the incremented value
+          const nextPhotoIndex = currentPhotoIndex + 1;
+          console.log('[GameEffects] Syncing current photo:', {
+            previousIndex: currentPhotoIndex,
+            nextIndex: nextPhotoIndex,
+            timestamp: new Date().toISOString()
+          });
+          return PhotosActions.setCurrentPhoto({ photoIndex: nextPhotoIndex });
         })
       )
     );
@@ -51,6 +59,9 @@ export class GameEffects {
     this.syncCurrentPhotoOnStart$ = createEffect(() =>
       this.actions$.pipe(
         ofType(GameActions.startGame),
+        tap(() => {
+          console.log('[GameEffects] Game started, syncing to first photo (index 0)');
+        }),
         map(() => {
           return PhotosActions.setCurrentPhoto({ photoIndex: 0 });
         })

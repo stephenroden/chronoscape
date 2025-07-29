@@ -34,7 +34,44 @@ import { Coordinates } from '../../models/coordinates.model';
   styleUrls: ['./photo-map-toggle.component.scss']
 })
 export class PhotoMapToggleComponent implements OnInit, OnDestroy {
-  @Input() photo: Photo | null = null;
+  private _photo: Photo | null = null;
+  
+  @Input() 
+  set photo(value: Photo | null) {
+    // DEBUG: Log photo input changes (Task 1 requirement)
+    console.log('[PhotoMapToggleComponent] Photo input changed:', {
+      previousPhoto: this._photo ? {
+        id: this._photo.id,
+        title: this._photo.title,
+        year: this._photo.year
+      } : null,
+      newPhoto: value ? {
+        id: value.id,
+        title: value.title,
+        year: value.year,
+        url: value.url ? value.url.substring(0, 50) + '...' : null,
+        coordinates: value.coordinates
+      } : null,
+      timestamp: new Date().toISOString()
+    });
+
+    // Validate photo data (Task 1 requirement)
+    if (value && !this.validatePhotoInput(value)) {
+      console.error('[PhotoMapToggleComponent] Received invalid photo data:', value);
+    }
+
+    this._photo = value;
+    
+    // Update thumbnails when photo changes
+    if (this.thumbnailImageSrc !== null || this.thumbnailMapSrc !== null) {
+      this.updatePhotoThumbnail();
+    }
+  }
+  
+  get photo(): Photo | null {
+    return this._photo;
+  }
+
   @Input() enableZoom: boolean = true;
   @Input() showMetadata: boolean = false;
   @Input() transitionDuration: number = 300;
@@ -100,6 +137,17 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     this.detectMobileDevice();
     this.setupSubscriptions();
     this.initializeThumbnails();
+
+    // DEBUG: Log initial photo input (Task 1 requirement)
+    console.log('[PhotoMapToggleComponent] Component initialized with photo:', {
+      photo: this.photo ? {
+        id: this.photo.id,
+        title: this.photo.title,
+        year: this.photo.year,
+        url: this.photo.url ? this.photo.url.substring(0, 50) + '...' : null
+      } : null,
+      timestamp: new Date().toISOString()
+    });
   }
 
   ngOnDestroy(): void {
@@ -747,5 +795,44 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   get adaptiveTransitionDuration(): number {
     // Slightly faster transitions on mobile for better perceived performance
     return this.isMobileDevice ? Math.max(200, this.transitionDuration - 100) : this.transitionDuration;
+  }
+
+  /**
+   * Validate photo input data (Task 1 requirement)
+   * Requirements: 1.1, 1.3, 3.1, 4.1, 4.2
+   */
+  private validatePhotoInput(photo: Photo): boolean {
+    if (!photo) {
+      console.error('[PhotoMapToggleComponent] Photo validation failed: photo is null/undefined');
+      return false;
+    }
+
+    const validationErrors: string[] = [];
+
+    // Check required fields for photo display
+    if (!photo.id) {
+      validationErrors.push('Missing photo ID');
+    }
+    if (!photo.url) {
+      validationErrors.push('Missing photo URL');
+    }
+    if (!photo.year) {
+      validationErrors.push('Missing photo year');
+    }
+    if (!photo.coordinates) {
+      validationErrors.push('Missing photo coordinates');
+    }
+
+    if (validationErrors.length > 0) {
+      console.error('[PhotoMapToggleComponent] Photo validation failed:', {
+        photoId: photo.id,
+        errors: validationErrors,
+        photo
+      });
+      return false;
+    }
+
+    console.log('[PhotoMapToggleComponent] Photo validation passed:', photo.id);
+    return true;
   }
 }
