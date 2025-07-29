@@ -608,7 +608,7 @@ describe('Enhanced Game Interface - E2E Tests', () => {
       
       // State should be properly managed throughout the game
       let gameState: any;
-      store.select('game').subscribe(state => gameState = state);
+      store.select(state => (state as any).game).subscribe(state => gameState = state);
       
       // Game state should exist and be properly structured
       expect(gameState).toBeTruthy();

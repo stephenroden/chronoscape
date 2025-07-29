@@ -380,8 +380,7 @@ describe('Reset Functionality Integration', () => {
     zoomLevel: 2,
     center: { latitude: 20, longitude: 0 },
     defaultZoom: 2,
-    defaultCenter: { latitude: 20, longitude: 0 },
-    pins: []
+    defaultCenter: { latitude: 20, longitude: 0 }
   };
 
   const initialState: AppState = {

@@ -323,8 +323,7 @@ describe('Photo Zoom Toggle Integration', () => {
         zoomLevel: 10,
         center: { latitude: 0, longitude: 0 },
         defaultZoom: 2,
-        defaultCenter: { latitude: 20, longitude: 0 },
-        pins: []
+        defaultCenter: { latitude: 20, longitude: 0 }
       },
       transitionInProgress: false
     }

@@ -198,19 +198,14 @@ describe('Enhanced Game Interface - Integration Tests', () => {
     zoomLevel: 1,
     position: { x: 0, y: 0 },
     minZoom: 0.5,
-    maxZoom: 3,
-    containerWidth: 800,
-    containerHeight: 600,
-    imageWidth: 1200,
-    imageHeight: 900
+    maxZoom: 3
   };
 
   const mockMapState: MapState = {
     zoomLevel: 10,
     center: { latitude: 40.7128, longitude: -74.0060 },
     defaultZoom: 2,
-    defaultCenter: { latitude: 20, longitude: 0 },
-    pins: []
+    defaultCenter: { latitude: 20, longitude: 0 }
   };
 
   const initialState: AppState = {
@@ -766,7 +761,7 @@ describe('Enhanced Game Interface - Integration Tests', () => {
 
     it('should maintain functionality when features are disabled', () => {
       // Test graceful degradation
-      mockInterfaceToggleService.canToggle$ = of(false);
+      spyOnProperty(mockInterfaceToggleService, 'canToggle$', 'get').and.returnValue(of(false));
       fixture.detectChanges();
 
       const toggleButton = debugElement.query(By.css('.thumbnail-container'));

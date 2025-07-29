@@ -65,7 +65,13 @@ class TestHostComponent {
     title: 'Test Photo',
     year: 1970,
     coordinates: { latitude: 40.7128, longitude: -74.0060 },
-    description: 'Test photo description'
+    description: 'Test photo description',
+    source: 'test-source',
+    metadata: {
+      license: 'CC0',
+      originalSource: 'test-source',
+      dateCreated: new Date('1970-01-01')
+    }
   };
   
   enableZoom = true;
