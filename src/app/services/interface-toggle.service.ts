@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Store } from '@ngrx/store';
-import { Observable, combineLatest, timer } from 'rxjs';
-import { map, take, filter, switchMap } from 'rxjs/operators';
+import { Observable, combineLatest, timer, throwError } from 'rxjs';
+import { map, take, filter, switchMap, catchError, timeout, retry } from 'rxjs/operators';
+import { PerformanceMonitorService } from './performance-monitor.service';
 
 import { AppState } from '../state/app.state';
 import { ActiveView, PhotoZoomState, MapState } from '../models/interface-state.model';
@@ -42,7 +43,10 @@ export class InterfaceToggleService {
   public readonly toggleState$: Observable<any>;
   public readonly currentViewState$: Observable<any>;
 
-  constructor(private store: Store<AppState>) {
+  constructor(
+    private store: Store<AppState>,
+    private performanceMonitor: PerformanceMonitorService
+  ) {
     // Initialize observables in constructor
     this.activeView$ = this.store.select(InterfaceSelectors.selectActiveView);
     this.isPhotoActive$ = this.store.select(InterfaceSelectors.selectIsPhotoActive);
@@ -72,22 +76,48 @@ export class InterfaceToggleService {
    * @param transitionDuration - Duration of transition animation in ms (default: 300)
    */
   toggleView(transitionDuration: number = 300): Observable<ActiveView> {
+    const operationId = `toggle-view-${Date.now()}`;
+    this.performanceMonitor.startTiming(operationId, 'toggle', { transitionDuration });
+
     return this.canToggle$.pipe(
       take(1),
-      filter(canToggle => canToggle),
+      filter(canToggle => {
+        if (!canToggle) {
+          this.performanceMonitor.endTiming(operationId, 'Toggle View (Blocked)');
+          console.warn('Toggle view blocked - transition already in progress');
+        }
+        return canToggle;
+      }),
       switchMap(() => {
-        // Start the toggle
-        this.store.dispatch(InterfaceActions.toggleView());
-        
-        // Complete transition after animation duration
-        return timer(transitionDuration).pipe(
-          map(() => {
-            this.store.dispatch(InterfaceActions.completeTransition());
-            // Return the new active view
-            return this.getCurrentActiveView();
-          })
-        );
-      })
+        try {
+          // Start the toggle
+          this.store.dispatch(InterfaceActions.toggleView());
+          
+          // Complete transition after animation duration with timeout protection
+          return timer(transitionDuration).pipe(
+            timeout(transitionDuration + 1000), // Add 1s buffer for timeout
+            map(() => {
+              this.store.dispatch(InterfaceActions.completeTransition());
+              const newActiveView = this.getCurrentActiveView();
+              this.performanceMonitor.endTiming(operationId, 'Toggle View (Success)');
+              return newActiveView;
+            }),
+            catchError(error => {
+              console.error('Toggle view failed:', error);
+              this.performanceMonitor.endTiming(operationId, 'Toggle View (Error)');
+              
+              // Attempt to recover by completing the transition
+              this.store.dispatch(InterfaceActions.completeTransition());
+              return throwError(() => new Error('Toggle view timeout or error'));
+            })
+          );
+        } catch (error) {
+          this.performanceMonitor.endTiming(operationId, 'Toggle View (Exception)');
+          console.error('Toggle view exception:', error);
+          return throwError(() => error);
+        }
+      }),
+      retry(1) // Retry once on failure
     );
   }
 

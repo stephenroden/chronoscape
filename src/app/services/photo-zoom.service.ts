@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
+import { PerformanceMonitorService } from './performance-monitor.service';
 
 /**
  * Interface for photo zoom state
@@ -33,6 +34,7 @@ export interface ZoomBounds {
   providedIn: 'root'
 })
 export class PhotoZoomService {
+  constructor(private performanceMonitor: PerformanceMonitorService) {}
   private readonly DEFAULT_MIN_ZOOM = 1;
   private readonly DEFAULT_MAX_ZOOM = 5;
   private readonly ZOOM_STEP = 0.5;
@@ -94,18 +96,25 @@ export class PhotoZoomService {
    * @returns true if zoom was applied, false if at max zoom
    */
   zoomIn(): boolean {
-    const currentState = this.currentState;
-    const newZoomLevel = Math.min(
-      currentState.zoomLevel + this.ZOOM_STEP,
-      currentState.maxZoom
-    );
+    return this.performanceMonitor.measureSync('Zoom In', 'zoom', () => {
+      try {
+        const currentState = this.currentState;
+        const newZoomLevel = Math.min(
+          currentState.zoomLevel + this.ZOOM_STEP,
+          currentState.maxZoom
+        );
 
-    if (newZoomLevel === currentState.zoomLevel) {
-      return false; // Already at max zoom
-    }
+        if (newZoomLevel === currentState.zoomLevel) {
+          return false; // Already at max zoom
+        }
 
-    this.setZoomLevel(newZoomLevel);
-    return true;
+        this.setZoomLevel(newZoomLevel);
+        return true;
+      } catch (error) {
+        console.error('Error during zoom in operation:', error);
+        return false;
+      }
+    }, { zoomLevel: this.currentState.zoomLevel });
   }
 
   /**
@@ -113,18 +122,25 @@ export class PhotoZoomService {
    * @returns true if zoom was applied, false if at min zoom
    */
   zoomOut(): boolean {
-    const currentState = this.currentState;
-    const newZoomLevel = Math.max(
-      currentState.zoomLevel - this.ZOOM_STEP,
-      currentState.minZoom
-    );
+    return this.performanceMonitor.measureSync('Zoom Out', 'zoom', () => {
+      try {
+        const currentState = this.currentState;
+        const newZoomLevel = Math.max(
+          currentState.zoomLevel - this.ZOOM_STEP,
+          currentState.minZoom
+        );
 
-    if (newZoomLevel === currentState.zoomLevel) {
-      return false; // Already at min zoom
-    }
+        if (newZoomLevel === currentState.zoomLevel) {
+          return false; // Already at min zoom
+        }
 
-    this.setZoomLevel(newZoomLevel);
-    return true;
+        this.setZoomLevel(newZoomLevel);
+        return true;
+      } catch (error) {
+        console.error('Error during zoom out operation:', error);
+        return false;
+      }
+    }, { zoomLevel: this.currentState.zoomLevel });
   }
 
   /**
@@ -161,23 +177,36 @@ export class PhotoZoomService {
    * @param deltaY - Vertical pan offset in pixels
    */
   pan(deltaX: number, deltaY: number): void {
-    const currentState = this.currentState;
-    const newPosition = {
-      x: currentState.position.x + deltaX,
-      y: currentState.position.y + deltaY
-    };
+    this.performanceMonitor.measureSync('Pan Image', 'zoom', () => {
+      try {
+        const currentState = this.currentState;
+        
+        // Validate input parameters
+        if (!isFinite(deltaX) || !isFinite(deltaY)) {
+          console.warn('Invalid pan delta values:', { deltaX, deltaY });
+          return;
+        }
 
-    const constrainedPosition = this.constrainPosition(newPosition, currentState.zoomLevel);
+        const newPosition = {
+          x: currentState.position.x + deltaX,
+          y: currentState.position.y + deltaY
+        };
 
-    // Only emit if position actually changed (prevents excessive updates)
-    if (constrainedPosition.x !== currentState.position.x || constrainedPosition.y !== currentState.position.y) {
-      const newState: PhotoZoomState = {
-        ...currentState,
-        position: constrainedPosition
-      };
+        const constrainedPosition = this.constrainPosition(newPosition, currentState.zoomLevel);
 
-      this.zoomStateSubject.next(newState);
-    }
+        // Only emit if position actually changed (prevents excessive updates)
+        if (constrainedPosition.x !== currentState.position.x || constrainedPosition.y !== currentState.position.y) {
+          const newState: PhotoZoomState = {
+            ...currentState,
+            position: constrainedPosition
+          };
+
+          this.zoomStateSubject.next(newState);
+        }
+      } catch (error) {
+        console.error('Error during pan operation:', error);
+      }
+    }, { deltaX, deltaY, currentZoom: this.currentState.zoomLevel });
   }
 
   /**

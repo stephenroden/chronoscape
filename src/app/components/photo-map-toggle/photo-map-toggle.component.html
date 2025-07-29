@@ -7,7 +7,7 @@
   role="region"
   aria-live="polite">
 
-  <!-- Main content area -->
+  <!-- Main content area with error boundaries -->
   <div class="main-content" [ngClass]="getActiveViewClasses()">
     
     <!-- Photo Display (when active) -->
@@ -17,13 +17,18 @@
       [class.hidden]="!isPhotoActive"
       [attr.aria-hidden]="!isPhotoActive">
       
-      <app-photo-display
-        #photoDisplay
-        [photo]="photo"
-        [showMetadata]="showMetadata"
-        [enableZoom]="enableZoom && isPhotoActive"
-        [attr.tabindex]="isPhotoActive ? 0 : -1">
-      </app-photo-display>
+      <app-error-boundary 
+        componentName="Photo Display"
+        [enableRetry]="true"
+        [enableFallback]="true">
+        <app-photo-display
+          #photoDisplay
+          [photo]="photo"
+          [showMetadata]="showMetadata"
+          [enableZoom]="enableZoom && isPhotoActive"
+          [attr.tabindex]="isPhotoActive ? 0 : -1">
+        </app-photo-display>
+      </app-error-boundary>
     </div>
 
     <!-- Map Display (when active) -->
@@ -33,10 +38,15 @@
       [class.hidden]="!isMapActive"
       [attr.aria-hidden]="!isMapActive">
       
-      <app-map-guess
-        #mapGuess
-        [attr.tabindex]="isMapActive ? 0 : -1">
-      </app-map-guess>
+      <app-error-boundary 
+        componentName="Map Display"
+        [enableRetry]="true"
+        [enableFallback]="true">
+        <app-map-guess
+          #mapGuess
+          [attr.tabindex]="isMapActive ? 0 : -1">
+        </app-map-guess>
+      </app-error-boundary>
     </div>
   </div>
 

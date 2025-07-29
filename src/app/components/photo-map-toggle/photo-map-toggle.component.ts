@@ -2,7 +2,9 @@ import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, HostListener
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest } from 'rxjs';
-import { takeUntil, map, distinctUntilChanged } from 'rxjs/operators';
+import { takeUntil, map, distinctUntilChanged, catchError } from 'rxjs/operators';
+import { PerformanceMonitorService } from '../../services/performance-monitor.service';
+import { ErrorBoundaryComponent } from '../error-boundary/error-boundary.component';
 
 import { AppState } from '../../state/app.state';
 import { InterfaceToggleService } from '../../services/interface-toggle.service';
@@ -27,7 +29,7 @@ import { Coordinates } from '../../models/coordinates.model';
 @Component({
   selector: 'app-photo-map-toggle',
   standalone: true,
-  imports: [CommonModule, PhotoDisplayComponent, MapGuessComponent],
+  imports: [CommonModule, PhotoDisplayComponent, MapGuessComponent, ErrorBoundaryComponent],
   templateUrl: './photo-map-toggle.component.html',
   styleUrls: ['./photo-map-toggle.component.scss']
 })
@@ -80,7 +82,8 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   constructor(
     private store: Store<AppState>,
     private interfaceToggleService: InterfaceToggleService,
-    private elementRef: ElementRef
+    private elementRef: ElementRef,
+    private performanceMonitor: PerformanceMonitorService
   ) {
     // Initialize observables
     this.activeView$ = this.interfaceToggleService.activeView$;
@@ -358,12 +361,52 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
    * Perform the actual toggle operation
    */
   private performToggle(): void {
+    const operationId = `component-toggle-${Date.now()}`;
+    this.performanceMonitor.startTiming(operationId, 'toggle', { 
+      currentView: this.currentActiveView,
+      transitionDuration: this.transitionDuration 
+    });
+
     this.interfaceToggleService.toggleView(this.transitionDuration)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(newActiveView => {
-        // Toggle completed
-        this.generateThumbnails();
+      .pipe(
+        takeUntil(this.destroy$),
+        catchError(error => {
+          console.error('Toggle operation failed:', error);
+          this.performanceMonitor.endTiming(operationId, 'Component Toggle (Error)');
+          
+          // Attempt graceful recovery
+          this.handleToggleError(error);
+          throw error;
+        })
+      )
+      .subscribe({
+        next: (newActiveView) => {
+          // Toggle completed successfully
+          this.performanceMonitor.endTiming(operationId, 'Component Toggle (Success)');
+          this.generateThumbnails();
+        },
+        error: (error) => {
+          // Error already handled in catchError, but log for completeness
+          console.error('Toggle subscription error:', error);
+        }
       });
+  }
+
+  /**
+   * Handle toggle operation errors with graceful recovery
+   */
+  private handleToggleError(error: any): void {
+    console.warn('Attempting to recover from toggle error:', error);
+    
+    // Reset transition state
+    this.isTransitioning = false;
+    
+    // Ensure UI is in a consistent state
+    this.updateThumbnailData();
+    this.generateThumbnails();
+    
+    // Announce error to screen readers
+    this.announceToScreenReader('Toggle operation failed. Interface remains in current view.');
   }
 
   /**
