@@ -52,6 +52,7 @@ describe('MapGuessComponent', () => {
       'getMapCenter',
       'getCurrentZoom',
       'resetToDefault',
+      'resetForNewPhoto',
       'clearAdditionalMarkers',
       'invalidateSize',
       'hasPins',
@@ -181,7 +182,7 @@ describe('MapGuessComponent', () => {
   describe('Map Interactions', () => {
     beforeEach(() => {
       component.ngOnInit();
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
     });
 
     it('should handle map click and place pin', () => {
@@ -262,7 +263,7 @@ describe('MapGuessComponent', () => {
   describe('Control Actions', () => {
     beforeEach(() => {
       component.ngOnInit();
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
     });
 
     it('should remove pin and update state', () => {
@@ -375,7 +376,7 @@ describe('MapGuessComponent', () => {
     });
 
     it('should sync with toggle service when in toggle container', () => {
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
       const mapState = { ...defaultMapState, zoomLevel: 5 };
       
       // Create a new subject for the test
@@ -395,13 +396,13 @@ describe('MapGuessComponent', () => {
     it('should not sync with toggle service when not in toggle container', () => {
       component.isInToggleContainer = false;
       component.ngOnInit();
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
 
       expect(mockMapService.setMapView).not.toHaveBeenCalled();
     });
 
     it('should update toggle service on zoom to pin', () => {
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
       component.userPin = mockCoordinates;
 
       component.onZoomToPin();
@@ -411,7 +412,7 @@ describe('MapGuessComponent', () => {
     });
 
     it('should reset toggle service map state on reset', () => {
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
 
       component.resetMapForNewPhoto();
 
@@ -475,7 +476,7 @@ describe('MapGuessComponent', () => {
   describe('Reset Functionality', () => {
     beforeEach(() => {
       component.ngOnInit();
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
     });
 
     it('should reset map for new photo', () => {
@@ -564,7 +565,7 @@ describe('MapGuessComponent', () => {
   describe('Enhanced Control Methods', () => {
     beforeEach(() => {
       component.ngOnInit();
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
     });
 
     it('should call resetToDefaultView on center map', () => {
@@ -626,9 +627,7 @@ describe('MapGuessComponent', () => {
     });
 
     it('should show map controls when map is initialized', () => {
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       fixture.detectChanges();
 
       const controlsElement = fixture.nativeElement.querySelector('.map-controls');
@@ -636,9 +635,7 @@ describe('MapGuessComponent', () => {
     });
 
     it('should disable zoom and remove buttons when no valid pin', () => {
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       component.userPin = null;
       fixture.detectChanges();
 
@@ -650,9 +647,7 @@ describe('MapGuessComponent', () => {
     });
 
     it('should enable zoom and remove buttons when valid pin exists', () => {
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       component.userPin = mockCoordinates;
       fixture.detectChanges();
 
@@ -664,9 +659,7 @@ describe('MapGuessComponent', () => {
     });
 
     it('should call control methods when buttons are clicked', () => {
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       component.userPin = mockCoordinates;
       fixture.detectChanges();
 
@@ -689,9 +682,7 @@ describe('MapGuessComponent', () => {
 
     it('should show reset button when in toggle container', () => {
       component.isInToggleContainer = true;
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       fixture.detectChanges();
 
       const resetButton = fixture.nativeElement.querySelector('.reset-button');
@@ -701,9 +692,7 @@ describe('MapGuessComponent', () => {
 
     it('should not show reset button when not in toggle container', () => {
       component.isInToggleContainer = false;
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       fixture.detectChanges();
 
       const resetButton = fixture.nativeElement.querySelector('.reset-button');
@@ -736,9 +725,7 @@ describe('MapGuessComponent', () => {
 
     it('should call resetToDefaultView when reset button is clicked', () => {
       component.isInToggleContainer = true;
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       fixture.detectChanges();
 
       spyOn(component, 'resetToDefaultView');

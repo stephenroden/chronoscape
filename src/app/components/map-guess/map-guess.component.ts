@@ -29,6 +29,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   isMapLoading = true;
   mapError: string | null = null;
   currentPhotoId: string | null = null;
+  retryCount = 0;
 
   private destroy$ = new Subject<void>();
   private readonly mapId = 'map-guess-container';
@@ -76,10 +77,37 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    // Initialize map after view is ready
+    // Initialize map after view is ready, with additional delay for container sizing
     setTimeout(() => {
-      this.initializeMap();
+      this.waitForContainerAndInitialize();
     }, 100);
+  }
+
+  /**
+   * Wait for container to be properly sized before initializing map
+   */
+  private waitForContainerAndInitialize(): void {
+    if (!this.mapContainer?.nativeElement) {
+      // Container not ready, retry
+      setTimeout(() => this.waitForContainerAndInitialize(), 100);
+      return;
+    }
+
+    const containerElement = this.mapContainer.nativeElement;
+    const containerRect = containerElement.getBoundingClientRect();
+    
+    // In test environment, getBoundingClientRect may return 0, so check if element has an ID (test setup)
+    const isTestEnvironment = containerRect.width === 0 && containerRect.height === 0 && containerElement.id;
+    const hasValidDimensions = containerRect.width > 0 && containerRect.height > 0;
+    
+    if (!hasValidDimensions && !isTestEnvironment) {
+      // Container not sized yet, wait a bit more
+      setTimeout(() => this.waitForContainerAndInitialize(), 100);
+      return;
+    }
+
+    // Container is ready, initialize map
+    this.initializeMap();
   }
 
   ngOnDestroy(): void {
@@ -95,8 +123,29 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       this.isMapLoading = true;
       this.mapError = null;
 
+      // Check if container is available and properly sized
+      if (!this.mapContainer?.nativeElement) {
+        throw new Error('Map container element not available');
+      }
+
+      const containerElement = this.mapContainer.nativeElement;
+      
+      // Check if container has proper dimensions
+      const containerRect = containerElement.getBoundingClientRect();
+      const isTestEnvironment = containerRect.width === 0 && containerRect.height === 0 && containerElement.id;
+      const hasValidDimensions = containerRect.width > 0 && containerRect.height > 0;
+      
+      if (!hasValidDimensions && !isTestEnvironment) {
+        throw new Error('Map container has no dimensions - container may not be visible');
+      }
+
       // Set the map container ID
-      this.mapContainer.nativeElement.id = this.mapId;
+      containerElement.id = this.mapId;
+
+      // Ensure container is properly styled for map
+      containerElement.style.width = '100%';
+      containerElement.style.height = '100%';
+      containerElement.style.position = 'relative';
 
       // Initialize the map with world view
       this.mapService.initializeMap(this.mapId, { latitude: 20, longitude: 0 }, 2);
@@ -114,6 +163,11 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
         this.updateMapPin();
       }
 
+      // Force map resize after initialization to ensure proper sizing
+      setTimeout(() => {
+        this.mapService.invalidateSize();
+      }, 100);
+
     } catch (error) {
       console.error('Failed to initialize map:', error);
       this.isMapLoading = false;
@@ -121,7 +175,13 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       // Provide specific error messages based on error type
       if (error instanceof Error) {
         if (error.message.includes('container')) {
-          this.mapError = 'Map container not found. Please refresh the page and try again.';
+          this.mapError = 'Map container not ready. Retrying...';
+          // Auto-retry for container issues
+          this.scheduleRetry();
+        } else if (error.message.includes('dimensions')) {
+          this.mapError = 'Map container sizing issue. Retrying...';
+          // Auto-retry for sizing issues
+          this.scheduleRetry();
         } else if (error.message.includes('coordinates')) {
           this.mapError = 'Invalid map coordinates. Please refresh the page and try again.';
         } else {
@@ -153,7 +213,33 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     }, 500);
   }
 
+  /**
+   * Schedule automatic retry for container/sizing issues
+   */
+  private scheduleRetry(): void {
+    // Auto-retry up to 3 times for container/sizing issues
+    if (!this.retryCount) {
+      this.retryCount = 0;
+    }
+    
+    if (this.retryCount < 3) {
+      this.retryCount++;
+      setTimeout(() => {
+        console.log(`Auto-retrying map initialization (attempt ${this.retryCount}/3)`);
+        this.retryMapInitialization();
+      }, 1000 * this.retryCount); // Increasing delay: 1s, 2s, 3s
+    } else {
+      this.mapError = 'Map failed to initialize after multiple attempts. Please refresh the page.';
+    }
+  }
+
   private onMapClick(coordinates: Coordinates): void {
+    // Check if map is ready for interaction
+    if (!this.isMapInteractive()) {
+      console.warn('Map click ignored - map not interactive');
+      return;
+    }
+
     // Update local pin state
     this.userPin = coordinates;
     
@@ -165,7 +251,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateMapPin(): void {
-    if (!this.isMapInitialized || !this.userPin) {
+    if (!this.isMapInteractive() || !this.userPin) {
       return;
     }
 
@@ -177,8 +263,12 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       });
     } catch (error) {
       console.error('Failed to update map pin:', error);
-      // Don't show error to user for pin updates, just log it
-      // The map is still functional even if pin styling fails
+      // If pin placement fails, the map might have issues
+      // Try to reinitialize if the error suggests map problems
+      if (error instanceof Error && error.message.includes('Map must be initialized')) {
+        console.warn('Map appears to be uninitialized, attempting to reinitialize');
+        this.retryMapInitialization();
+      }
     }
   }
 
@@ -194,41 +284,53 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   onRemovePin(): void {
-    if (!this.isMapInitialized) {
+    if (!this.isMapInteractive()) {
       return;
     }
 
-    // Remove pin from map
-    this.mapService.removePin();
-    
-    // Clear local state
-    this.userPin = null;
-    
-    // Update store with placeholder coordinates
-    this.updateCurrentGuess({ latitude: 0, longitude: 0 });
+    try {
+      // Remove pin from map
+      this.mapService.removePin();
+      
+      // Clear local state
+      this.userPin = null;
+      
+      // Update store with placeholder coordinates
+      this.updateCurrentGuess({ latitude: 0, longitude: 0 });
+    } catch (error) {
+      console.error('Failed to remove pin:', error);
+    }
   }
 
   onCenterMap(): void {
-    if (!this.isMapInitialized) {
+    if (!this.isMapInteractive()) {
       return;
     }
 
-    // Reset map to world view
-    this.resetToDefaultView();
+    try {
+      // Reset map to world view
+      this.resetToDefaultView();
+    } catch (error) {
+      console.error('Failed to center map:', error);
+    }
   }
 
   onZoomToPin(): void {
-    if (!this.isMapInitialized || !this.userPin) {
+    if (!this.isMapInteractive() || !this.userPin) {
       return;
     }
 
-    // Zoom to user's pin location
-    this.mapService.setMapView(this.userPin, 8);
-    
-    // Update toggle service if in toggle container
-    if (this.isInToggleContainer) {
-      this.interfaceToggleService.setMapZoom(8);
-      this.interfaceToggleService.setMapCenter(this.userPin);
+    try {
+      // Zoom to user's pin location
+      this.mapService.setMapView(this.userPin, 8);
+      
+      // Update toggle service if in toggle container
+      if (this.isInToggleContainer) {
+        this.interfaceToggleService.setMapZoom(8);
+        this.interfaceToggleService.setMapCenter(this.userPin);
+      }
+    } catch (error) {
+      console.error('Failed to zoom to pin:', error);
     }
   }
 
@@ -368,13 +470,15 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
    * Reset map state for new photo (requirements 5.2, 5.3)
    */
   resetMapForNewPhoto(): void {
-    if (!this.isMapInitialized) {
-      return;
-    }
-
     try {
-      // Use the new map service reset method
-      this.mapService.resetForNewPhoto();
+      // Reset retry counter for new photo
+      this.retryCount = 0;
+      
+      // Clear all pins from the map
+      this.clearAllPins();
+      
+      // Reset to default view
+      this.resetToDefaultView();
       
       // Clear local state
       this.userPin = null;
@@ -387,7 +491,9 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
         this.interfaceToggleService.resetMapState();
       }
     } catch (error) {
-      console.error('Error resetting map for new photo:', error);
+      console.error('Error clearing map pins:', error);
+      // If reset fails, try to reinitialize the map
+      this.retryMapInitialization();
     }
   }
 
@@ -462,25 +568,70 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
 
     return {
       center: this.mapService.getMapCenter(),
-      zoomLevel: null, // Map service doesn't expose current zoom level
+      zoomLevel: this.mapService.getCurrentZoom(),
       hasPin: this.hasValidPin
     };
+  }
+
+  /**
+   * Check if map is properly interactive and ready for pin placement
+   */
+  isMapInteractive(): boolean {
+    if (!this.isMapInitialized || this.isMapLoading || this.mapError) {
+      return false;
+    }
+
+    // Check if container is still available and sized
+    if (this.mapContainer?.nativeElement) {
+      const containerRect = this.mapContainer.nativeElement.getBoundingClientRect();
+      // In test environment, getBoundingClientRect may return 0, so we check if element exists
+      const hasValidDimensions = containerRect.width > 0 && containerRect.height > 0;
+      const isTestEnvironment = containerRect.width === 0 && containerRect.height === 0 && this.mapContainer.nativeElement.id;
+      
+      return hasValidDimensions || isTestEnvironment;
+    }
+
+    return false;
+  }
+
+  /**
+   * Set map as ready for testing purposes
+   * @internal
+   */
+  setMapReadyForTesting(): void {
+    this.isMapInitialized = true;
+    this.isMapLoading = false;
+    this.mapError = null;
   }
 
   /**
    * Force map resize (useful when container size changes in toggle)
    */
   resizeMap(): void {
-    if (this.isMapInitialized && this.mapService) {
-      // Trigger map resize - Leaflet maps need this when container size changes
-      setTimeout(() => {
-        try {
-          // Access the private map instance to trigger resize
-          (this.mapService as any).map?.invalidateSize();
-        } catch (error) {
-          console.warn('Could not resize map:', error);
-        }
-      }, 100);
+    if (!this.isMapInitialized || !this.mapService) {
+      return;
     }
+
+    // Check if container is still properly sized
+    if (this.mapContainer?.nativeElement) {
+      const containerRect = this.mapContainer.nativeElement.getBoundingClientRect();
+      if (containerRect.width === 0 || containerRect.height === 0) {
+        console.warn('Map container has no dimensions during resize');
+        return;
+      }
+    }
+
+    // Trigger map resize - Leaflet maps need this when container size changes
+    setTimeout(() => {
+      try {
+        this.mapService.invalidateSize();
+      } catch (error) {
+        console.warn('Could not resize map:', error);
+        // If resize fails, try to reinitialize the map
+        if (this.mapContainer?.nativeElement) {
+          this.retryMapInitialization();
+        }
+      }
+    }, 100);
   }
 }

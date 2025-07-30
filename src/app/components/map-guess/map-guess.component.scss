@@ -159,6 +159,13 @@
     color: var(--text-secondary);
     font-size: var(--font-size-base);
   }
+
+  .retry-info {
+    margin-top: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
 }
 
 .map-error {

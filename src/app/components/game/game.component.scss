@@ -165,10 +165,10 @@
   align-items: center;
   gap: var(--spacing-xl);
   
-  .photo-section {
+  .photo-map-section {
     width: 100%;
     margin-bottom: var(--spacing-lg);
-    
+    height: 940px;
     app-photo-display {
       width: 100%;
       display: block;

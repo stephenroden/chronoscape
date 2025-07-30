@@ -31,6 +31,7 @@ describe('MapGuessComponent Integration', () => {
       'setMapView',
       'destroy',
       'getMapCenter',
+      'getCurrentZoom',
       'clearAdditionalMarkers',
       'resetToDefault'
     ]);
@@ -65,7 +66,7 @@ describe('MapGuessComponent Integration', () => {
   describe('Toggle Container Integration', () => {
     it('should work correctly when used in toggle container', () => {
       component.isInToggleContainer = true;
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
       
       // Test that component adapts to toggle container mode
       expect(component.isInToggleContainer).toBeTrue();
@@ -80,7 +81,7 @@ describe('MapGuessComponent Integration', () => {
 
     it('should work correctly when used standalone', () => {
       component.isInToggleContainer = false;
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
       
       // Test that component works in standalone mode
       expect(component.isInToggleContainer).toBeFalse();
@@ -94,7 +95,7 @@ describe('MapGuessComponent Integration', () => {
     });
 
     it('should provide current map state for external access', () => {
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
       component.userPin = mockCoordinates;
       mockMapService.getMapCenter.and.returnValue(mockCoordinates);
 
@@ -105,7 +106,7 @@ describe('MapGuessComponent Integration', () => {
     });
 
     it('should handle map resize for toggle transitions', () => {
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
       
       // Should not throw error
       expect(() => component.resizeMap()).not.toThrow();
@@ -114,7 +115,7 @@ describe('MapGuessComponent Integration', () => {
 
   describe('Enhanced Reset Functionality', () => {
     beforeEach(() => {
-      component.isMapInitialized = true;
+      component.setMapReadyForTesting();
     });
 
     it('should clear all pins and reset view', () => {
@@ -153,9 +154,7 @@ describe('MapGuessComponent Integration', () => {
   describe('Template Integration with Toggle Container', () => {
     it('should show appropriate UI elements for toggle container mode', () => {
       component.isInToggleContainer = true;
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       fixture.detectChanges();
 
       const container = fixture.nativeElement.querySelector('.map-guess-container');
@@ -172,9 +171,7 @@ describe('MapGuessComponent Integration', () => {
 
     it('should show appropriate UI elements for standalone mode', () => {
       component.isInToggleContainer = false;
-      component.isMapInitialized = true;
-      component.isMapLoading = false;
-      component.mapError = null;
+      component.setMapReadyForTesting();
       fixture.detectChanges();
 
       const container = fixture.nativeElement.querySelector('.map-guess-container');

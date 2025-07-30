@@ -18,6 +18,9 @@
          aria-label="Loading interactive map">
       <div class="loading-spinner" aria-hidden="true"></div>
       <p>Loading map...</p>
+      <p *ngIf="retryCount > 0" class="retry-info">
+        Retry attempt {{ retryCount }}/3
+      </p>
     </div>
 
     <!-- Error State -->
