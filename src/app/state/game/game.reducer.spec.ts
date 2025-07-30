@@ -55,7 +55,7 @@ describe('Game Reducer', () => {
       expect(result.gameStatus).toBe(GameStatus.IN_PROGRESS);
     });
 
-    it('should complete game when reaching last photo', () => {
+    it('should complete game when trying to advance beyond last photo', () => {
       const state = {
         ...initialGameState,
         gameStatus: GameStatus.IN_PROGRESS,
@@ -66,9 +66,26 @@ describe('Game Reducer', () => {
       const action = GameActions.nextPhoto();
       const result = gameReducer(state, action);
 
-      expect(result.currentPhotoIndex).toBe(5);
+      // Photo index should stay at 4 (last valid index) when game completes
+      expect(result.currentPhotoIndex).toBe(4);
       expect(result.gameStatus).toBe(GameStatus.COMPLETED);
       expect(result.endTime).toBeInstanceOf(Date);
+    });
+
+    it('should keep photo index within bounds (0-4 for 5 photos)', () => {
+      const state = {
+        ...initialGameState,
+        gameStatus: GameStatus.IN_PROGRESS,
+        currentPhotoIndex: 3,
+        totalPhotos: 5
+      };
+
+      const action = GameActions.nextPhoto();
+      const result = gameReducer(state, action);
+
+      // Should increment normally when not at the end
+      expect(result.currentPhotoIndex).toBe(4);
+      expect(result.gameStatus).toBe(GameStatus.IN_PROGRESS);
     });
   });
 

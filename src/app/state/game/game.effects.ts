@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { Store } from '@ngrx/store';
 import { Observable, of } from 'rxjs';
-import { map, withLatestFrom, tap, switchMap } from 'rxjs/operators';
+import { map, withLatestFrom, tap, switchMap, take } from 'rxjs/operators';
 import { AppState } from '../app.state';
 import * as GameActions from './game.actions';
 import * as PhotosActions from '../photos/photos.actions';
@@ -34,22 +34,24 @@ export class GameEffects {
   ) {
     /**
      * When nextPhoto action is dispatched, update the photos state with the new current photo
-     * FIXED: Get the photo index BEFORE the game reducer increments it, then use the incremented value
+     * Wait for the game state to update, then sync the photos state with the new index
      */
     this.syncCurrentPhoto$ = createEffect(() =>
       this.actions$.pipe(
         ofType(GameActions.nextPhoto),
-        withLatestFrom(this.store.select(GameSelectors.selectCurrentPhotoIndex)),
-        map(([action, currentPhotoIndex]) => {
-          // The game reducer will increment the index, so we need to use the incremented value
-          const nextPhotoIndex = currentPhotoIndex + 1;
-          console.log('[GameEffects] Syncing current photo:', {
-            previousIndex: currentPhotoIndex,
-            nextIndex: nextPhotoIndex,
-            timestamp: new Date().toISOString()
-          });
-          return PhotosActions.setCurrentPhoto({ photoIndex: nextPhotoIndex });
-        })
+        // Use switchMap to get the updated game state after the reducer has processed the action
+        switchMap(() => 
+          this.store.select(GameSelectors.selectCurrentPhotoIndex).pipe(
+            take(1), // Take only the first emission to avoid infinite loops
+            map(currentPhotoIndex => {
+              console.log('[GameEffects] Syncing current photo after nextPhoto:', {
+                newPhotoIndex: currentPhotoIndex,
+                timestamp: new Date().toISOString()
+              });
+              return PhotosActions.setCurrentPhoto({ photoIndex: currentPhotoIndex });
+            })
+          )
+        )
       )
     );
 

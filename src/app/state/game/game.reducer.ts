@@ -26,14 +26,27 @@ export const gameReducer = createReducer(
   })),
 
   on(GameActions.nextPhoto, (state): GameState => {
+    // If game is already completed, don't change anything
+    if (state.gameStatus === GameStatus.COMPLETED) {
+      return state;
+    }
+    
     const nextIndex = state.currentPhotoIndex + 1;
-    const isGameComplete = nextIndex >= state.totalPhotos;
+    
+    // Game completes when we try to advance beyond the last photo (index 4 for 5 photos)
+    if (nextIndex >= state.totalPhotos) {
+      return {
+        ...state,
+        gameStatus: GameStatus.COMPLETED,
+        endTime: new Date()
+        // Keep currentPhotoIndex at the last valid photo (don't increment beyond bounds)
+      };
+    }
     
     return {
       ...state,
       currentPhotoIndex: nextIndex,
-      gameStatus: isGameComplete ? GameStatus.COMPLETED : GameStatus.IN_PROGRESS,
-      endTime: isGameComplete ? new Date() : state.endTime
+      gameStatus: GameStatus.IN_PROGRESS
     };
   }),
 

@@ -21,7 +21,7 @@
   - Ensure map component renders interactive map with pin placement capability
   - _Requirements: 1.2, 1.5, 4.3, 4.5_
 
-- [ ] 4. Correct game state progression logic
+- [x] 4. Correct game state progression logic
 
   - Fix the nextPhoto action in game reducer to increment currentPhotoIndex by exactly 1
   - Ensure photo index stays within bounds (0-4 for 5 photos)
