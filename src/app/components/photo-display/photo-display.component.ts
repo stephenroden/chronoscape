@@ -31,7 +31,18 @@ import * as GameSelectors from '../../state/game/game.selectors';
   styleUrls: ['./photo-display.component.scss']
 })
 export class PhotoDisplayComponent implements OnInit, OnDestroy {
-  @Input() photo: Photo | null = null;
+  @Input() 
+  set photo(value: Photo | null) {
+    if (value !== this._photo) {
+      this._photo = value;
+      this.onPhotoChange(value);
+    }
+  }
+  get photo(): Photo | null {
+    return this._photo;
+  }
+  private _photo: Photo | null = null;
+
   @Input() showMetadata: boolean = false; // For testing purposes, normally false during game
   @Input() enableZoom: boolean = true; // Enable/disable zoom functionality
 
@@ -42,6 +53,8 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   imageLoaded = false;
   imageError = false;
   imageLoading = true;
+  hasAttemptedRetry = false; // Track if we've attempted an automatic retry
+  retryCount = 0; // Track number of manual retries
 
   // Zoom state
   zoomState: PhotoZoomState | null = null;
@@ -83,17 +96,22 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Subscribe to current photo changes
+    // Subscribe to current photo changes with enhanced null checking
     this.subscriptions.add(
       this.currentPhoto$.pipe(
-        distinctUntilChanged((prev, curr) => prev?.id === curr?.id)
+        distinctUntilChanged((prev, curr) => prev?.id === curr?.id),
+        filter(photo => photo !== undefined) // Filter out undefined values
       ).subscribe(photo => {
         if (photo !== this.photo) {
           this.photo = photo;
-          if (photo) {
+          if (photo && this.isValidPhotoData(photo)) {
             this.resetImageState();
             this.resetZoomForNewPhoto();
             this.preloadNextPhoto();
+          } else if (photo && !this.isValidPhotoData(photo)) {
+            // Handle invalid photo data
+            console.warn('Invalid photo data received:', photo);
+            this.handleInvalidPhotoData();
           }
         }
       })
@@ -174,13 +192,27 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handles image loading errors with fallback messaging
-   * Requirement 7.4: Error handling for failed image loads
+   * Handles image loading errors with fallback messaging and retry logic
+   * Requirement 1.4, 4.2, 4.5: Error handling for failed image loads with retry functionality
    */
   onImageError(): void {
     this.imageLoaded = false;
     this.imageError = true;
     this.imageLoading = false;
+    
+    // Log the error for debugging
+    console.error('Image failed to load:', this.photo?.url);
+    
+    // Automatically retry once after a short delay if this is the first failure
+    if (this.photo && !this.hasAttemptedRetry) {
+      this.hasAttemptedRetry = true;
+      setTimeout(() => {
+        if (this.imageError && this.photo) {
+          console.log('Attempting automatic retry for failed image:', this.photo.url);
+          this.retryImageLoad();
+        }
+      }, 2000); // Wait 2 seconds before auto-retry
+    }
   }
 
   /**
@@ -190,28 +222,64 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     this.imageLoaded = false;
     this.imageError = false;
     this.imageLoading = true;
+    this.hasAttemptedRetry = false; // Reset retry flag for new photo
+    this.retryCount = 0; // Reset retry count for new photo
   }
 
   /**
-   * Retries loading the current image
+   * Retries loading the current image with enhanced error handling
+   * Requirement 1.4, 4.2: Implement error handling for failed image loads with retry functionality
    */
   retryImageLoad(): void {
-    if (this.photo) {
-      this.resetImageState();
-      
-      // Try to use preloaded image first
-      const preloadedImage = this.imagePreloader.getPreloadedImage(this.photo.url);
-      if (preloadedImage) {
-        this.onImageLoad();
-        return;
-      }
-      
-      // Force image reload by adding timestamp to URL
-      const img = new Image();
-      img.onload = () => this.onImageLoad();
-      img.onerror = () => this.onImageError();
-      img.src = `${this.photo.url}?retry=${Date.now()}`;
+    if (!this.photo || !this.isValidPhotoData(this.photo)) {
+      console.error('Cannot retry: Invalid or missing photo data');
+      return;
     }
+
+    // Limit retry attempts to prevent infinite loops
+    if (this.retryCount >= 3) {
+      console.error('Maximum retry attempts reached for image:', this.photo.url);
+      this.imageError = true;
+      this.imageLoading = false;
+      return;
+    }
+
+    this.retryCount++;
+    console.log(`Retrying image load (attempt ${this.retryCount}/3):`, this.photo.url);
+    
+    this.imageLoaded = false;
+    this.imageError = false;
+    this.imageLoading = true;
+    
+    // Try to use preloaded image first
+    const preloadedImage = this.imagePreloader.getPreloadedImage(this.photo.url);
+    if (preloadedImage) {
+      console.log('Using preloaded image for retry');
+      this.onImageLoad();
+      return;
+    }
+    
+    // Validate URL before attempting to load
+    if (!this.isValidImageUrl(this.photo.url)) {
+      console.error('Invalid image URL:', this.photo.url);
+      this.onImageError();
+      return;
+    }
+    
+    // Force image reload by adding timestamp to URL
+    const img = new Image();
+    img.onload = () => {
+      console.log('Image retry successful:', this.photo?.url);
+      this.onImageLoad();
+    };
+    img.onerror = (error) => {
+      console.error('Image retry failed:', this.photo?.url, error);
+      this.onImageError();
+    };
+    
+    // Add cache-busting parameter and retry count
+    const separator = this.photo.url.includes('?') ? '&' : '?';
+    img.src = `${this.photo.url}${separator}retry=${Date.now()}&attempt=${this.retryCount}`;
   }
 
   /**
@@ -762,6 +830,170 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
       case 'reset':
         this.photoZoomService.reset();
         break;
+    }
+  }
+
+  /**
+   * Validates photo data to ensure it meets requirements
+   * Requirement 1.1, 4.2: Add null checks and loading states for when photo data is undefined
+   */
+  private isValidPhotoData(photo: Photo | null): boolean {
+    if (!photo) {
+      return false;
+    }
+
+    // Check required fields
+    if (!photo.id || typeof photo.id !== 'string') {
+      console.warn('Photo missing or invalid id:', photo);
+      return false;
+    }
+
+    if (!photo.url || typeof photo.url !== 'string') {
+      console.warn('Photo missing or invalid url:', photo);
+      return false;
+    }
+
+    if (!photo.title || typeof photo.title !== 'string') {
+      console.warn('Photo missing or invalid title:', photo);
+      return false;
+    }
+
+    if (typeof photo.year !== 'number' || photo.year < 1900 || photo.year > new Date().getFullYear()) {
+      console.warn('Photo has invalid year:', photo.year);
+      return false;
+    }
+
+    // Validate coordinates
+    if (!photo.coordinates || 
+        typeof photo.coordinates.latitude !== 'number' || 
+        typeof photo.coordinates.longitude !== 'number' ||
+        Math.abs(photo.coordinates.latitude) > 90 ||
+        Math.abs(photo.coordinates.longitude) > 180) {
+      console.warn('Photo has invalid coordinates:', photo.coordinates);
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Validates image URL format and accessibility
+   * Requirement 1.4: Ensure photo component properly handles photo URL validation
+   */
+  private isValidImageUrl(url: string): boolean {
+    if (!url || typeof url !== 'string') {
+      return false;
+    }
+
+    try {
+      const urlObj = new URL(url);
+      
+      // Check if it's a valid HTTP/HTTPS URL
+      if (!['http:', 'https:'].includes(urlObj.protocol)) {
+        return false;
+      }
+
+      // Check if it looks like an image URL (basic check)
+      const pathname = urlObj.pathname.toLowerCase();
+      const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+      const hasImageExtension = imageExtensions.some(ext => pathname.endsWith(ext));
+      
+      // Allow URLs without extensions (many APIs serve images without file extensions)
+      // but log a warning for debugging
+      if (!hasImageExtension) {
+        console.log('Image URL without standard extension:', url);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Invalid URL format:', url, error);
+      return false;
+    }
+  }
+
+  /**
+   * Handles invalid photo data by setting appropriate error state
+   * Requirement 4.2: Component integration fix for invalid data
+   */
+  private handleInvalidPhotoData(): void {
+    this.imageLoaded = false;
+    this.imageError = true;
+    this.imageLoading = false;
+    this.photo = null; // Clear invalid photo data
+    console.error('Invalid photo data received, clearing photo state');
+  }
+
+  /**
+   * Gets user-friendly error message based on error type
+   * Requirement 4.5: Error boundaries display fallback UI
+   */
+  getErrorMessage(): string {
+    if (!this.photo) {
+      return 'No photograph available to display';
+    }
+
+    if (this.retryCount >= 3) {
+      return 'Unable to load photograph after multiple attempts. Please check your internet connection.';
+    }
+
+    return 'Failed to load photograph. Click "Try Again" to retry.';
+  }
+
+  /**
+   * Checks if retry button should be shown
+   * Requirement 1.4: Implement error handling with retry functionality
+   */
+  shouldShowRetryButton(): boolean {
+    return this.imageError && this.photo !== null && this.retryCount < 3;
+  }
+
+  /**
+   * Gets loading progress information for accessibility
+   * Requirement 1.1: Add loading states for when photo data is undefined
+   */
+  getLoadingProgress(): string {
+    if (this.imageLoading && this.photo) {
+      if (this.retryCount > 0) {
+        return `Loading photograph (attempt ${this.retryCount + 1})...`;
+      }
+      return 'Loading photograph...';
+    }
+    
+    if (this.imageError) {
+      return 'Failed to load photograph';
+    }
+    
+    if (this.imageLoaded) {
+      return 'Photograph loaded successfully';
+    }
+    
+    return 'Preparing to load photograph...';
+  }
+
+  /**
+   * Handles photo input changes with validation
+   * Requirement 1.1, 4.2: Add null checks and loading states for when photo data is undefined
+   */
+  private onPhotoChange(newPhoto: Photo | null): void {
+    // Reset state for new photo
+    this.resetImageState();
+    
+    if (newPhoto) {
+      if (this.isValidPhotoData(newPhoto)) {
+        // Valid photo data - proceed with loading
+        this.resetZoomForNewPhoto();
+        this.preloadNextPhoto();
+      } else {
+        // Invalid photo data - handle gracefully
+        console.warn('Invalid photo data provided:', newPhoto);
+        this.handleInvalidPhotoData();
+      }
+    } else {
+      // No photo data - clear state
+      this.imageLoading = false;
+      if (this.enableZoom) {
+        this.resetZoomForNewPhoto();
+      }
     }
   }
 }

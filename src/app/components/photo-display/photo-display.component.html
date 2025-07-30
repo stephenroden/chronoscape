@@ -4,11 +4,14 @@
     class="photo-loading" 
     *ngIf="(photosLoading$ | async) || imageLoading"
     role="status"
-    aria-label="Loading photograph">
+    [attr.aria-label]="getLoadingProgress()">
     <div class="skeleton-image"></div>
     <div class="loading-text">
       <div class="loading-spinner"></div>
-      <span>Loading photograph...</span>
+      <span>{{ getLoadingProgress() }}</span>
+    </div>
+    <div class="loading-details" *ngIf="retryCount > 0 && imageLoading">
+      <p class="retry-indicator">Attempting to reload...</p>
     </div>
   </div>
 
@@ -27,18 +30,32 @@
   <!-- Error state for individual image loading failures -->
   <div 
     class="photo-error image-error" 
-    *ngIf="imageError && photo && !(photosLoading$ | async)"
+    *ngIf="imageError && !(photosLoading$ | async)"
     role="alert"
     aria-live="polite">
     <div class="error-icon">🖼️</div>
     <h3>Image Failed to Load</h3>
-    <p>We couldn't display this photograph.</p>
+    <p>{{ getErrorMessage() }}</p>
+    <div class="error-details" *ngIf="retryCount > 0">
+      <p class="retry-info">Retry attempts: {{ retryCount }}/3</p>
+    </div>
     <button 
       class="retry-button" 
+      *ngIf="shouldShowRetryButton()"
       (click)="retryImageLoad()"
+      [disabled]="imageLoading"
       aria-label="Retry loading the photograph">
-      Try Again
+      <span *ngIf="!imageLoading">Try Again</span>
+      <span *ngIf="imageLoading">Retrying...</span>
     </button>
+    <div class="error-help" *ngIf="retryCount >= 3">
+      <p>If the problem persists, please:</p>
+      <ul>
+        <li>Check your internet connection</li>
+        <li>Try refreshing the page</li>
+        <li>Contact support if the issue continues</li>
+      </ul>
+    </div>
   </div>
 
   <!-- Photo display when loaded successfully -->
