@@ -51,11 +51,24 @@ export const selectHasGameError = createSelector(
 export const selectGameProgress = createSelector(
   selectCurrentPhotoIndex,
   selectTotalPhotos,
-  (currentIndex: number, totalPhotos: number) => ({
-    current: currentIndex + 1,
-    total: totalPhotos,
-    percentage: Math.round(((currentIndex + 1) / totalPhotos) * 100)
-  })
+  (currentIndex: number, totalPhotos: number) => {
+    const progress = {
+      current: currentIndex + 1,
+      total: totalPhotos,
+      percentage: Math.round(((currentIndex + 1) / totalPhotos) * 100)
+    };
+    
+    // DEBUG: Log progress calculation for Task 5 debugging
+    console.log('[GameSelectors] selectGameProgress calculated:', {
+      currentIndex,
+      totalPhotos,
+      calculatedCurrent: currentIndex + 1,
+      progress,
+      timestamp: new Date().toISOString()
+    });
+    
+    return progress;
+  }
 );
 
 export const selectGameDuration = createSelector(

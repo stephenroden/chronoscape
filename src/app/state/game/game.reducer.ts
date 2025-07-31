@@ -26,8 +26,17 @@ export const gameReducer = createReducer(
   })),
 
   on(GameActions.nextPhoto, (state): GameState => {
+    // DEBUG: Log nextPhoto action processing for Task 5
+    console.log('[GameReducer] Processing nextPhoto action:', {
+      currentIndex: state.currentPhotoIndex,
+      totalPhotos: state.totalPhotos,
+      gameStatus: state.gameStatus,
+      timestamp: new Date().toISOString()
+    });
+
     // If game is already completed, don't change anything
     if (state.gameStatus === GameStatus.COMPLETED) {
+      console.log('[GameReducer] Game already completed, no change');
       return state;
     }
     
@@ -35,6 +44,10 @@ export const gameReducer = createReducer(
     
     // Game completes when we try to advance beyond the last photo (index 4 for 5 photos)
     if (nextIndex >= state.totalPhotos) {
+      console.log('[GameReducer] Game completing, nextIndex >= totalPhotos:', {
+        nextIndex,
+        totalPhotos: state.totalPhotos
+      });
       return {
         ...state,
         gameStatus: GameStatus.COMPLETED,
@@ -43,11 +56,20 @@ export const gameReducer = createReducer(
       };
     }
     
-    return {
+    const newState = {
       ...state,
       currentPhotoIndex: nextIndex,
       gameStatus: GameStatus.IN_PROGRESS
     };
+    
+    console.log('[GameReducer] Updated state after nextPhoto:', {
+      oldIndex: state.currentPhotoIndex,
+      newIndex: nextIndex,
+      gameStatus: newState.gameStatus,
+      timestamp: new Date().toISOString()
+    });
+    
+    return newState;
   }),
 
   on(GameActions.endGame, (state): GameState => ({

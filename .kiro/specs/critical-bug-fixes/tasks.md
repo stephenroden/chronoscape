@@ -28,7 +28,7 @@
   - Verify game effects properly sync currentPhoto when index changes
   - _Requirements: 2.2, 2.4, 3.1, 3.2, 3.3_
 
-- [ ] 5. Fix photo counter display accuracy
+- [x] 5. Fix photo counter display accuracy
 
   - Correct the game progress calculation to show accurate photo numbers
   - Ensure "Photo X of 5" displays current index + 1, not doubled values

@@ -172,6 +172,19 @@ export class GameComponent implements OnInit, OnDestroy {
       })
     );
 
+    // DEBUG: Track game progress calculation for photo counter accuracy (Task 5)
+    this.subscriptions.add(
+      this.gameProgress$.subscribe(progress => {
+        console.log('[GameComponent] Game progress calculated:', {
+          current: progress.current,
+          total: progress.total,
+          percentage: progress.percentage,
+          displayText: `Photo ${progress.current} of ${progress.total}`,
+          timestamp: new Date().toISOString()
+        });
+      })
+    );
+
     // DEBUG: Track photos loading state
     this.subscriptions.add(
       this.photosLoading$.subscribe(loading => {

@@ -157,6 +157,15 @@ export class NavigationComponent implements OnInit {
    */
   formatGameProgress(progress: { current: number; total: number; percentage: number } | null): string {
     if (!progress) return '';
-    return `Photo ${progress.current} of ${progress.total}`;
+    
+    // DEBUG: Log progress formatting for Task 5
+    const formatted = `Photo ${progress.current} of ${progress.total}`;
+    console.log('[NavigationComponent] formatGameProgress:', {
+      input: progress,
+      output: formatted,
+      timestamp: new Date().toISOString()
+    });
+    
+    return formatted;
   }
 }
