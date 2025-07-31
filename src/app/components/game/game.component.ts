@@ -109,8 +109,29 @@ export class GameComponent implements OnInit, OnDestroy {
     );
     
     // Track if we're showing results for current photo
-    this.showingResults$ = this.store.select(ScoringSelectors.selectCurrentScore).pipe(
-      map(score => !!score)
+    // Show results only when we have both a current guess and a score for the current photo
+    this.showingResults$ = combineLatest([
+      this.store.select(ScoringSelectors.selectCurrentGuess),
+      this.store.select(PhotosSelectors.selectCurrentPhoto),
+      this.store.select(ScoringSelectors.selectAllScores)
+    ]).pipe(
+      map(([currentGuess, currentPhoto, allScores]) => {
+        // Show results if we have a current guess and a score for the current photo
+        const hasCurrentGuess = !!currentGuess;
+        const hasScoreForCurrentPhoto = !!(currentPhoto && allScores.some(score => score.photoId === currentPhoto.id));
+        const shouldShowResults = hasCurrentGuess && hasScoreForCurrentPhoto;
+        
+        console.log('[GameComponent] showingResults$ calculation:', {
+          hasCurrentGuess,
+          hasScoreForCurrentPhoto,
+          shouldShowResults,
+          currentPhotoId: currentPhoto?.id,
+          scoresCount: allScores.length,
+          timestamp: new Date().toISOString()
+        });
+        
+        return shouldShowResults;
+      })
     );
     
     // Interface state observables
@@ -243,12 +264,22 @@ export class GameComponent implements OnInit, OnDestroy {
    * Called from results component after user views results.
    * Requirement 1.3: Advance to next photo when user completes their guess.
    * Requirement 5.1, 5.2, 5.3, 5.4, 5.5: Reset interface state for new photo.
+   * Requirements 2.2, 2.3, 3.2: Ensure proper navigation flow from results to game.
    */
   onNextPhoto(): void {
-    this.showingResults = false;
+    console.log('[GameComponent] onNextPhoto called - transitioning from results to next photo');
+    
+    // Clear the current guess to hide results view (Task 6 requirement)
+    this.store.dispatch(ScoringActions.clearCurrentGuess());
+    
     // Reset interface state for new photo (Requirements 5.1-5.5)
     this.store.dispatch(InterfaceActions.resetForNewPhoto());
+    
+    // Advance to next photo (this will update currentPhotoIndex and sync currentPhoto)
     this.store.dispatch(GameActions.nextPhoto());
+    
+    // Set local flag to ensure results are hidden during transition
+    this.showingResults = false;
   }
 
   /**

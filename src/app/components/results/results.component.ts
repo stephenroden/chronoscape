@@ -12,7 +12,6 @@ import { EnhancedFeedback } from '../../models/enhanced-feedback.model';
 
 import { selectCurrentPhoto } from '../../state/photos/photos.selectors';
 import { selectCurrentGuess, selectScoreByPhotoId } from '../../state/scoring/scoring.selectors';
-import { nextPhoto } from '../../state/game/game.actions';
 
 import { MapService } from '../../services/map.service';
 import { EnhancedFeedbackService } from '../../services/enhanced-feedback.service';
@@ -206,10 +205,16 @@ export class ResultsComponent implements OnInit, OnDestroy {
 
   /**
    * Handle next photo button click
+   * Requirements 2.2, 2.3, 3.2: Ensure proper navigation flow from results to game
    */
   onNextPhoto(): void {
-    this.mapInitialized = false; // Reset map for next photo
-    this.store.dispatch(nextPhoto());
+    console.log('[ResultsComponent] Next Photo button clicked');
+    
+    // Reset map for next photo
+    this.mapInitialized = false;
+    
+    // Emit event to parent game component to handle the transition
+    // The game component will handle clearing the guess and advancing the photo
     this.nextPhoto.emit();
   }
 }
