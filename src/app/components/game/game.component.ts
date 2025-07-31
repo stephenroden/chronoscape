@@ -20,6 +20,8 @@ import * as InterfaceSelectors from '../../state/interface/interface.selectors';
 import { PhotoMapToggleComponent } from '../photo-map-toggle/photo-map-toggle.component';
 import { YearGuessComponent } from '../year-guess/year-guess.component';
 import { ResultsComponent } from '../results/results.component';
+import { ErrorBoundaryComponent } from '../error-boundary/error-boundary.component';
+import { LoadingStateService } from '../../services/loading-state.service';
 
 /**
  * Main game container component that orchestrates the overall game flow and state.
@@ -45,7 +47,7 @@ import { ResultsComponent } from '../results/results.component';
 @Component({
   selector: 'app-game',
   standalone: true,
-  imports: [CommonModule, PhotoMapToggleComponent, YearGuessComponent, ResultsComponent],
+  imports: [CommonModule, PhotoMapToggleComponent, YearGuessComponent, ResultsComponent, ErrorBoundaryComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -82,7 +84,8 @@ export class GameComponent implements OnInit, OnDestroy {
 
   constructor(
     private store: Store<AppState>,
-    private router: Router
+    private router: Router,
+    private loadingStateService: LoadingStateService
   ) {
     // Initialize observables from selectors
     this.gameStatus$ = this.store.select(GameSelectors.selectGameStatus);
@@ -448,5 +451,89 @@ export class GameComponent implements OnInit, OnDestroy {
 
     console.log('[GameComponent] Photo validation passed:', photo.id);
     return true;
+  }
+
+  /**
+   * Get detailed loading message based on current loading states
+   * Requirements: 4.4 - Loading states while photos are being fetched from API
+   */
+  getDetailedLoadingMessage(): string {
+    // Check specific loading states
+    const photosLoadingState = this.loadingStateService.getLoadingState(LoadingStateService.LOADING_KEYS.PHOTOS_FETCH);
+    const gameLoadingState = this.loadingStateService.getLoadingState(LoadingStateService.LOADING_KEYS.GAME_INIT);
+    
+    // Return the most specific message available
+    let message = 'Preparing your game...';
+    
+    photosLoadingState.subscribe(state => {
+      if (state.isLoading && state.message) {
+        message = state.message;
+      }
+    }).unsubscribe();
+    
+    gameLoadingState.subscribe(state => {
+      if (state.isLoading && state.message) {
+        message = state.message;
+      }
+    }).unsubscribe();
+    
+    return message;
+  }
+
+  /**
+   * Get overall loading progress
+   * Requirements: 4.4 - Loading states with progress indication
+   */
+  getLoadingProgress(): number {
+    let maxProgress = 0;
+    
+    // Check all loading states and return the highest progress
+    const photosLoadingState = this.loadingStateService.getLoadingState(LoadingStateService.LOADING_KEYS.PHOTOS_FETCH);
+    const gameLoadingState = this.loadingStateService.getLoadingState(LoadingStateService.LOADING_KEYS.GAME_INIT);
+    
+    photosLoadingState.subscribe(state => {
+      if (state.isLoading) {
+        maxProgress = Math.max(maxProgress, state.progress);
+      }
+    }).unsubscribe();
+    
+    gameLoadingState.subscribe(state => {
+      if (state.isLoading) {
+        maxProgress = Math.max(maxProgress, state.progress);
+      }
+    }).unsubscribe();
+    
+    return maxProgress;
+  }
+
+  /**
+   * Check if photos have been loaded
+   */
+  hasPhotosLoaded(): boolean {
+    let hasLoaded = false;
+    this.store.select(PhotosSelectors.selectHasPhotos).pipe(take(1)).subscribe(loaded => {
+      hasLoaded = loaded;
+    });
+    return hasLoaded;
+  }
+
+  /**
+   * Handle interface retry request from error boundary
+   * Requirements: 4.5 - Error boundaries with retry functionality
+   */
+  onInterfaceRetry(): void {
+    console.log('Interface retry requested');
+    // Could dispatch actions to reload photos or reset interface state
+    // For now, we'll just log the event
+  }
+
+  /**
+   * Handle interface fallback activation
+   * Requirements: 4.5 - Fallback UI for when components fail to load
+   */
+  onInterfaceFallback(): void {
+    console.log('Interface fallback activated');
+    // Could dispatch action to disable enhanced features
+    // For now, we'll just log the event
   }
 }

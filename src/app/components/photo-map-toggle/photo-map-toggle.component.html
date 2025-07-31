@@ -20,7 +20,10 @@
       <app-error-boundary 
         componentName="Photo Display"
         [enableRetry]="true"
-        [enableFallback]="true">
+        [enableFallback]="true"
+        [fallbackData]="{ photo: photo }"
+        [isLoading]="(photoLoadingState$ | async)?.isLoading || false"
+        [loadingProgress]="(photoLoadingState$ | async)?.progress || 0">
         <app-photo-display
           #photoDisplay
           [photo]="photo"
@@ -41,7 +44,10 @@
       <app-error-boundary 
         componentName="Map Display"
         [enableRetry]="true"
-        [enableFallback]="true">
+        [enableFallback]="true"
+        [isLoading]="(mapLoadingState$ | async)?.isLoading || false"
+        [loadingProgress]="(mapLoadingState$ | async)?.progress || 0"
+        (fallbackCoordinatesChanged)="onFallbackCoordinatesChanged($event)">
         <app-map-guess
           #mapGuess
           [attr.tabindex]="isMapActive ? 0 : -1">

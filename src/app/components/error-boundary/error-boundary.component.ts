@@ -1,80 +1,172 @@
-import { Component, Input, OnInit, OnDestroy, ErrorHandler, Injectable } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ErrorHandler, Injectable } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 
 /**
- * Error boundary component for graceful error handling in enhanced interface components
- * Provides fallback UI and error recovery mechanisms
+ * Enhanced error boundary component for comprehensive error handling and loading states
+ * Provides fallback UI, error recovery mechanisms, and loading state management
+ * Requirements: 4.4, 4.5 - Error boundaries and fallback UI
  */
 @Component({
   selector: 'app-error-boundary',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
-    <div class="error-boundary" [class.has-error]="hasError">
-      <ng-container *ngIf="!hasError; else errorTemplate">
+    <div class="error-boundary" 
+         [class.has-error]="hasError"
+         [class.is-loading]="isLoading"
+         [class.has-fallback]="showFallback">
+      
+      <!-- Loading state -->
+      <div *ngIf="isLoading && !hasError" 
+           class="loading-state"
+           role="status"
+           aria-live="polite"
+           [attr.aria-label]="'Loading ' + componentName">
+        <div class="loading-content">
+          <div class="loading-spinner" aria-hidden="true"></div>
+          <p class="loading-text">{{ getLoadingMessage() }}</p>
+          <div class="loading-progress" *ngIf="loadingProgress > 0">
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="loadingProgress"></div>
+            </div>
+            <span class="progress-text">{{ loadingProgress }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Normal content (when no error and not loading) -->
+      <ng-container *ngIf="!hasError && !isLoading && !showFallback">
         <ng-content></ng-content>
       </ng-container>
       
-      <ng-template #errorTemplate>
-        <div class="error-fallback" 
-             role="alert" 
-             aria-live="assertive"
-             [attr.aria-label]="'Error in ' + componentName + ': ' + errorMessage">
+      <!-- Error state -->
+      <div *ngIf="hasError && !showFallback" 
+           class="error-fallback" 
+           role="alert" 
+           aria-live="assertive"
+           [attr.aria-label]="'Error in ' + componentName + ': ' + errorMessage">
+        
+        <div class="error-icon" aria-hidden="true">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z" opacity="0.3"/>
+            <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
+          </svg>
+        </div>
+        
+        <div class="error-content">
+          <h3 class="error-title">{{ getErrorTitle() }}</h3>
+          <p class="error-message">{{ getErrorMessage() }}</p>
           
-          <div class="error-icon" aria-hidden="true">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
+          <div class="error-actions">
+            <button 
+              type="button" 
+              class="btn btn-primary"
+              (click)="retry()"
+              [disabled]="isRetrying || !canRetry"
+              [attr.aria-label]="'Retry ' + componentName">
+              <span *ngIf="!isRetrying">Try Again</span>
+              <span *ngIf="isRetrying">Retrying...</span>
+            </button>
+            
+            <button 
+              type="button" 
+              class="btn btn-secondary"
+              (click)="fallbackToBasic()"
+              *ngIf="canFallback"
+              [attr.aria-label]="'Use basic version of ' + componentName">
+              Use Basic Version
+            </button>
+            
+            <button 
+              type="button" 
+              class="btn btn-link"
+              (click)="showDetails = !showDetails"
+              [attr.aria-expanded]="showDetails"
+              aria-controls="error-details">
+              {{ showDetails ? 'Hide' : 'Show' }} Details
+            </button>
           </div>
           
-          <div class="error-content">
-            <h3 class="error-title">{{ getErrorTitle() }}</h3>
-            <p class="error-message">{{ getErrorMessage() }}</p>
-            
-            <div class="error-actions">
-              <button 
-                type="button" 
-                class="btn btn-primary"
-                (click)="retry()"
-                [disabled]="isRetrying"
-                [attr.aria-label]="'Retry ' + componentName">
-                <span *ngIf="!isRetrying">Try Again</span>
-                <span *ngIf="isRetrying">Retrying...</span>
-              </button>
-              
-              <button 
-                type="button" 
-                class="btn btn-secondary"
-                (click)="fallbackToBasic()"
-                [attr.aria-label]="'Use basic version of ' + componentName">
-                Use Basic Version
-              </button>
-              
-              <button 
-                type="button" 
-                class="btn btn-link"
-                (click)="showDetails = !showDetails"
-                [attr.aria-expanded]="showDetails"
-                aria-controls="error-details">
-                {{ showDetails ? 'Hide' : 'Show' }} Details
-              </button>
-            </div>
-            
-            <div 
-              id="error-details" 
-              class="error-details" 
-              *ngIf="showDetails"
-              [attr.aria-hidden]="!showDetails">
-              <h4>Technical Details</h4>
-              <pre>{{ errorDetails }}</pre>
-              <p class="error-timestamp">
-                Error occurred at: {{ errorTimestamp | date:'medium' }}
-              </p>
+          <div class="retry-info" *ngIf="retryCount > 0">
+            <p class="retry-count">Retry attempts: {{ retryCount }}/{{ maxRetries }}</p>
+          </div>
+          
+          <div 
+            id="error-details" 
+            class="error-details" 
+            *ngIf="showDetails"
+            [attr.aria-hidden]="!showDetails">
+            <h4>Technical Details</h4>
+            <pre>{{ errorDetails }}</pre>
+            <p class="error-timestamp">
+              Error occurred at: {{ errorTimestamp | date:'medium' }}
+            </p>
+            <div class="error-context" *ngIf="errorContext">
+              <h5>Context</h5>
+              <p>{{ errorContext }}</p>
             </div>
           </div>
         </div>
-      </ng-template>
+      </div>
+
+      <!-- Fallback UI -->
+      <div *ngIf="showFallback" 
+           class="fallback-ui"
+           role="region"
+           [attr.aria-label]="'Basic version of ' + componentName">
+        <div class="fallback-content">
+          <div class="fallback-header">
+            <h3>Basic {{ componentName }}</h3>
+            <p>Enhanced features are temporarily unavailable</p>
+          </div>
+          
+          <!-- Basic photo fallback -->
+          <div *ngIf="componentName === 'Photo Display' && fallbackData?.photo" class="basic-photo">
+            <img [src]="fallbackData.photo.url" 
+                 [alt]="fallbackData.photo.title"
+                 class="basic-photo-image"
+                 (error)="onFallbackImageError()"
+                 (load)="onFallbackImageLoad()">
+            <div class="basic-photo-info">
+              <h4>{{ fallbackData.photo.title }}</h4>
+              <p>Year: {{ fallbackData.photo.year }}</p>
+            </div>
+          </div>
+          
+          <!-- Basic map fallback -->
+          <div *ngIf="componentName === 'Map Display'" class="basic-map">
+            <div class="basic-map-placeholder">
+              <div class="map-icon">🗺️</div>
+              <p>Interactive map temporarily unavailable</p>
+              <p>Please use the coordinate input below:</p>
+              <div class="coordinate-input">
+                <label for="lat-input">Latitude:</label>
+                <input id="lat-input" type="number" 
+                       [(ngModel)]="fallbackCoordinates.latitude"
+                       min="-90" max="90" step="0.0001"
+                       (change)="onFallbackCoordinatesChange()">
+                <label for="lng-input">Longitude:</label>
+                <input id="lng-input" type="number" 
+                       [(ngModel)]="fallbackCoordinates.longitude"
+                       min="-180" max="180" step="0.0001"
+                       (change)="onFallbackCoordinatesChange()">
+              </div>
+            </div>
+          </div>
+          
+          <div class="fallback-actions">
+            <button 
+              type="button" 
+              class="btn btn-primary"
+              (click)="retryEnhanced()"
+              [disabled]="isRetrying">
+              Try Enhanced Version Again
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   `,
   styleUrls: ['./error-boundary.component.scss']
@@ -86,14 +178,24 @@ export class ErrorBoundaryComponent implements OnInit, OnDestroy {
   @Input() enableFallback = true;
   @Input() maxRetries = 3;
   @Input() retryDelay = 1000;
+  @Input() fallbackData?: any; // Data for fallback UI (photo, coordinates, etc.)
+  @Input() isLoading = false; // External loading state
+  @Input() loadingProgress = 0; // Loading progress (0-100)
 
   hasError = false;
   errorMessage = '';
   errorDetails = '';
+  errorContext = '';
   errorTimestamp?: Date;
   showDetails = false;
   isRetrying = false;
   retryCount = 0;
+  showFallback = false;
+  fallbackCoordinates = { latitude: 0, longitude: 0 };
+
+  @Output() retryRequested = new EventEmitter<void>();
+  @Output() fallbackActivated = new EventEmitter<void>();
+  @Output() fallbackCoordinatesChanged = new EventEmitter<{latitude: number, longitude: number}>();
 
   private destroy$ = new Subject<void>();
   private retryTimeout?: any;
@@ -155,12 +257,55 @@ export class ErrorBoundaryComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Emit event to parent to switch to basic version
-    // This would be handled by the parent component
+    this.showFallback = true;
     this.hasError = false;
+    this.fallbackActivated.emit();
     
-    // Could dispatch action to store to disable enhanced features
     console.log(`Falling back to basic version of ${this.componentName}`);
+  }
+
+  /**
+   * Retry enhanced version from fallback
+   */
+  retryEnhanced(): void {
+    this.showFallback = false;
+    this.hasError = false;
+    this.retry();
+  }
+
+  /**
+   * Handle fallback image error
+   */
+  onFallbackImageError(): void {
+    console.error('Fallback image failed to load');
+  }
+
+  /**
+   * Handle fallback image load success
+   */
+  onFallbackImageLoad(): void {
+    console.log('Fallback image loaded successfully');
+  }
+
+  /**
+   * Handle fallback coordinates change
+   */
+  onFallbackCoordinatesChange(): void {
+    this.fallbackCoordinatesChanged.emit(this.fallbackCoordinates);
+  }
+
+  /**
+   * Get loading message based on component type
+   */
+  getLoadingMessage(): string {
+    switch (this.componentName) {
+      case 'Photo Display':
+        return 'Loading photograph...';
+      case 'Map Display':
+        return 'Loading interactive map...';
+      default:
+        return `Loading ${this.componentName}...`;
+    }
   }
 
   /**

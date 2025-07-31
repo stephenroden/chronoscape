@@ -6,6 +6,7 @@ import { CommonModule } from '@angular/common';
 import { AppState } from '../../state/app.state';
 import { MapService } from '../../services/map.service';
 import { InterfaceToggleService } from '../../services/interface-toggle.service';
+import { LoadingStateService } from '../../services/loading-state.service';
 import { Coordinates } from '../../models/coordinates.model';
 import { setCurrentGuess } from '../../state/scoring/scoring.actions';
 import { selectCurrentGuess } from '../../state/scoring/scoring.selectors';
@@ -37,7 +38,8 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     private store: Store<AppState>,
     private mapService: MapService,
-    private interfaceToggleService: InterfaceToggleService
+    private interfaceToggleService: InterfaceToggleService,
+    private loadingStateService: LoadingStateService
   ) {}
 
   ngOnInit(): void {
@@ -123,6 +125,9 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       this.isMapLoading = true;
       this.mapError = null;
 
+      // Start loading state
+      this.loadingStateService.startMapInit();
+
       // Check if container is available and properly sized
       if (!this.mapContainer?.nativeElement) {
         throw new Error('Map container element not available');
@@ -158,19 +163,25 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       this.isMapInitialized = true;
       this.isMapLoading = false;
 
+      // Complete loading state
+      this.loadingStateService.completeMapInit();
+
       // If there's already a pin location, place it
       if (this.userPin) {
         this.updateMapPin();
       }
 
-      // Force map resize after initialization to ensure proper sizing
-      setTimeout(() => {
-        this.mapService.invalidateSize();
-      }, 100);
+      // Force map resize after ini
 
     } catch (error) {
       console.error('Failed to initialize map:', error);
       this.isMapLoading = false;
+      
+      // Set error state in loading service
+      this.loadingStateService.setError(
+        LoadingStateService.LOADING_KEYS.MAP_INIT,
+        error instanceof Error ? error.message : 'Unknown map initialization error'
+      );
       
       // Provide specific error messages based on error type
       if (error instanceof Error) {

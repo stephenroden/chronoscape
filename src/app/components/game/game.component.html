@@ -25,7 +25,7 @@
 
   <!-- Game content area -->
   <main class="game-content" id="main-content" role="main">
-    <!-- Loading state for game initialization -->
+    <!-- Enhanced loading state for game initialization -->
     <section class="game-loading" 
              *ngIf="(isGameNotStarted$ | async) && ((gameLoading$ | async) || (photosLoading$ | async))"
              aria-labelledby="loading-heading">
@@ -35,7 +35,31 @@
            aria-live="polite"
            aria-label="Loading game">
         <div class="loading-spinner large" aria-hidden="true"></div>
-        <p>Loading historical photos...</p>
+        <p>{{ getDetailedLoadingMessage() }}</p>
+        
+        <!-- Loading progress bar -->
+        <div class="loading-progress" *ngIf="getLoadingProgress() > 0">
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="getLoadingProgress()"></div>
+          </div>
+          <span class="progress-text">{{ getLoadingProgress() }}%</span>
+        </div>
+        
+        <!-- Loading steps indicator -->
+        <div class="loading-steps" aria-live="polite">
+          <div class="loading-step" 
+               [class.active]="photosLoading$ | async"
+               [class.completed]="!(photosLoading$ | async) && hasPhotosLoaded()">
+            <span class="step-icon" aria-hidden="true">📷</span>
+            <span class="step-text">Loading historical photos</span>
+          </div>
+          <div class="loading-step" 
+               [class.active]="gameLoading$ | async"
+               [class.completed]="!(gameLoading$ | async)">
+            <span class="step-icon" aria-hidden="true">🎮</span>
+            <span class="step-text">Initializing game</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -43,18 +67,26 @@
     <section class="game-play" *ngIf="(isGameInProgress$ | async) && !(showingResults$ | async)" aria-labelledby="game-play-heading">
       <h2 id="game-play-heading" class="sr-only">Game in Progress</h2>
       
-      <!-- Enhanced photo/map toggle interface -->
+      <!-- Enhanced photo/map toggle interface with error boundary -->
       <div class="photo-map-section" role="region" aria-labelledby="photo-map-heading">
         <h3 id="photo-map-heading" class="sr-only">Historical Photograph and Map</h3>
-        <app-photo-map-toggle 
-          [photo]="currentPhoto$ | async"
-          [enableZoom]="true"
-          [showMetadata]="false"
-          [transitionDuration]="300"
-          (viewToggled)="onViewToggled($event)"
-          (photoZoomChanged)="onPhotoZoomChanged($event)"
-          (mapStateChanged)="onMapStateChanged($event)">
-        </app-photo-map-toggle>
+        <app-error-boundary 
+          componentName="Photo/Map Interface"
+          [enableRetry]="true"
+          [enableFallback]="true"
+          [fallbackData]="{ photo: currentPhoto$ | async }"
+          (retryRequested)="onInterfaceRetry()"
+          (fallbackActivated)="onInterfaceFallback()">
+          <app-photo-map-toggle 
+            [photo]="currentPhoto$ | async"
+            [enableZoom]="true"
+            [showMetadata]="false"
+            [transitionDuration]="300"
+            (viewToggled)="onViewToggled($event)"
+            (photoZoomChanged)="onPhotoZoomChanged($event)"
+            (mapStateChanged)="onMapStateChanged($event)">
+          </app-photo-map-toggle>
+        </app-error-boundary>
       </div>
 
       <!-- Year guess component -->

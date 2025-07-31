@@ -4,6 +4,7 @@ import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest } from 'rxjs';
 import { takeUntil, map, distinctUntilChanged, catchError } from 'rxjs/operators';
 import { PerformanceMonitorService } from '../../services/performance-monitor.service';
+import { LoadingStateService, LoadingState } from '../../services/loading-state.service';
 import { ErrorBoundaryComponent } from '../error-boundary/error-boundary.component';
 
 import { AppState } from '../../state/app.state';
@@ -13,6 +14,7 @@ import { MapGuessComponent } from '../map-guess/map-guess.component';
 import { Photo } from '../../models/photo.model';
 import { ActiveView, PhotoZoomState, MapState } from '../../models/interface-state.model';
 import { Coordinates } from '../../models/coordinates.model';
+import { setCurrentGuess } from '../../state/scoring/scoring.actions';
 
 /**
  * Container component that manages photo and map display areas with toggle functionality.
@@ -94,6 +96,10 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   canToggle$: Observable<boolean>;
   photoZoomState$: Observable<PhotoZoomState>;
   mapState$: Observable<MapState>;
+  
+  // Loading state observables
+  photoLoadingState$: Observable<LoadingState>;
+  mapLoadingState$: Observable<LoadingState>;
 
   // Component state
   currentActiveView: ActiveView = 'photo';
@@ -120,7 +126,8 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     private store: Store<AppState>,
     private interfaceToggleService: InterfaceToggleService,
     private elementRef: ElementRef,
-    private performanceMonitor: PerformanceMonitorService
+    private performanceMonitor: PerformanceMonitorService,
+    private loadingStateService: LoadingStateService
   ) {
     // Initialize observables
     this.activeView$ = this.interfaceToggleService.activeView$;
@@ -131,6 +138,10 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     this.canToggle$ = this.interfaceToggleService.canToggle$;
     this.photoZoomState$ = this.interfaceToggleService.photoZoomState$;
     this.mapState$ = this.interfaceToggleService.mapState$;
+    
+    // Initialize loading state observables
+    this.photoLoadingState$ = this.loadingStateService.getLoadingState(LoadingStateService.LOADING_KEYS.PHOTO_LOAD);
+    this.mapLoadingState$ = this.loadingStateService.getLoadingState(LoadingStateService.LOADING_KEYS.MAP_INIT);
   }
 
   ngOnInit(): void {
@@ -834,5 +845,21 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
 
     console.log('[PhotoMapToggleComponent] Photo validation passed:', photo.id);
     return true;
+  }
+
+  /**
+   * Handle fallback coordinates change from error boundary
+   * Requirements: 4.5 - Fallback UI for when components fail to load
+   */
+  onFallbackCoordinatesChanged(coordinates: {latitude: number, longitude: number}): void {
+    // Update the current guess with fallback coordinates
+    this.store.dispatch(setCurrentGuess({ 
+      guess: { 
+        year: new Date().getFullYear(), // Default year
+        coordinates 
+      } 
+    }));
+    
+    console.log('Fallback coordinates updated:', coordinates);
   }
 }

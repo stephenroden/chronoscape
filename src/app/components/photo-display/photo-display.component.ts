@@ -2,12 +2,13 @@ import { Component, Input, OnInit, OnDestroy, ElementRef, ViewChild, HostListene
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subscription } from 'rxjs';
-import { distinctUntilChanged, filter } from 'rxjs/operators';
+import { distinctUntilChanged, filter, tap, catchError } from 'rxjs/operators';
 import { Photo } from '../../models/photo.model';
 import { AppState } from '../../state/app.state';
 import { ImagePreloaderService } from '../../services/image-preloader.service';
 import { PhotoZoomService, PhotoZoomState } from '../../services/photo-zoom.service';
 import { InterfaceToggleService } from '../../services/interface-toggle.service';
+import { LoadingStateService } from '../../services/loading-state.service';
 import { PhotoZoomControlsComponent } from '../photo-zoom-controls/photo-zoom-controls.component';
 import * as PhotosSelectors from '../../state/photos/photos.selectors';
 import * as GameSelectors from '../../state/game/game.selectors';
@@ -86,7 +87,8 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     private store: Store<AppState>,
     private imagePreloader: ImagePreloaderService,
     private photoZoomService: PhotoZoomService,
-    private interfaceToggleService: InterfaceToggleService
+    private interfaceToggleService: InterfaceToggleService,
+    private loadingStateService: LoadingStateService
   ) {
     this.currentPhoto$ = this.store.select(PhotosSelectors.selectCurrentPhoto);
     this.photosLoading$ = this.store.select(PhotosSelectors.selectPhotosLoading);
@@ -159,12 +161,15 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
 
   /**
    * Handles successful image loading
-   * Requirement 7.2: Responsive image display
+   * Requirements: 7.2, 4.4 - Responsive image display and loading state completion
    */
   onImageLoad(): void {
     this.imageLoaded = true;
     this.imageError = false;
     this.imageLoading = false;
+    
+    // Complete loading state
+    this.loadingStateService.completePhotoLoad();
     
     // Initialize zoom after image loads
     if (this.enableZoom) {
@@ -193,12 +198,18 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
 
   /**
    * Handles image loading errors with fallback messaging and retry logic
-   * Requirement 1.4, 4.2, 4.5: Error handling for failed image loads with retry functionality
+   * Requirements: 1.4, 4.2, 4.4, 4.5 - Error handling, loading states, and retry functionality
    */
   onImageError(): void {
     this.imageLoaded = false;
     this.imageError = true;
     this.imageLoading = false;
+    
+    // Set error state in loading service
+    this.loadingStateService.setError(
+      LoadingStateService.LOADING_KEYS.PHOTO_LOAD,
+      `Failed to load image: ${this.photo?.title || 'Unknown photo'}`
+    );
     
     // Log the error for debugging
     console.error('Image failed to load:', this.photo?.url);
@@ -972,7 +983,7 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
 
   /**
    * Handles photo input changes with validation
-   * Requirement 1.1, 4.2: Add null checks and loading states for when photo data is undefined
+   * Requirements: 1.1, 4.2, 4.4 - Add null checks, loading states, and comprehensive error handling
    */
   private onPhotoChange(newPhoto: Photo | null): void {
     // Reset state for new photo
@@ -980,17 +991,23 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
     
     if (newPhoto) {
       if (this.isValidPhotoData(newPhoto)) {
-        // Valid photo data - proceed with loading
+        // Valid photo data - start loading state and proceed
+        this.loadingStateService.startPhotoLoad(newPhoto.title || 'Historical photograph');
         this.resetZoomForNewPhoto();
         this.preloadNextPhoto();
       } else {
         // Invalid photo data - handle gracefully
         console.warn('Invalid photo data provided:', newPhoto);
+        this.loadingStateService.setError(
+          LoadingStateService.LOADING_KEYS.PHOTO_LOAD,
+          'Invalid photo data received'
+        );
         this.handleInvalidPhotoData();
       }
     } else {
       // No photo data - clear state
       this.imageLoading = false;
+      this.loadingStateService.clearLoadingState(LoadingStateService.LOADING_KEYS.PHOTO_LOAD);
       if (this.enableZoom) {
         this.resetZoomForNewPhoto();
       }

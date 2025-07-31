@@ -1,11 +1,12 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, forkJoin, of, throwError } from 'rxjs';
-import { map, switchMap, catchError, filter } from 'rxjs/operators';
+import { map, switchMap, catchError, filter, tap } from 'rxjs/operators';
 import { Photo, validatePhotoMetadata } from '../models/photo.model';
 import { Coordinates } from '../models/coordinates.model';
 import { CacheService } from './cache.service';
 import { FormatValidationService } from './format-validation.service';
+import { LoadingStateService } from './loading-state.service';
 
 /**
  * Custom error for insufficient photos after format filtering
@@ -83,21 +84,42 @@ export class PhotoService {
   constructor(
     private http: HttpClient,
     private cacheService: CacheService,
-    private formatValidationService: FormatValidationService
+    private formatValidationService: FormatValidationService,
+    private loadingStateService: LoadingStateService
   ) { }
 
   /**
    * Fetches random historical photos from Wikimedia Commons using geosearch with retry logic
+   * Requirements: 4.4 - Implement loading states while photos are being fetched from API
    * @param count - Number of photos to fetch
    * @returns Observable of Photo array
    */
   fetchRandomPhotos(count: number): Observable<Photo[]> {
     const cacheKey = `random-photos-${count}-${Date.now() - (Date.now() % (5 * 60 * 1000))}`; // 5-minute cache buckets
     
+    // Start loading state
+    this.loadingStateService.startPhotosFetch(count);
+    
     return this.cacheService.getOrSet(
       cacheKey,
       () => this.fetchPhotosWithRetry(count, 0),
       { ttl: this.PHOTO_CACHE_TTL }
+    ).pipe(
+      tap({
+        next: (photos) => {
+          // Complete loading state on success
+          this.loadingStateService.completePhotosFetch();
+          console.log(`Successfully fetched ${photos.length} photos`);
+        },
+        error: (error) => {
+          // Set error state on failure
+          this.loadingStateService.setError(
+            LoadingStateService.LOADING_KEYS.PHOTOS_FETCH,
+            `Failed to fetch photos: ${error.message}`
+          );
+          console.error('Photo fetch failed:', error);
+        }
+      })
     );
   }
 
