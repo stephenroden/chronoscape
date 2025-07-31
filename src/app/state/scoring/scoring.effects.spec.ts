@@ -227,7 +227,7 @@ describe('ScoringEffects', () => {
   });
 
   describe('handlePhotoTransition$', () => {
-    it('should trigger nextPhoto when not on last photo', (done) => {
+    it('should not trigger nextPhoto when not on last photo (results should be shown first)', (done) => {
       store.overrideSelector(selectCurrentPhotoIndex, 2);
       store.overrideSelector(selectTotalPhotos, 5);
       store.overrideSelector(selectScoresCount, 3);
@@ -235,9 +235,16 @@ describe('ScoringEffects', () => {
       const action = ScoringActions.addScore({ score: mockScore });
       actions$ = of(action);
 
-      effects.handlePhotoTransition$.subscribe((result: Action) => {
-        expect(result).toEqual(GameActions.nextPhoto());
-        done();
+      // The effect should not emit any action, allowing results to be shown
+      effects.handlePhotoTransition$.subscribe({
+        next: (result: Action) => {
+          // Should not get here since no action should be emitted
+          fail('Expected no action to be emitted');
+        },
+        complete: () => {
+          // This is expected - no action emitted
+          done();
+        }
       });
     });
 
@@ -284,61 +291,37 @@ describe('ScoringEffects', () => {
     });
   });
 
-  describe('clearGuessAfterScoring$', () => {
-    it('should clear current guess after adding score', (done) => {
-      const action = ScoringActions.addScore({ score: mockScore });
-      actions$ = of(action);
-
-      effects.clearGuessAfterScoring$.subscribe((result: Action) => {
-        expect(result).toEqual(ScoringActions.clearCurrentGuess());
-        done();
-      });
-    });
-  });
+  // Removed clearGuessAfterScoring$ test since the effect was removed
+  // to allow results to be displayed before advancing to next photo
 
   describe('integration scenarios', () => {
     it('should handle complete scoring workflow', (done) => {
       // Test the complete flow from guess submission to score calculation
       scoringService.calculateScore.and.returnValue(mockScore);
       store.overrideSelector(selectCurrentPhoto, mockPhoto);
-      store.overrideSelector(selectCurrentPhotoIndex, 0);
-      store.overrideSelector(selectTotalPhotos, 5);
-      store.overrideSelector(selectScoresCount, 1);
 
-      const actions = [
-        ScoringActions.submitGuess({ guess: mockGuess }),
-        ScoringActions.calculateScore({
-          photoId: mockPhoto.id,
-          guess: mockGuess,
-          actualYear: mockPhoto.year,
-          actualCoordinates: mockPhoto.coordinates
-        }),
-        ScoringActions.addScore({ score: mockScore })
-      ];
+      let effectsCompleted = 0;
+      const totalEffects = 2; // submitGuess$ and calculateScore$
 
-      let actionIndex = 0;
-      actions$ = of(...actions);
-
-      // Test each effect in sequence
+      // Test submitGuess$ effect
+      actions$ = of(ScoringActions.submitGuess({ guess: mockGuess }));
       effects.submitGuess$.subscribe((result: Action) => {
-        if (actionIndex === 0) {
-          expect(result.type).toBe(ScoringActions.calculateScore.type);
-          actionIndex++;
-        }
+        expect(result.type).toBe(ScoringActions.calculateScore.type);
+        effectsCompleted++;
+        if (effectsCompleted === totalEffects) done();
       });
 
+      // Test calculateScore$ effect
+      actions$ = of(ScoringActions.calculateScore({
+        photoId: mockPhoto.id,
+        guess: mockGuess,
+        actualYear: mockPhoto.year,
+        actualCoordinates: mockPhoto.coordinates
+      }));
       effects.calculateScore$.subscribe((result: Action) => {
-        if (actionIndex === 1) {
-          expect(result.type).toBe(ScoringActions.addScore.type);
-          actionIndex++;
-        }
-      });
-
-      effects.handlePhotoTransition$.subscribe((result: Action) => {
-        if (actionIndex === 2) {
-          expect(result.type).toBe(GameActions.nextPhoto.type);
-          done();
-        }
+        expect(result.type).toBe(ScoringActions.addScore.type);
+        effectsCompleted++;
+        if (effectsCompleted === totalEffects) done();
       });
     });
   });

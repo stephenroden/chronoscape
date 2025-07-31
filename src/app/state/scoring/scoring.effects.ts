@@ -21,7 +21,6 @@ export class ScoringEffects {
   handlePhotoTransition$: any;
   handleGameCompletion$: any;
   updateCurrentPhoto$: any;
-  clearGuessAfterScoring$: any;
   logScoringEvents$: any;
 
   constructor(
@@ -158,10 +157,13 @@ export class ScoringEffects {
           this.store.select(selectScoresCount)
         ),
         switchMap(([{ score }, currentIndex, totalPhotos, scoresCount]) => {
-          if (currentIndex >= totalPhotos - 1 || scoresCount >= totalPhotos) {
+          // Only end the game when we have completed all photos
+          // Do NOT automatically advance to next photo - let user see results first
+          if (scoresCount >= totalPhotos) {
             return of(GameActions.endGame());
           } else {
-            return of(GameActions.nextPhoto());
+            // Don't auto-advance - user will click "Next Photo" button in results
+            return of();
           }
         })
       )
@@ -190,12 +192,8 @@ export class ScoringEffects {
       )
     );
 
-    this.clearGuessAfterScoring$ = createEffect(() =>
-      this.actions$.pipe(
-        ofType(ScoringActions.addScore),
-        map(() => ScoringActions.clearCurrentGuess())
-      )
-    );
+    // Removed clearGuessAfterScoring$ effect to allow results to be displayed
+    // The guess will be cleared when user clicks "Next Photo" button in game component
 
     this.logScoringEvents$ = createEffect(() =>
       this.actions$.pipe(
