@@ -237,7 +237,11 @@ export class GameComponent implements OnInit, OnDestroy {
    * Requirement 6.5: Reset all interface elements to default states
    */
   startGame(): void {
-    // Reset interface state for new game
+    // Reset all game state for new game
+    this.store.dispatch(GameActions.resetGame());
+    this.store.dispatch(ScoringActions.resetScores());
+    this.store.dispatch(ScoringActions.clearCurrentGuess());
+    this.store.dispatch(PhotosActions.clearCurrentPhoto());
     this.store.dispatch(InterfaceActions.resetInterfaceState());
     
     // First load photos from the API
@@ -298,8 +302,16 @@ export class GameComponent implements OnInit, OnDestroy {
    * Requirement 6.5: Reset all interface elements to default states
    */
   resetGame(): void {
+    // Reset all game state completely
     this.store.dispatch(GameActions.resetGame());
+    this.store.dispatch(ScoringActions.resetScores());
+    this.store.dispatch(ScoringActions.clearCurrentGuess());
+    this.store.dispatch(PhotosActions.clearCurrentPhoto());
     this.store.dispatch(InterfaceActions.resetInterfaceState());
+    
+    // Reset local flags
+    this.showingResults = false;
+    
     this.router.navigate(['/']);
   }
 

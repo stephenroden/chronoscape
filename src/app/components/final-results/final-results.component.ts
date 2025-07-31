@@ -6,6 +6,9 @@ import { Observable } from 'rxjs';
 import { AppState } from '../../state/app.state';
 import { Score } from '../../models/scoring.model';
 import * as GameActions from '../../state/game/game.actions';
+import * as ScoringActions from '../../state/scoring/scoring.actions';
+import * as PhotosActions from '../../state/photos/photos.actions';
+import * as InterfaceActions from '../../state/interface/interface.actions';
 import * as ScoringSelectors from '../../state/scoring/scoring.selectors';
 import * as GameSelectors from '../../state/game/game.selectors';
 
@@ -58,7 +61,13 @@ export class FinalResultsComponent implements OnInit {
    * Requirement 6.4: Provide option to start new game from final results.
    */
   startNewGame(): void {
+    // Reset all game state completely
     this.store.dispatch(GameActions.resetGame());
+    this.store.dispatch(ScoringActions.resetScores());
+    this.store.dispatch(ScoringActions.clearCurrentGuess());
+    this.store.dispatch(PhotosActions.clearCurrentPhoto());
+    this.store.dispatch(InterfaceActions.resetInterfaceState());
+    
     this.router.navigate(['/']);
   }
 
