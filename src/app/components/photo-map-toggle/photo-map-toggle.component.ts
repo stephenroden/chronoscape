@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, HostListener, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, HostListener, ElementRef, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest } from 'rxjs';
@@ -33,7 +33,8 @@ import { setCurrentGuess } from '../../state/scoring/scoring.actions';
   standalone: true,
   imports: [CommonModule, PhotoDisplayComponent, MapGuessComponent, ErrorBoundaryComponent],
   templateUrl: './photo-map-toggle.component.html',
-  styleUrls: ['./photo-map-toggle.component.scss']
+  styleUrls: ['./photo-map-toggle.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   private _photo: Photo | null = null;
@@ -64,10 +65,17 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
 
     this._photo = value;
     
+    // Mark cached values for update
+    this._needsAriaUpdate = true;
+    this._needsClassUpdate = true;
+    
     // Update thumbnails when photo changes
     if (this.thumbnailImageSrc !== null || this.thumbnailMapSrc !== null) {
       this.updatePhotoThumbnail();
     }
+    
+    // Trigger change detection
+    this.cdr.markForCheck();
   }
   
   get photo(): Photo | null {
@@ -112,6 +120,20 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   thumbnailImageSrc: string | null = null;
   thumbnailMapSrc: string | null = null;
 
+  // Cached computed values to avoid change detection issues
+  private _mainContainerClasses: string[] = [];
+  private _activeViewClasses: string[] = [];
+  private _thumbnailClasses: string[] = [];
+  private _thumbnailImageSrc: string | null = null;
+  private _thumbnailAltText: string = '';
+  private _thumbnailAriaLabel: string = '';
+  private _mainContainerAriaLabel: string = '';
+  private _photoDescription: string = '';
+
+  // Flags to track when cached values need updating
+  private _needsClassUpdate = true;
+  private _needsAriaUpdate = true;
+
   // Mobile and touch support
   private isMobileDevice = false;
   private touchStartTime = 0;
@@ -127,7 +149,8 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
     private interfaceToggleService: InterfaceToggleService,
     private elementRef: ElementRef,
     private performanceMonitor: PerformanceMonitorService,
-    private loadingStateService: LoadingStateService
+    private loadingStateService: LoadingStateService,
+    private cdr: ChangeDetectorRef
   ) {
     // Initialize observables
     this.activeView$ = this.interfaceToggleService.activeView$;
@@ -194,7 +217,10 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
         this.currentActiveView = activeView;
         this.currentInactiveView = activeView === 'photo' ? 'map' : 'photo';
         this.updateThumbnailData();
+        this._needsClassUpdate = true;
+        this._needsAriaUpdate = true;
         this.viewToggled.emit(activeView);
+        this.cdr.markForCheck();
       });
 
     // Subscribe to transition state
@@ -202,6 +228,9 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(inProgress => {
         this.isTransitioning = inProgress;
+        this._needsClassUpdate = true;
+        this._needsAriaUpdate = true;
+        this.cdr.markForCheck();
       });
 
     // Subscribe to toggle capability
@@ -209,6 +238,9 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(canToggle => {
         this.canToggleView = canToggle;
+        this._needsClassUpdate = true;
+        this._needsAriaUpdate = true;
+        this.cdr.markForCheck();
       });
 
     // Subscribe to photo zoom changes
@@ -630,120 +662,150 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get CSS classes for main container
+   * Get CSS classes for main container (cached to avoid change detection issues)
    */
   getMainContainerClasses(): string[] {
-    const classes = ['photo-map-toggle-container'];
-    
-    if (this.isTransitioning) {
-      classes.push('transitioning');
+    if (this._needsClassUpdate) {
+      this._mainContainerClasses = ['photo-map-toggle-container'];
+      
+      if (this.isTransitioning) {
+        this._mainContainerClasses.push('transitioning');
+      }
+      
+      this._mainContainerClasses.push(`active-${this.currentActiveView}`);
+      
+      // Add mobile-specific classes
+      if (this.isMobileDevice) {
+        this._mainContainerClasses.push('mobile-device');
+      }
     }
     
-    classes.push(`active-${this.currentActiveView}`);
-    
-    // Add mobile-specific classes
-    if (this.isMobileDevice) {
-      classes.push('mobile-device');
-    }
-    
-    return classes;
+    return this._mainContainerClasses;
   }
 
   /**
-   * Get CSS classes for active view
+   * Get CSS classes for active view (cached to avoid change detection issues)
    */
   getActiveViewClasses(): string[] {
-    const classes = ['active-view'];
-    
-    if (this.isTransitioning) {
-      classes.push('transitioning');
+    if (this._needsClassUpdate) {
+      this._activeViewClasses = ['active-view'];
+      
+      if (this.isTransitioning) {
+        this._activeViewClasses.push('transitioning');
+      }
     }
     
-    return classes;
+    return this._activeViewClasses;
   }
 
   /**
-   * Get CSS classes for thumbnail
+   * Get CSS classes for thumbnail (cached to avoid change detection issues)
    */
   getThumbnailClasses(): string[] {
-    const classes = ['thumbnail-container'];
-    
-    if (this.thumbnailData) {
-      classes.push(`thumbnail-${this.thumbnailData.view}`);
+    if (this._needsClassUpdate) {
+      this._thumbnailClasses = ['thumbnail-container'];
+      
+      if (this.thumbnailData) {
+        this._thumbnailClasses.push(`thumbnail-${this.thumbnailData.view}`);
+      }
+      
+      if (this.isTransitioning) {
+        this._thumbnailClasses.push('transitioning');
+      }
+      
+      // Add mobile-specific classes
+      if (this.isMobileDevice) {
+        this._thumbnailClasses.push('mobile-thumbnail');
+      }
+      
+      this._needsClassUpdate = false;
     }
     
-    if (this.isTransitioning) {
-      classes.push('transitioning');
-    }
-    
-    // Add mobile-specific classes
-    if (this.isMobileDevice) {
-      classes.push('mobile-thumbnail');
-    }
-    
-    return classes;
+    return this._thumbnailClasses;
   }
 
   /**
-   * Get thumbnail image source
+   * Get thumbnail image source (cached to avoid change detection issues)
    */
   getThumbnailImageSrc(): string | null {
-    if (!this.thumbnailData) {
-      return null;
+    if (this._needsClassUpdate || this._thumbnailImageSrc === null) {
+      if (!this.thumbnailData) {
+        this._thumbnailImageSrc = null;
+      } else {
+        this._thumbnailImageSrc = this.thumbnailData.view === 'photo' ? this.thumbnailImageSrc : this.thumbnailMapSrc;
+      }
     }
 
-    return this.thumbnailData.view === 'photo' ? this.thumbnailImageSrc : this.thumbnailMapSrc;
+    return this._thumbnailImageSrc;
   }
 
   /**
-   * Get thumbnail alt text
+   * Get thumbnail alt text (cached to avoid change detection issues)
    */
   getThumbnailAltText(): string {
-    if (!this.thumbnailData) {
-      return 'Thumbnail';
+    if (this._needsAriaUpdate) {
+      if (!this.thumbnailData) {
+        this._thumbnailAltText = 'Thumbnail';
+      } else {
+        const viewName = this.thumbnailData.view === 'photo' ? 'photograph' : 'map';
+        this._thumbnailAltText = `Switch to ${viewName} view`;
+      }
     }
 
-    const viewName = this.thumbnailData.view === 'photo' ? 'photograph' : 'map';
-    return `Switch to ${viewName} view`;
+    return this._thumbnailAltText;
   }
 
   /**
-   * Get thumbnail aria label
+   * Get thumbnail aria label (cached to avoid change detection issues)
    */
   getThumbnailAriaLabel(): string {
-    if (!this.thumbnailData) {
-      return 'Toggle view';
+    if (this._needsAriaUpdate) {
+      if (!this.thumbnailData) {
+        this._thumbnailAriaLabel = 'Toggle view';
+      } else {
+        const viewName = this.thumbnailData.view === 'photo' ? 'photograph' : 'map';
+        const currentViewName = this.currentActiveView === 'photo' ? 'photograph' : 'map';
+        
+        this._thumbnailAriaLabel = `Currently viewing ${currentViewName}. Click to switch to ${viewName} view.`;
+      }
     }
-
-    const viewName = this.thumbnailData.view === 'photo' ? 'photograph' : 'map';
-    const currentViewName = this.currentActiveView === 'photo' ? 'photograph' : 'map';
     
-    return `Currently viewing ${currentViewName}. Click to switch to ${viewName} view.`;
+    return this._thumbnailAriaLabel;
   }
 
   /**
-   * Get main container aria label
+   * Get main container aria label (cached to avoid change detection issues)
    */
   getMainContainerAriaLabel(): string {
-    const viewName = this.currentActiveView === 'photo' ? 'photograph' : 'map';
-    return `${viewName} view container. Press T to toggle views, P for photo, M for map.`;
+    if (this._needsAriaUpdate) {
+      const viewName = this.currentActiveView === 'photo' ? 'photograph' : 'map';
+      this._mainContainerAriaLabel = `${viewName} view container. Press T to toggle views, P for photo, M for map.`;
+      this._needsAriaUpdate = false;
+    }
+    
+    return this._mainContainerAriaLabel;
   }
 
   /**
-   * Get photo description for screen readers
+   * Get photo description for screen readers (cached to avoid change detection issues)
    */
   getPhotoDescription(): string {
-    if (!this.photo) return 'No photograph available';
-    
-    let description = this.photo.title || 'Historical photograph';
-    if (this.photo.year) {
-      description += ` from ${this.photo.year}`;
+    if (this._needsAriaUpdate || this._photoDescription === '') {
+      if (!this.photo) {
+        this._photoDescription = 'No photograph available';
+      } else {
+        let description = this.photo.title || 'Historical photograph';
+        if (this.photo.year) {
+          description += ` from ${this.photo.year}`;
+        }
+        if (this.photo.description) {
+          description += `. ${this.photo.description}`;
+        }
+        this._photoDescription = description;
+      }
     }
-    if (this.photo.description) {
-      description += `. ${this.photo.description}`;
-    }
     
-    return description;
+    return this._photoDescription;
   }
 
   /**
