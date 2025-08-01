@@ -7,6 +7,9 @@ import { AppState } from '../../state/app.state';
 import { GameStatus } from '../../models/game-state.model';
 import * as GameSelectors from '../../state/game/game.selectors';
 import * as GameActions from '../../state/game/game.actions';
+import * as ScoringActions from '../../state/scoring/scoring.actions';
+import * as PhotosActions from '../../state/photos/photos.actions';
+import * as InterfaceActions from '../../state/interface/interface.actions';
 
 /**
  * Interface for breadcrumb items
@@ -162,15 +165,7 @@ export class NavigationComponent implements OnInit {
   formatGameProgress(progress: { current: number; total: number; percentage: number } | null): string {
     if (!progress) return '';
     
-    // DEBUG: Log progress formatting for Task 5
-    const formatted = `Photo ${progress.current} of ${progress.total}`;
-    console.log('[NavigationComponent] formatGameProgress:', {
-      input: progress,
-      output: formatted,
-      timestamp: new Date().toISOString()
-    });
-    
-    return formatted;
+    return `Photo ${progress.current} of ${progress.total}`;
   }
 
   /**
@@ -202,8 +197,13 @@ export class NavigationComponent implements OnInit {
     console.log('[NavigationComponent] Starting new game');
     this.closeDropdown();
     
-    // Reset game state and navigate to welcome page
+    // Reset all game state completely
     this.store.dispatch(GameActions.resetGame());
+    this.store.dispatch(ScoringActions.resetScores());
+    this.store.dispatch(ScoringActions.clearCurrentGuess());
+    this.store.dispatch(PhotosActions.clearPhotos());
+    this.store.dispatch(InterfaceActions.resetInterfaceState());
+    
     this.router.navigate(['/']);
   }
 

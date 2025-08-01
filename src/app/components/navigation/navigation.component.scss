@@ -22,10 +22,6 @@
   color: white;
   font-weight: 700;
   
-  @media (max-width: 799px) {
-    display: none;
-  }
-  
   @media (min-width: 800px) {
     font-size: 1.75rem;
   }

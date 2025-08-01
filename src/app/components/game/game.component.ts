@@ -241,7 +241,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.store.dispatch(GameActions.resetGame());
     this.store.dispatch(ScoringActions.resetScores());
     this.store.dispatch(ScoringActions.clearCurrentGuess());
-    this.store.dispatch(PhotosActions.clearCurrentPhoto());
+    this.store.dispatch(PhotosActions.clearPhotos()); // Clear all photos to force fresh fetch
     this.store.dispatch(InterfaceActions.resetInterfaceState());
     
     // First load photos from the API with fresh photos (forceRefresh: true)
@@ -320,7 +320,7 @@ export class GameComponent implements OnInit, OnDestroy {
     this.store.dispatch(GameActions.resetGame());
     this.store.dispatch(ScoringActions.resetScores());
     this.store.dispatch(ScoringActions.clearCurrentGuess());
-    this.store.dispatch(PhotosActions.clearCurrentPhoto());
+    this.store.dispatch(PhotosActions.clearPhotos()); // Clear all photos to force fresh fetch
     this.store.dispatch(InterfaceActions.resetInterfaceState());
     
     // Reset local flags

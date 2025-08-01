@@ -3,20 +3,11 @@
   flex-direction: column;
   max-width: 1200px;
   margin: 0 auto;
-  padding: var(--spacing-md);
   height: calc(100vh - 140px);
   max-height: calc(100vh - 140px);
   overflow: hidden;
   position: relative;
-  
-  @media (min-width: 768px) {
-    padding: var(--spacing-lg);
   }
-  
-  @media (min-width: 1024px) {
-    padding: var(--spacing-xl);
-  }
-}
 
 .skip-link {
   position: absolute;
@@ -88,12 +79,7 @@
   width: 100%;
   height: 100%;
   max-width: 1000px;
-  padding: var(--spacing-sm);
   overflow: hidden;
-  
-  @media (min-width: 768px) {
-    padding: var(--spacing-md);
-  }
   
   app-results {
     display: flex;

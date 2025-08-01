@@ -398,19 +398,18 @@
   100% { transform: rotate(360deg); }
 }
 
+// Hide map instructions on mobile
+@media (max-width: 768px) {
+  .map-instructions {
+    display: none;
+  }
+}
+
 // Additional responsive adjustments for very small screens
 @media (max-width: 480px) {
   .map-wrapper {
     height: 250px;
     border-width: 1px;
-  }
-
-  .map-instructions h3 {
-    font-size: var(--font-size-lg);
-  }
-
-  .map-instructions .instruction-text {
-    font-size: var(--font-size-sm);
   }
 
   .map-controls {
