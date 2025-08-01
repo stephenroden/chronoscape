@@ -42,8 +42,8 @@ export class StartScreenComponent {
    * Requirement 1.1: Display the first of five photographs when game starts.
    */
   startGame(): void {
-    // First load photos from the API
-    this.store.dispatch(PhotosActions.loadPhotos());
+    // First load photos from the API with fresh photos (forceRefresh: true)
+    this.store.dispatch(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
     
     // Start the game which will set status to IN_PROGRESS
     this.store.dispatch(GameActions.startGame());

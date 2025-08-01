@@ -24,9 +24,10 @@ export class PhotosEffects {
      */
     this.loadPhotos$ = createEffect(() =>
       this.actions$.pipe(
-        ofType(PhotosActions.loadPhotos),
-        switchMap(() =>
-          this.photoService.fetchRandomPhotos(5).pipe(
+        ofType(PhotosActions.loadPhotos, PhotosActions.loadPhotosWithOptions),
+        switchMap((action) => {
+          const forceRefresh = 'forceRefresh' in action ? action.forceRefresh : false;
+          return this.photoService.fetchRandomPhotos(5, forceRefresh).pipe(
             map(photos => {
               if (photos.length === 0) {
                 return PhotosActions.loadPhotosFailure({
@@ -43,8 +44,8 @@ export class PhotosEffects {
               const errorMessage = this.getErrorMessage(error);
               return of(PhotosActions.loadPhotosFailure({ error: errorMessage }));
             })
-          )
-        )
+          );
+        })
       )
     );
 

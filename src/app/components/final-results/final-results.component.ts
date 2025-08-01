@@ -65,7 +65,7 @@ export class FinalResultsComponent implements OnInit {
     this.store.dispatch(GameActions.resetGame());
     this.store.dispatch(ScoringActions.resetScores());
     this.store.dispatch(ScoringActions.clearCurrentGuess());
-    this.store.dispatch(PhotosActions.clearCurrentPhoto());
+    this.store.dispatch(PhotosActions.clearPhotos()); // Clear all photos to force fresh fetch
     this.store.dispatch(InterfaceActions.resetInterfaceState());
     
     this.router.navigate(['/']);

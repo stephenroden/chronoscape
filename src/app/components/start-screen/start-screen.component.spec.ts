@@ -40,7 +40,7 @@ describe('StartScreenComponent', () => {
   it('should start game and navigate to game screen', () => {
     component.startGame();
 
-    expect(mockStore.dispatch).toHaveBeenCalledWith(PhotosActions.loadPhotos());
+    expect(mockStore.dispatch).toHaveBeenCalledWith(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
     expect(mockStore.dispatch).toHaveBeenCalledWith(GameActions.startGame());
     expect(mockRouter.navigate).toHaveBeenCalledWith(['/game']);
   });

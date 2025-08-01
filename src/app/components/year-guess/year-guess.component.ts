@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { Store } from '@ngrx/store';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, take } from 'rxjs';
 import { CommonModule } from '@angular/common';
 
 import { AppState } from '../../state/app.state';
@@ -77,14 +77,15 @@ export class YearGuessComponent implements OnInit, OnDestroy {
     this.yearForm.patchValue({ year });
     
     if (validateYearGuess(year)) {
-      // Dispatch action to update current guess with year
-      // We'll use a placeholder for coordinates since this component only handles year
-      this.store.dispatch(setCurrentGuess({
-        guess: {
-          year,
-          coordinates: { latitude: 0, longitude: 0 } // Placeholder, will be updated by map component
-        }
-      }));
+      // Get the current guess to preserve existing coordinates
+      this.store.select(selectCurrentGuess).pipe(take(1)).subscribe(currentGuess => {
+        this.store.dispatch(setCurrentGuess({
+          guess: {
+            year,
+            coordinates: currentGuess?.coordinates || { latitude: 0, longitude: 0 }
+          }
+        }));
+      });
     }
   }
 
@@ -95,14 +96,15 @@ export class YearGuessComponent implements OnInit, OnDestroy {
       const year = parseInt(yearValue, 10);
       
       if (validateYearGuess(year)) {
-        // Dispatch action to update current guess with year
-        // We'll use a placeholder for coordinates since this component only handles year
-        this.store.dispatch(setCurrentGuess({
-          guess: {
-            year,
-            coordinates: { latitude: 0, longitude: 0 } // Placeholder, will be updated by map component
-          }
-        }));
+        // Get the current guess to preserve existing coordinates
+        this.store.select(selectCurrentGuess).pipe(take(1)).subscribe(currentGuess => {
+          this.store.dispatch(setCurrentGuess({
+            guess: {
+              year,
+              coordinates: currentGuess?.coordinates || { latitude: 0, longitude: 0 }
+            }
+          }));
+        });
       }
     }
   }
@@ -246,12 +248,15 @@ export class YearGuessComponent implements OnInit, OnDestroy {
         
         // Update the store with the new year
         if (validateYearGuess(newYear)) {
-          this.store.dispatch(setCurrentGuess({
-            guess: {
-              year: newYear,
-              coordinates: { latitude: 0, longitude: 0 }
-            }
-          }));
+          // Get the current guess to preserve existing coordinates
+          this.store.select(selectCurrentGuess).pipe(take(1)).subscribe(currentGuess => {
+            this.store.dispatch(setCurrentGuess({
+              guess: {
+                year: newYear,
+                coordinates: currentGuess?.coordinates || { latitude: 0, longitude: 0 }
+              }
+            }));
+          });
         }
       }
     }

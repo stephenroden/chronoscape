@@ -4,6 +4,11 @@ import { Photo } from '../../models/photo.model';
 // Photo loading actions
 export const loadPhotos = createAction('[Photos] Load Photos');
 
+export const loadPhotosWithOptions = createAction(
+  '[Photos] Load Photos With Options',
+  props<{ forceRefresh?: boolean }>()
+);
+
 export const loadPhotosSuccess = createAction(
   '[Photos] Load Photos Success',
   props<{ photos: Photo[] }>()
@@ -21,6 +26,8 @@ export const setCurrentPhoto = createAction(
 );
 
 export const clearCurrentPhoto = createAction('[Photos] Clear Current Photo');
+
+export const clearPhotos = createAction('[Photos] Clear Photos');
 
 // Photo validation
 export const validatePhoto = createAction(

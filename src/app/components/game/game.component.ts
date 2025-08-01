@@ -244,8 +244,8 @@ export class GameComponent implements OnInit, OnDestroy {
     this.store.dispatch(PhotosActions.clearCurrentPhoto());
     this.store.dispatch(InterfaceActions.resetInterfaceState());
     
-    // First load photos from the API
-    this.store.dispatch(PhotosActions.loadPhotos());
+    // First load photos from the API with fresh photos (forceRefresh: true)
+    this.store.dispatch(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
     
     // Then start the game which will set status to IN_PROGRESS
     this.store.dispatch(GameActions.startGame());

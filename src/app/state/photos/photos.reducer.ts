@@ -88,6 +88,10 @@ export const photosReducer = createReducer(
     currentPhoto: null
   })),
 
+  on(PhotosActions.clearPhotos, (): PhotoState => ({
+    ...initialPhotosState
+  })),
+
   on(PhotosActions.validatePhoto, (state): PhotoState => ({
     ...state,
     loading: true

@@ -94,8 +94,15 @@ export class PhotoService {
    * @param count - Number of photos to fetch
    * @returns Observable of Photo array
    */
-  fetchRandomPhotos(count: number): Observable<Photo[]> {
-    const cacheKey = `random-photos-${count}-${Date.now() - (Date.now() % (5 * 60 * 1000))}`; // 5-minute cache buckets
+  fetchRandomPhotos(count: number, forceRefresh: boolean = false): Observable<Photo[]> {
+    let cacheKey: string;
+    if (forceRefresh) {
+      // Generate unique cache key to ensure fresh photos
+      cacheKey = `random-photos-${count}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    } else {
+      // Use 5-minute cache buckets for normal requests
+      cacheKey = `random-photos-${count}-${Date.now() - (Date.now() % (5 * 60 * 1000))}`;
+    }
     
     // Start loading state
     this.loadingStateService.startPhotosFetch(count);

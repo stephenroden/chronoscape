@@ -118,7 +118,7 @@ describe('GameComponent', () => {
     component.startGame();
     
     expect(store.dispatch).toHaveBeenCalledWith(InterfaceActions.resetInterfaceState());
-    expect(store.dispatch).toHaveBeenCalledWith(PhotosActions.loadPhotos());
+    expect(store.dispatch).toHaveBeenCalledWith(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
     expect(store.dispatch).toHaveBeenCalledWith(GameActions.startGame());
   });
 
@@ -215,7 +215,7 @@ describe('GameComponent', () => {
     // Test startGame
     component.startGame();
     expect(store.dispatch).toHaveBeenCalledWith(InterfaceActions.resetInterfaceState());
-    expect(store.dispatch).toHaveBeenCalledWith(PhotosActions.loadPhotos());
+    expect(store.dispatch).toHaveBeenCalledWith(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
     expect(store.dispatch).toHaveBeenCalledWith(GameActions.startGame());
 
     // Test nextPhoto
