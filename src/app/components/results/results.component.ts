@@ -46,6 +46,9 @@ export class ResultsComponent implements OnInit, OnDestroy {
   
   // Track if this is the last photo
   isLastPhoto$: Observable<boolean>;
+  
+  // Toggle state for photo context
+  showPhotoContext = false;
 
   constructor(
     private store: Store<AppState>,
@@ -216,6 +219,23 @@ export class ResultsComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Toggle photo context visibility
+   */
+  togglePhotoContext(): void {
+    this.showPhotoContext = !this.showPhotoContext;
+  }
+
+  /**
+   * Close photo context overlay
+   */
+  closePhotoContext(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+    }
+    this.showPhotoContext = false;
+  }
+
+  /**
    * Handle next photo button click
    * Requirements 2.2, 2.3, 3.2: Ensure proper navigation flow from results to game
    */
@@ -224,6 +244,9 @@ export class ResultsComponent implements OnInit, OnDestroy {
     
     // Reset map for next photo
     this.mapInitialized = false;
+    
+    // Reset photo context visibility for next photo
+    this.showPhotoContext = false;
     
     // Emit event to parent game component to handle the transition
     // The game component will handle clearing the guess and advancing the photo
