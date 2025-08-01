@@ -20,6 +20,49 @@
         "build": {
           "builder": "@angular/build:application",
           "options": {
+            "browser": "src/main.ts",
+            "polyfills": [
+              "zone.js"
+            ],
+            "tsConfig": "tsconfig.app.json",
+            "inlineStyleLanguage": "scss",
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
+            "styles": [
+              "src/styles.scss"
+            ]
+          },
+          "configurations": {
+            "production": {
+              "budgets": [
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "30kB"
+                }
+              ],
+              "outputHashing": "all"
+            },
+            "development": {
+              "optimization": false,
+              "extractLicenses": false,
+              "sourceMap": true
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "buildlocal": {
+          "builder": "@angular/build:application",
+          "options": {
             "outputPath": "/opt/homebrew/var/www/game/browser",
             "browser": "src/main.ts",
             "polyfills": [
@@ -49,7 +92,7 @@
                 {
                   "type": "anyComponentStyle",
                   "maximumWarning": "4kB",
-                  "maximumError": "20kB"
+                  "maximumError": "30kB"
                 }
               ],
               "outputHashing": "all"

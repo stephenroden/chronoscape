@@ -444,6 +444,37 @@ export class PhotoDisplayComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Handle mouse wheel for zoom in/out
+   */
+  onWheel(event: WheelEvent): void {
+    if (!this.enableZoom || !this.zoomState || !this.photoContainer) return;
+    
+    event.preventDefault();
+    
+    // Get mouse position relative to the container
+    const containerRect = this.photoContainer.nativeElement.getBoundingClientRect();
+    const centerX = event.clientX - containerRect.left;
+    const centerY = event.clientY - containerRect.top;
+    
+    // Determine zoom direction and calculate new zoom level
+    if (event.deltaY < 0) {
+      // Zoom in
+      const newZoomLevel = Math.min(this.zoomState.zoomLevel * 1.1, this.zoomState.maxZoom);
+      this.photoZoomService.zoomToPoint(newZoomLevel, centerX, centerY);
+    } else {
+      // Zoom out
+      if (this.zoomState.zoomLevel > 1) {
+        const newZoomLevel = Math.max(this.zoomState.zoomLevel / 1.1, this.zoomState.minZoom);
+        if (newZoomLevel <= 1.01) {
+          this.photoZoomService.reset();
+        } else {
+          this.photoZoomService.zoomToPoint(newZoomLevel, centerX, centerY);
+        }
+      }
+    }
+  }
+
+  /**
    * Handle mouse move for panning with boundary constraints
    */
   @HostListener('document:mousemove', ['$event'])
