@@ -4,37 +4,26 @@
     <h1 class="app-title">Chronoscape</h1>
   </div>
   
-  <!-- Breadcrumb navigation -->
-  <div class="breadcrumb-container" role="navigation" aria-label="Breadcrumb navigation">
-    <ol class="breadcrumb-list">
-      <li *ngFor="let breadcrumb of breadcrumbs$ | async; let isLast = last" 
-          [ngClass]="getBreadcrumbClasses(breadcrumb)">
-        
-        <!-- Active or disabled breadcrumb (no link) -->
-        <span *ngIf="breadcrumb.active || breadcrumb.disabled"
-              class="breadcrumb-text"
-              [attr.aria-label]="getBreadcrumbAriaLabel(breadcrumb)"
-              [attr.aria-current]="breadcrumb.active ? 'page' : null">
-          {{ breadcrumb.label }}
-        </span>
-        
-        <!-- Clickable breadcrumb -->
-        <button *ngIf="!breadcrumb.active && !breadcrumb.disabled"
-                class="breadcrumb-link"
-                (click)="navigateTo(breadcrumb)"
-                [attr.aria-label]="getBreadcrumbAriaLabel(breadcrumb)"
-                type="button">
-          {{ breadcrumb.label }}
-        </button>
-        
-        <!-- Separator (not for last item) -->
-        <span *ngIf="!isLast" class="breadcrumb-separator" aria-hidden="true">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M6.22 3.22a.75.75 0 011.06 0l4.25 4.25a.75.75 0 010 1.06L7.28 12.78a.75.75 0 01-1.06-1.06L9.94 8 6.22 4.28a.75.75 0 010-1.06z"/>
-          </svg>
-        </span>
-      </li>
-    </ol>
+  <!-- Dropdown Menu -->
+  <div class="dropdown-container">
+    <button class="dropdown-toggle"
+            (click)="toggleDropdown()"
+            [attr.aria-expanded]="isDropdownOpen"
+            aria-label="Game menu"
+            type="button">
+      <span class="menu-icon">☰</span>
+    </button>
+    
+    <div class="dropdown-menu" 
+         *ngIf="isDropdownOpen"
+         (click)="$event.stopPropagation()">
+      <button class="dropdown-item"
+              (click)="startNewGame()"
+              type="button">
+        <span class="item-icon">🔄</span>
+        <span class="item-text">Restart</span>
+      </button>
+    </div>
   </div>
   
   <!-- Game progress indicator (shown during game) -->
@@ -45,7 +34,8 @@
        [attr.aria-label]="'Game progress: ' + formatGameProgress(gameProgress$ | async)">
     
     <div class="progress-text">
-      {{ formatGameProgress(gameProgress$ | async) }}
+      <span class="progress-text-desktop">{{ formatGameProgress(gameProgress$ | async) }}</span>
+      <span class="progress-text-mobile">{{ formatGameProgressMobile(gameProgress$ | async) }}</span>
     </div>
     
     <div class="progress-bar" 

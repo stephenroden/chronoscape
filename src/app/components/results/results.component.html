@@ -1,9 +1,4 @@
 <div class="results-container" *ngIf="resultsData$ | async as data">
-  <!-- Results Header -->
-  <div class="results-header">
-    <h2>Results</h2>
-  </div>
-
   <!-- Results Content -->
   <div class="results-content" *ngIf="data.photo && data.guess">
     <!-- Combined Performance Summary -->

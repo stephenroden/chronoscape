@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { Store } from '@ngrx/store';
@@ -6,6 +6,7 @@ import { Observable, filter, map, startWith } from 'rxjs';
 import { AppState } from '../../state/app.state';
 import { GameStatus } from '../../models/game-state.model';
 import * as GameSelectors from '../../state/game/game.selectors';
+import * as GameActions from '../../state/game/game.actions';
 
 /**
  * Interface for breadcrumb items
@@ -36,6 +37,9 @@ export class NavigationComponent implements OnInit {
   // Navigation state
   breadcrumbs$: Observable<BreadcrumbItem[]>;
   currentRoute$: Observable<string>;
+  
+  // Dropdown state
+  isDropdownOpen = false;
 
   constructor(
     private store: Store<AppState>,
@@ -167,5 +171,53 @@ export class NavigationComponent implements OnInit {
     });
     
     return formatted;
+  }
+
+  /**
+   * Formats the game progress for mobile display (simplified format)
+   */
+  formatGameProgressMobile(progress: { current: number; total: number; percentage: number } | null): string {
+    if (!progress) return '';
+    return `${progress.current} / ${progress.total}`;
+  }
+
+  /**
+   * Toggle dropdown menu open/closed
+   */
+  toggleDropdown(): void {
+    this.isDropdownOpen = !this.isDropdownOpen;
+  }
+
+  /**
+   * Close dropdown menu
+   */
+  closeDropdown(): void {
+    this.isDropdownOpen = false;
+  }
+
+  /**
+   * Start a new game
+   */
+  startNewGame(): void {
+    console.log('[NavigationComponent] Starting new game');
+    this.closeDropdown();
+    
+    // Reset game state and navigate to welcome page
+    this.store.dispatch(GameActions.resetGame());
+    this.router.navigate(['/']);
+  }
+
+  /**
+   * Close dropdown when clicking outside
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    const dropdownContainer = target.closest('.dropdown-container');
+    
+    // If click is outside dropdown container, close the dropdown
+    if (!dropdownContainer && this.isDropdownOpen) {
+      this.closeDropdown();
+    }
   }
 }
