@@ -43,11 +43,14 @@ describe('YearGuessComponent - Accessibility', () => {
 
     it('should have proper form labeling', () => {
       const slider = fixture.debugElement.query(By.css('#year-slider'));
-      const label = fixture.debugElement.query(By.css('[for="year-slider"]'));
+      const heading = fixture.debugElement.query(By.css('#year-guess-heading'));
       
       expect(slider).toBeTruthy();
-      expect(label).toBeTruthy();
-      expect(label.nativeElement.getAttribute('for')).toBe('year-slider');
+      expect(heading).toBeTruthy();
+      
+      // Slider should have comprehensive aria-label since it doesn't use a traditional label
+      const ariaLabel = slider.nativeElement.getAttribute('aria-label');
+      expect(ariaLabel).toContain('Select year between');
     });
 
     it('should have descriptive ARIA labels', () => {
@@ -63,15 +66,12 @@ describe('YearGuessComponent - Accessibility', () => {
 
     it('should have proper describedby relationships', () => {
       const slider = fixture.debugElement.query(By.css('#year-slider'));
-      const helpText = fixture.debugElement.query(By.css('#year-help-text'));
       const rangeLabels = fixture.debugElement.query(By.css('#year-range-labels'));
       
       expect(slider).toBeTruthy();
-      expect(helpText).toBeTruthy();
       expect(rangeLabels).toBeTruthy();
       
       const describedBy = slider.nativeElement.getAttribute('aria-describedby');
-      expect(describedBy).toContain('year-help-text');
       expect(describedBy).toContain('year-range-labels');
     });
 

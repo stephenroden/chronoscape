@@ -25,7 +25,7 @@
             class="year-slider"
             step="1"
             [attr.aria-label]="'Select year between ' + minYear + ' and ' + currentYear + '. Current selection: ' + selectedYear"
-            [attr.aria-describedby]="'year-help-text year-range-labels'"
+            [attr.aria-describedby]="'year-range-labels'"
             aria-orientation="horizontal"
           />
           
@@ -48,10 +48,6 @@
         </div>
       </div>
       
-      <div class="help-text" id="year-help-text">
-        Use the slider or arrow keys to select a year between {{ minYear }} and {{ currentYear }}. 
-        Press Shift + arrow keys for larger jumps.
-      </div>
       
       <!-- Additional keyboard instructions for screen readers -->
       <div class="sr-only" role="region" aria-label="Keyboard shortcuts">

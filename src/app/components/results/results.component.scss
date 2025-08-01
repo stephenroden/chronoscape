@@ -1,9 +1,16 @@
 .results-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 12px;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   animation: resultsEnter 600ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  
+  @media (min-width: 768px) {
+    padding: 20px;
+  }
 }
 
 @keyframes resultsEnter {
@@ -19,26 +26,42 @@
 
 .results-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
   
   h2 {
     color: #2c3e50;
-    font-size: 2rem;
-    margin-bottom: 10px;
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    
+    @media (min-width: 768px) {
+      font-size: 2rem;
+      margin-bottom: 10px;
+    }
   }
   
   .photo-info {
     h3 {
       color: #34495e;
-      font-size: 1.4rem;
-      margin-bottom: 8px;
+      font-size: 1.1rem;
+      margin-bottom: 4px;
+      
+      @media (min-width: 768px) {
+        font-size: 1.4rem;
+        margin-bottom: 8px;
+      }
     }
     
     .photo-description {
       color: #7f8c8d;
       font-style: italic;
+      font-size: 0.9rem;
       max-width: 600px;
       margin: 0 auto;
+      
+      @media (min-width: 768px) {
+        font-size: 1rem;
+      }
     }
   }
 }
@@ -46,19 +69,35 @@
 .results-content {
   display: flex;
   flex-direction: column;
-  gap: 25px;
+  gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  
+  @media (min-width: 768px) {
+    gap: 25px;
+  }
 }
 
 .result-section {
   background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  border-radius: 16px;
-  padding: 24px;
-  border-left: 6px solid #3498db;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08),
-              0 2px 8px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid #3498db;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08),
+              0 1px 4px rgba(0, 0, 0, 0.04);
   transition: all 300ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   position: relative;
   overflow: hidden;
+  
+  @media (min-width: 768px) {
+    border-radius: 16px;
+    padding: 24px;
+    border-left-width: 6px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08),
+                0 2px 8px rgba(0, 0, 0, 0.04);
+  }
   
   // Subtle background pattern
   &::before {
@@ -596,18 +635,34 @@
 
 .results-actions {
   text-align: center;
-  margin-top: 30px;
+  margin-top: 16px;
+  padding: 12px 0;
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  
+  @media (min-width: 768px) {
+    margin-top: 30px;
+  }
   
   .next-photo-btn {
     background: #3498db;
     color: white;
     border: none;
-    padding: 12px 30px;
-    font-size: 1.1rem;
+    padding: 14px 28px;
+    font-size: 1rem;
     font-weight: 600;
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    min-height: 44px;
+    
+    @media (min-width: 768px) {
+      padding: 12px 30px;
+      font-size: 1.1rem;
+    }
     
     &:hover {
       background: #2980b9;

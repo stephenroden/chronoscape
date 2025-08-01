@@ -4,7 +4,9 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--spacing-md);
-  min-height: 100vh;
+  height: calc(100vh - 60px);
+  max-height: calc(100vh - 60px);
+  overflow: hidden;
   position: relative;
   
   @media (min-width: 768px) {
@@ -37,21 +39,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-lg);
   text-align: center;
+  flex-shrink: 0;
   
   h1 {
-    font-size: var(--font-size-xxxl);
-    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-xxl);
+    margin-bottom: var(--spacing-sm);
     color: var(--text-primary);
     font-weight: 700;
     
     @media (min-width: 768px) {
-      font-size: 3rem;
+      font-size: var(--font-size-xxxl);
     }
     
     @media (min-width: 1024px) {
-      font-size: 3.5rem;
+      font-size: 3rem;
     }
   }
 }
@@ -59,7 +62,7 @@
 .progress-container {
   width: 100%;
   max-width: 500px;
-  margin-top: var(--spacing-md);
+  margin-top: var(--spacing-sm);
   
   @media (min-width: 768px) {
     max-width: 600px;
@@ -68,25 +71,25 @@
   .progress-text {
     display: flex;
     justify-content: center;
-    margin-bottom: var(--spacing-sm);
-    font-size: var(--font-size-base);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
     font-weight: 500;
     color: var(--text-secondary);
     
     @media (min-width: 768px) {
-      font-size: var(--font-size-lg);
+      font-size: var(--font-size-base);
     }
   }
   
   .progress-bar {
-    height: 8px;
+    height: 6px;
     background-color: var(--border-color);
     border-radius: var(--border-radius-small);
     overflow: hidden;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     
     @media (min-width: 768px) {
-      height: 10px;
+      height: 8px;
     }
     
     .progress-fill {
@@ -105,6 +108,8 @@
   align-items: center;
   justify-content: flex-start;
   width: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .game-start, .game-completed, .game-error {
@@ -143,73 +148,85 @@
 }
 
 .game-results {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
   width: 100%;
+  height: 100%;
   max-width: 1000px;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-sm);
+  overflow: hidden;
   
   @media (min-width: 768px) {
-    padding: var(--spacing-xxl);
+    padding: var(--spacing-md);
   }
   
   app-results {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 }
 
 .game-play {
   width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-xl);
+  gap: var(--spacing-xs);
+  overflow: hidden;
   
   .photo-map-section {
     width: 100%;
-    margin-bottom: var(--spacing-lg);
-    height: 940px;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    
+    app-error-boundary {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    
     app-photo-display {
       width: 100%;
+      height: 100%;
       display: block;
     }
   }
   
-  .guess-container {
-    display: flex;
-    flex-direction: column;
+  .year-guess-section {
+    flex-shrink: 0;
+    min-height: 60px;
     width: 100%;
-    gap: var(--spacing-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xs);
+    background-color: var(--background-secondary);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-small);
+    
+    app-year-guess {
+      width: 100%;
+      display: block;
+    }
     
     @media (min-width: 768px) {
-      flex-direction: row;
-      gap: var(--spacing-lg);
+      min-height: 70px;
+      max-height: 320px;
+      padding: var(--spacing-sm);
     }
     
     @media (min-width: 1024px) {
-      gap: var(--spacing-xl);
-    }
-    
-    .year-guess-section, .map-guess-section {
-      flex: 1;
-      min-height: 250px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: var(--spacing-lg);
-      background-color: var(--background-secondary);
-      border-radius: var(--border-radius);
-      border: 1px solid var(--border-color);
-      box-shadow: var(--shadow-small);
-      
-      @media (min-width: 768px) {
-        min-height: 300px;
-      }
-      
-      @media (min-width: 1024px) {
-        min-height: 350px;
-        padding: var(--spacing-xl);
-      }
+      min-height: 80px;
+      max-height: 140px;
+      padding: var(--spacing-md);
     }
   }
   
@@ -217,32 +234,35 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-lg);
+    gap: var(--spacing-xs);
     width: 100%;
-    max-width: 400px;
+    max-width: 300px;
+    flex-shrink: 0;
+    margin-top: var(--spacing-xs);
     
     .submit-guess-btn {
       width: 100%;
-      max-width: 300px;
-      font-size: var(--font-size-lg);
-      font-weight: 700;
-      padding: var(--spacing-lg) var(--spacing-xl);
+      font-size: var(--font-size-sm);
+      font-weight: 600;
+      padding: var(--spacing-xs) var(--spacing-sm);
+      min-height: 40px;
       
       @media (min-width: 768px) {
-        font-size: var(--font-size-xl);
-        padding: var(--spacing-xl) var(--spacing-xxl);
+        font-size: var(--font-size-base);
+        padding: var(--spacing-sm) var(--spacing-md);
+        min-height: 44px;
       }
     }
     
     .submit-help-text {
       text-align: center;
       color: var(--text-secondary);
-      font-size: var(--font-size-sm);
+      font-size: var(--font-size-xs);
       margin: 0;
+      line-height: 1.2;
       
       @media (min-width: 768px) {
-        font-size: var(--font-size-base);
+        font-size: var(--font-size-sm);
       }
     }
   }
@@ -250,10 +270,10 @@
   .game-controls {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
-    margin-top: var(--spacing-lg);
+    gap: var(--spacing-sm);
     width: 100%;
     max-width: 400px;
+    flex-shrink: 0;
     
     @media (min-width: 768px) {
       flex-direction: row;

@@ -284,11 +284,6 @@ describe('YearGuessComponent', () => {
       expect(parseInt(firstTickLabel.textContent)).toBeGreaterThanOrEqual(1900);
     });
 
-    it('should display help text', () => {
-      const helpText = fixture.nativeElement.querySelector('.help-text');
-      expect(helpText).toBeTruthy();
-      expect(helpText.textContent).toContain('Use the slider or arrow keys to select a year between 1900 and');
-    });
 
     it('should trigger onSliderChange when slider value changes', () => {
       spyOn(component, 'onSliderChange');
@@ -320,7 +315,7 @@ describe('YearGuessComponent', () => {
       
       expect(heading).toBeTruthy();
       expect(slider).toBeTruthy();
-      expect(slider.getAttribute('aria-describedby')).toContain('year-help-text');
+      expect(slider.getAttribute('aria-describedby')).toContain('year-range-labels');
     });
 
     it('should have aria-label for slider', () => {
