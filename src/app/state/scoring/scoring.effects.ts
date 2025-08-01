@@ -48,7 +48,7 @@ export class ScoringEffects {
               
               if (guess.coordinates && (
                 guess.coordinates.latitude < -90 || guess.coordinates.latitude > 90 ||
-                guess.coordinates.longitude < -180 || guess.coordinates.longitude > 180
+                guess.coordinates.longitude < -360 || guess.coordinates.longitude > 360
               )) {
                 errors.push('Coordinates must be valid');
               }
@@ -118,7 +118,7 @@ export class ScoringEffects {
             
             if (!actualCoordinates || 
                 actualCoordinates.latitude < -90 || actualCoordinates.latitude > 90 ||
-                actualCoordinates.longitude < -180 || actualCoordinates.longitude > 180) {
+                actualCoordinates.longitude < -360 || actualCoordinates.longitude > 360) {
               throw new Error('Invalid actual coordinates provided');
             }
             

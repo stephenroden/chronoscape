@@ -33,8 +33,9 @@ export function validateCoordinates(coordinates: Coordinates): boolean {
     return false;
   }
 
-  // Validate longitude range (-180 to 180)
-  if (longitude < -180 || longitude > 180) {
+  // Validate longitude range (allow extended range for different coordinate systems)
+  // Leaflet can handle longitude values outside -180 to 180 and will normalize them
+  if (longitude < -360 || longitude > 360) {
     return false;
   }
 

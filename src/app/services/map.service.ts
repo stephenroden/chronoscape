@@ -157,8 +157,17 @@ export class MapService {
       if (coordinates.latitude < -90 || coordinates.latitude > 90) {
         throw new Error('Invalid latitude: must be between -90 and 90');
       }
-      if (coordinates.longitude < -180 || coordinates.longitude > 180) {
-        throw new Error('Invalid longitude: must be between -180 and 180');
+      // Note: Allowing longitude outside -180 to 180 range to support different coordinate systems
+      // Leaflet can handle longitude values outside this range and will normalize them
+      if (coordinates.longitude < -360 || coordinates.longitude > 360) {
+        throw new Error('Invalid longitude: must be between -360 and 360');
+      }
+
+      // Normalize longitude to -180 to 180 range for consistency
+      if (coordinates.longitude > 180) {
+        coordinates.longitude = coordinates.longitude - 360;
+      } else if (coordinates.longitude < -180) {
+        coordinates.longitude = coordinates.longitude + 360;
       }
 
       // Remove existing pin if it exists
@@ -259,11 +268,11 @@ export class MapService {
     }
 
     this.map.on('click', (event: L.LeafletMouseEvent) => {
-      
       const coordinates: Coordinates = {
         latitude: event.latlng.lat,
         longitude: event.latlng.lng
       };
+      console.log('Raw coordinates from Leaflet:', coordinates);
       callback(coordinates);
     });
   }

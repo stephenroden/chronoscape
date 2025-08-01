@@ -276,6 +276,13 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       });
     } catch (error) {
       console.error('Failed to update map pin:', error);
+      // If pin placement fails due to coordinate validation, reset local state
+      if (error instanceof Error && error.message.includes('Invalid')) {
+        console.warn('Pin placement failed due to invalid coordinates, resetting pin state');
+        this.userPin = null;
+        // Don't update the guess with invalid coordinates
+        return;
+      }
       // If pin placement fails, the map might have issues
       // Try to reinitialize if the error suggests map problems
       if (error instanceof Error && error.message.includes('Map must be initialized')) {
