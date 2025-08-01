@@ -201,7 +201,7 @@
       class="next-photo-btn"
       (click)="onNextPhoto()"
       type="button">
-      Next Photo
+      {{ (isLastPhoto$ | async) ? 'View Final Results' : 'Next Photo' }}
     </button>
   </div>
 </div>

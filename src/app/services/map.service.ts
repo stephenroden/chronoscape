@@ -259,6 +259,7 @@ export class MapService {
     }
 
     this.map.on('click', (event: L.LeafletMouseEvent) => {
+      
       const coordinates: Coordinates = {
         latitude: event.latlng.lat,
         longitude: event.latlng.lng

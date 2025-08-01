@@ -276,17 +276,31 @@ export class GameComponent implements OnInit, OnDestroy {
   onNextPhoto(): void {
     console.log('[GameComponent] onNextPhoto called - transitioning from results to next photo');
     
-    // Clear the current guess to hide results view (Task 6 requirement)
-    this.store.dispatch(ScoringActions.clearCurrentGuess());
-    
-    // Reset interface state for new photo (Requirements 5.1-5.5)
-    this.store.dispatch(InterfaceActions.resetForNewPhoto());
-    
-    // Advance to next photo (this will update currentPhotoIndex and sync currentPhoto)
-    this.store.dispatch(GameActions.nextPhoto());
-    
-    // Set local flag to ensure results are hidden during transition
-    this.showingResults = false;
+    // Check if we've completed all photos
+    combineLatest([
+      this.store.select(GameSelectors.selectCurrentPhotoIndex),
+      this.store.select(GameSelectors.selectTotalPhotos)
+    ]).pipe(take(1)).subscribe(([currentIndex, totalPhotos]) => {
+      // currentIndex is 0-based, so we need to check if the next index would exceed total
+      if (currentIndex + 1 >= totalPhotos) {
+        // We've completed all photos, end the game
+        console.log('[GameComponent] All photos completed, ending game');
+        this.store.dispatch(GameActions.endGame());
+      } else {
+        // More photos to go, proceed to next photo
+        // Clear the current guess to hide results view (Task 6 requirement)
+        this.store.dispatch(ScoringActions.clearCurrentGuess());
+        
+        // Reset interface state for new photo (Requirements 5.1-5.5)
+        this.store.dispatch(InterfaceActions.resetForNewPhoto());
+        
+        // Advance to next photo (this will update currentPhotoIndex and sync currentPhoto)
+        this.store.dispatch(GameActions.nextPhoto());
+        
+        // Set local flag to ensure results are hidden during transition
+        this.showingResults = false;
+      }
+    });
   }
 
   /**

@@ -12,6 +12,7 @@ import { EnhancedFeedback } from '../../models/enhanced-feedback.model';
 
 import { selectCurrentPhoto } from '../../state/photos/photos.selectors';
 import { selectCurrentGuess, selectScoreByPhotoId } from '../../state/scoring/scoring.selectors';
+import { selectCurrentPhotoIndex, selectTotalPhotos } from '../../state/game/game.selectors';
 
 import { MapService } from '../../services/map.service';
 import { EnhancedFeedbackService } from '../../services/enhanced-feedback.service';
@@ -42,6 +43,9 @@ export class ResultsComponent implements OnInit, OnDestroy {
   // Map container ID for results map
   mapContainerId = 'results-map';
   private mapInitialized = false;
+  
+  // Track if this is the last photo
+  isLastPhoto$: Observable<boolean>;
 
   constructor(
     private store: Store<AppState>,
@@ -50,6 +54,14 @@ export class ResultsComponent implements OnInit, OnDestroy {
   ) {
     this.currentPhoto$ = this.store.select(selectCurrentPhoto);
     this.currentGuess$ = this.store.select(selectCurrentGuess);
+    
+    // Check if this is the last photo
+    this.isLastPhoto$ = combineLatest([
+      this.store.select(selectCurrentPhotoIndex),
+      this.store.select(selectTotalPhotos)
+    ]).pipe(
+      map(([currentIndex, totalPhotos]) => currentIndex + 1 >= totalPhotos)
+    );
 
     // Combine all data streams with dynamic score selection and enhanced feedback
     this.resultsData$ = combineLatest([

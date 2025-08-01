@@ -9,8 +9,7 @@ import * as ScoringActions from './scoring.actions';
 import * as GameActions from '../game/game.actions';
 import * as PhotosActions from '../photos/photos.actions';
 import { selectCurrentPhoto } from '../photos/photos.selectors';
-import { selectCurrentPhotoIndex, selectTotalPhotos } from '../game/game.selectors';
-import { selectScoresCount } from './scoring.selectors';
+import { selectCurrentPhotoIndex } from '../game/game.selectors';
 import { Action } from '@ngrx/store';
 
 @Injectable()
@@ -18,7 +17,6 @@ export class ScoringEffects {
   validateGuess$: any;
   submitGuess$: any;
   calculateScore$: any;
-  handlePhotoTransition$: any;
   handleGameCompletion$: any;
   updateCurrentPhoto$: any;
   logScoringEvents$: any;
@@ -44,7 +42,7 @@ export class ScoringEffects {
                 errors.push('Year must be between 1900 and current year');
               }
               
-              if (!guess.coordinates || guess.coordinates.latitude === 0 && guess.coordinates.longitude === 0) {
+              if (!guess.coordinates || (guess.coordinates.latitude === 0 && guess.coordinates.longitude === 0)) {
                 errors.push('Location must be selected on the map');
               }
               
@@ -143,27 +141,6 @@ export class ScoringEffects {
             return ScoringActions.setScoringError({
               error: errorMessage
             });
-          }
-        })
-      )
-    );
-
-    this.handlePhotoTransition$ = createEffect(() =>
-      this.actions$.pipe(
-        ofType(ScoringActions.addScore),
-        withLatestFrom(
-          this.store.select(selectCurrentPhotoIndex),
-          this.store.select(selectTotalPhotos),
-          this.store.select(selectScoresCount)
-        ),
-        switchMap(([{ score }, currentIndex, totalPhotos, scoresCount]) => {
-          // Only end the game when we have completed all photos
-          // Do NOT automatically advance to next photo - let user see results first
-          if (scoresCount >= totalPhotos) {
-            return of(GameActions.endGame());
-          } else {
-            // Don't auto-advance - user will click "Next Photo" button in results
-            return of();
           }
         })
       )

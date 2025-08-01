@@ -226,57 +226,6 @@ describe('ScoringEffects', () => {
     });
   });
 
-  describe('handlePhotoTransition$', () => {
-    it('should not trigger nextPhoto when not on last photo (results should be shown first)', (done) => {
-      store.overrideSelector(selectCurrentPhotoIndex, 2);
-      store.overrideSelector(selectTotalPhotos, 5);
-      store.overrideSelector(selectScoresCount, 3);
-      
-      const action = ScoringActions.addScore({ score: mockScore });
-      actions$ = of(action);
-
-      // The effect should not emit any action, allowing results to be shown
-      effects.handlePhotoTransition$.subscribe({
-        next: (result: Action) => {
-          // Should not get here since no action should be emitted
-          fail('Expected no action to be emitted');
-        },
-        complete: () => {
-          // This is expected - no action emitted
-          done();
-        }
-      });
-    });
-
-    it('should trigger endGame when on last photo', (done) => {
-      store.overrideSelector(selectCurrentPhotoIndex, 4);
-      store.overrideSelector(selectTotalPhotos, 5);
-      store.overrideSelector(selectScoresCount, 5);
-      
-      const action = ScoringActions.addScore({ score: mockScore });
-      actions$ = of(action);
-
-      effects.handlePhotoTransition$.subscribe((result: Action) => {
-        expect(result).toEqual(GameActions.endGame());
-        done();
-      });
-    });
-
-    it('should trigger endGame when all scores collected', (done) => {
-      store.overrideSelector(selectCurrentPhotoIndex, 3);
-      store.overrideSelector(selectTotalPhotos, 5);
-      store.overrideSelector(selectScoresCount, 5);
-      
-      const action = ScoringActions.addScore({ score: mockScore });
-      actions$ = of(action);
-
-      effects.handlePhotoTransition$.subscribe((result: Action) => {
-        expect(result).toEqual(GameActions.endGame());
-        done();
-      });
-    });
-  });
-
   describe('updateCurrentPhoto$', () => {
     it('should set current photo to next index', (done) => {
       store.overrideSelector(selectCurrentPhotoIndex, 1);

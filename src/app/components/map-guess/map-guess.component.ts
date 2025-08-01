@@ -56,6 +56,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
           this.userPin = guess.coordinates;
           this.updateMapPin();
         }
+        
       });
 
     // Subscribe to current photo to detect photo changes for reset
@@ -251,6 +252,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
+
     // Update local pin state
     this.userPin = coordinates;
     
@@ -289,6 +291,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       year: this.currentGuess?.year || new Date().getFullYear(),
       coordinates
     };
+
 
     // Dispatch action to update current guess
     this.store.dispatch(setCurrentGuess({ guess: updatedGuess }));
