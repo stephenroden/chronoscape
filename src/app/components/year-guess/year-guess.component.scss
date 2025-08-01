@@ -1,7 +1,7 @@
 .year-guess-container {
   width: 100%;
   padding: var(--spacing-xs);
-  
+
   @media (min-width: 768px) {
     padding: var(--spacing-sm);
   }
@@ -23,59 +23,40 @@
   color: var(--text-primary);
   text-align: center;
   margin: 0 0 var(--spacing-sm) 0;
-  
+
   @media (min-width: 768px) {
     font-size: var(--font-size-xl);
   }
 }
 
-.selected-year-display {
-  text-align: center;
-  margin-bottom: var(--spacing-xs);
-  padding: var(--spacing-xs);
-  background: var(--background-secondary);
-  border-radius: var(--border-radius);
-  border: 2px solid var(--primary-color);
-  
+.selected-year {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 2px 4px rgba(66, 133, 244, 0.1);
+  display: block;
+
   @media (min-width: 768px) {
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-sm);
+    font-size: 2.2rem;
   }
-  
-  .selected-year {
-    font-size: 1.8rem;
-    font-weight: 700;
-    color: var(--primary-color);
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    text-shadow: 0 2px 4px rgba(66, 133, 244, 0.1);
-    display: block;
-    
-    @media (min-width: 768px) {
-      font-size: 2.2rem;
-    }
-    
-    @media (max-width: 480px) {
-      font-size: 1.6rem;
-    }
+
+  @media (max-width: 480px) {
+    font-size: 1.6rem;
   }
 }
 
 .slider-container {
   position: relative;
-  padding: var(--spacing-xs) 0;
-  
-  @media (min-width: 768px) {
-    padding: var(--spacing-sm) 0;
-  }
 }
 
 .slider-track {
   position: relative;
   margin-bottom: var(--spacing-sm);
-  
+
   @media (min-width: 768px) {
     margin-bottom: var(--spacing-md);
   }
@@ -90,23 +71,23 @@
   -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
-  
+
   @media (min-width: 768px) {
     height: 10px;
   }
-  
+
   // Webkit (Chrome, Safari)
   &::-webkit-slider-track {
     width: 100%;
     height: 8px;
     background: linear-gradient(to right, var(--background-tertiary) 0%, var(--primary-color) 50%, var(--primary-hover) 100%);
     border-radius: var(--border-radius-small);
-    
+
     @media (min-width: 768px) {
       height: 10px;
     }
   }
-  
+
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
@@ -118,23 +99,23 @@
     box-shadow: var(--shadow-small);
     cursor: pointer;
     transition: all var(--transition-fast);
-    
+
     @media (min-width: 768px) {
       width: 28px;
       height: 28px;
     }
-    
+
     &:hover {
       transform: scale(1.1);
       box-shadow: var(--shadow-medium);
     }
-    
+
     &:active {
       transform: scale(1.2);
       box-shadow: var(--shadow-large);
     }
   }
-  
+
   // Firefox
   &::-moz-range-track {
     width: 100%;
@@ -142,12 +123,12 @@
     background: linear-gradient(to right, var(--background-tertiary) 0%, var(--primary-color) 50%, var(--primary-hover) 100%);
     border-radius: var(--border-radius-small);
     border: none;
-    
+
     @media (min-width: 768px) {
       height: 10px;
     }
   }
-  
+
   &::-moz-range-thumb {
     width: 24px;
     height: 24px;
@@ -157,31 +138,31 @@
     box-shadow: var(--shadow-small);
     cursor: pointer;
     transition: all var(--transition-fast);
-    
+
     @media (min-width: 768px) {
       width: 28px;
       height: 28px;
     }
-    
+
     &:hover {
       transform: scale(1.1);
       box-shadow: var(--shadow-medium);
     }
-    
+
     &:active {
       transform: scale(1.2);
       box-shadow: var(--shadow-large);
     }
   }
-  
+
   &:focus {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
-    
+
     &::-webkit-slider-thumb {
       box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2), var(--shadow-small);
     }
-    
+
     &::-moz-range-thumb {
       box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.2), var(--shadow-small);
     }
@@ -196,7 +177,7 @@
   right: 0;
   height: 30px;
   pointer-events: none;
-  
+
   @media (min-width: 768px) {
     top: 20px;
     height: 35px;
@@ -206,28 +187,28 @@
 .tick-mark {
   position: absolute;
   transform: translateX(-50%);
-  
+
   .tick-line {
     width: 2px;
     height: 12px;
     background-color: var(--text-muted);
     margin: 0 auto var(--spacing-xs);
-    
+
     @media (min-width: 768px) {
       height: 15px;
     }
   }
-  
+
   .tick-label {
     font-size: var(--font-size-xs);
     color: var(--text-secondary);
     text-align: center;
     white-space: nowrap;
-    
+
     @media (min-width: 768px) {
       font-size: var(--font-size-sm);
     }
-    
+
     @media (max-width: 480px) {
       font-size: 0.65rem;
     }
@@ -237,13 +218,16 @@
 .range-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: var(--spacing-sm);
+  margin-top: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
   font-weight: 500;
-  
+
   @media (min-width: 768px) {
     font-size: var(--font-size-base);
+    margin-top: var(--spacing-lg);
+    padding: var(--spacing-sm) 0;
   }
 }
 
@@ -256,18 +240,14 @@
       height: 32px;
       border-width: 4px;
     }
-    
+
     &::-moz-range-thumb {
       width: 32px;
       height: 32px;
       border-width: 4px;
     }
   }
-  
-  .slider-container {
-    padding: var(--spacing-xl) 0;
-  }
-  
+
   .tick-marks {
     top: 30px;
   }
@@ -280,16 +260,16 @@
     border: 3px solid #000;
     border-radius: var(--border-radius);
   }
-  
+
   .year-label {
     color: #000;
     font-weight: 900;
   }
-  
+
   .selected-year-display {
     background: #fff;
     border: 3px solid #000;
-    
+
     .selected-year {
       color: #000 !important;
       -webkit-text-fill-color: #000 !important;
@@ -298,84 +278,84 @@
       font-weight: 900;
     }
   }
-  
+
   .year-slider {
     background: #000;
     border: 2px solid #000;
-    
+
     &::-webkit-slider-track {
       background: #000;
       border: 1px solid #fff;
     }
-    
+
     &::-webkit-slider-thumb {
       background: #000;
       border: 4px solid #fff;
       box-shadow: 0 0 0 2px #000;
-      
+
       &:hover {
         background: #333;
         transform: scale(1.2);
       }
-      
+
       &:active {
         background: #000;
         transform: scale(1.3);
       }
     }
-    
+
     &::-moz-range-track {
       background: #000;
       border: 1px solid #fff;
     }
-    
+
     &::-moz-range-thumb {
       background: #000;
       border: 4px solid #fff;
       box-shadow: 0 0 0 2px #000;
-      
+
       &:hover {
         background: #333;
         transform: scale(1.2);
       }
-      
+
       &:active {
         background: #000;
         transform: scale(1.3);
       }
     }
-    
+
     &:focus {
       outline: 4px solid #ffff00;
       outline-offset: 3px;
       box-shadow: 0 0 0 1px #000;
-      
+
       &::-webkit-slider-thumb {
         box-shadow: 0 0 0 2px #000, 0 0 0 6px #ffff00;
       }
-      
+
       &::-moz-range-thumb {
         box-shadow: 0 0 0 2px #000, 0 0 0 6px #ffff00;
       }
     }
   }
-  
+
   .tick-line {
     background-color: #000;
     border: 1px solid #fff;
   }
-  
+
   .tick-label {
     color: #000;
     font-weight: 900;
     text-shadow: 0 0 2px #fff;
   }
-  
+
   .range-labels {
     color: #000;
     font-weight: 900;
   }
-  
+
 }
 
 // Windows High Contrast Mode support
@@ -384,66 +364,66 @@
     background: Window;
     border: 2px solid WindowText;
   }
-  
+
   .year-label {
     color: WindowText;
   }
-  
+
   .selected-year-display {
     background: ButtonFace;
     border: 2px solid ButtonText;
-    
+
     .selected-year {
       color: ButtonText !important;
       -webkit-text-fill-color: ButtonText !important;
       background: none !important;
     }
   }
-  
+
   .year-slider {
     background: ButtonFace;
     border: 1px solid ButtonText;
-    
+
     &::-webkit-slider-track {
       background: ButtonFace;
     }
-    
+
     &::-webkit-slider-thumb {
       background: ButtonText;
       border: 2px solid ButtonFace;
     }
-    
+
     &::-moz-range-track {
       background: ButtonFace;
     }
-    
+
     &::-moz-range-thumb {
       background: ButtonText;
       border: 2px solid ButtonFace;
     }
-    
+
     &:focus {
       outline: 2px solid Highlight;
-      
+
       &::-webkit-slider-thumb {
         background: Highlight;
       }
-      
+
       &::-moz-range-thumb {
         background: Highlight;
       }
     }
   }
-  
+
   .tick-line {
     background-color: WindowText;
   }
-  
+
   .tick-label,
   .range-labels {
     color: WindowText;
   }
-  
+
 }
 
 // Enhanced focus management
@@ -453,7 +433,7 @@
       &::-webkit-slider-thumb {
         box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.25), var(--shadow-small);
       }
-      
+
       &::-moz-range-thumb {
         box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.25), var(--shadow-small);
       }
@@ -462,23 +442,24 @@
 }
 
 .year-slider {
+
   // Enhanced focus styles
   &:focus-visible {
     outline: 3px solid var(--primary-color);
     outline-offset: 3px;
     box-shadow: 0 0 0 6px rgba(66, 133, 244, 0.25);
-    
+
     &::-webkit-slider-thumb {
       box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.3), var(--shadow-medium);
       transform: scale(1.1);
     }
-    
+
     &::-moz-range-thumb {
       box-shadow: 0 0 0 4px rgba(66, 133, 244, 0.3), var(--shadow-medium);
       transform: scale(1.1);
     }
   }
-  
+
   // High contrast focus
   @media (prefers-contrast: high) {
     &:focus-visible {
@@ -500,18 +481,18 @@
   clip: rect(0, 0, 0, 0) !important;
   white-space: nowrap !important;
   border: 0 !important;
-  
+
   h4 {
     font-size: 1rem;
     margin: 0 0 0.5rem 0;
   }
-  
+
   ul {
     list-style: none;
     padding: 0;
     margin: 0;
   }
-  
+
   li {
     margin: 0.25rem 0;
   }
@@ -523,15 +504,15 @@
     background: #1a1a1a;
     color: #e0e0e0;
   }
-  
+
   .year-label {
     color: #e0e0e0;
   }
-  
+
   .selected-year-display {
     background: #2d2d2d;
     border-color: #4dabf7;
-    
+
     .selected-year {
       color: #4dabf7;
       background: linear-gradient(135deg, #4dabf7, #339af0);
@@ -539,40 +520,40 @@
       -webkit-text-fill-color: transparent;
     }
   }
-  
+
   .year-slider {
     &::-webkit-slider-track {
       background: linear-gradient(to right, #2d2d2d 0%, #4dabf7 50%, #339af0 100%);
     }
-    
+
     &::-webkit-slider-thumb {
       background: #4dabf7;
       border-color: #1a1a1a;
     }
-    
+
     &::-moz-range-track {
       background: linear-gradient(to right, #2d2d2d 0%, #4dabf7 50%, #339af0 100%);
     }
-    
+
     &::-moz-range-thumb {
       background: #4dabf7;
       border-color: #1a1a1a;
     }
-    
+
     &:focus {
       outline-color: #4dabf7;
     }
   }
-  
+
   .tick-line {
     background-color: #666;
   }
-  
+
   .tick-label,
   .range-labels {
     color: #999;
   }
-  
+
 }
 
 // Reduced motion support
@@ -581,17 +562,17 @@
     &::-webkit-slider-thumb {
       transition: none !important;
     }
-    
+
     &::-moz-range-thumb {
       transition: none !important;
     }
   }
-  
+
   .selected-year {
     text-shadow: none !important;
     animation: none !important;
   }
-  
+
   .selected-year-display {
     transition: none !important;
   }
@@ -603,32 +584,32 @@
     // Optimize for touch
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
-    
+
     &::-webkit-slider-thumb {
       // Ensure minimum touch target
       min-width: 44px;
       min-height: 44px;
-      
+
       // Remove hover effects on touch devices
       &:hover {
         transform: none;
       }
-      
+
       // Enhanced active state for touch
       &:active {
         transform: scale(1.3);
         transition: transform 100ms ease-out;
       }
     }
-    
+
     &::-moz-range-thumb {
       min-width: 44px;
       min-height: 44px;
-      
+
       &:hover {
         transform: none;
       }
-      
+
       &:active {
         transform: scale(1.3);
         transition: transform 100ms ease-out;
@@ -643,16 +624,16 @@
     &::-webkit-slider-thumb {
       // Enhanced hover effects for precise pointers
       transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-      
+
       &:hover {
         transform: scale(1.15) translateY(-2px);
         box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
       }
     }
-    
+
     &::-moz-range-thumb {
       transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-      
+
       &:hover {
         transform: scale(1.15) translateY(-2px);
         box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
@@ -667,15 +648,15 @@
     box-shadow: none;
     border: 1px solid #ccc;
   }
-  
+
   .selected-year-display {
     border: 1px solid #ccc;
-    
+
     .selected-year {
       color: #000 !important;
       -webkit-text-fill-color: #000 !important;
       background: none !important;
     }
   }
-  
+
 }

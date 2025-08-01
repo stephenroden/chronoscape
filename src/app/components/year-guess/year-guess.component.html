@@ -5,13 +5,6 @@
         When was this photo taken?
       </h3>
       
-      <div class="selected-year-display" role="status" aria-live="polite">
-        <span class="selected-year" 
-              [attr.aria-label]="'Selected year: ' + selectedYear">
-          {{ selectedYear }}
-        </span>
-      </div>
-      
       <div class="slider-container">
         <div class="slider-track">
           <input
@@ -44,6 +37,11 @@
         
         <div class="range-labels" id="year-range-labels" aria-hidden="true">
           <span class="min-label">{{ minYear }}</span>
+          <span class="selected-year" 
+                [attr.aria-label]="'Selected year: ' + selectedYear">
+            {{ selectedYear }}
+          </span>
+
           <span class="max-label">{{ currentYear }}</span>
         </div>
       </div>

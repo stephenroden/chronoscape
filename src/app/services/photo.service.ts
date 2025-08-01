@@ -33,6 +33,19 @@ export class PhotoFetchError extends Error {
 }
 
 /**
+ * Photo category types for filtering
+ */
+export type PhotoCategory = 'architecture' | 'landmarks' | 'events' | 'all';
+
+/**
+ * Category search configuration
+ */
+interface CategoryConfig {
+  categories: string[];
+  searchTerms: string[];
+}
+
+/**
  * Raw response structure from Wikimedia Commons API
  */
 interface WikimediaImageInfoResponse {
@@ -81,6 +94,55 @@ export class PhotoService {
   private readonly SEARCH_MULTIPLIER_PER_RETRY = 1.5; // Expand search by 50% each retry
   private readonly PHOTOS_PER_LOCATION_MULTIPLIER = 2; // Double photos per location on retry
 
+  // Category configurations for filtering
+  private readonly CATEGORY_CONFIGS: Record<PhotoCategory, CategoryConfig> = {
+    architecture: {
+      categories: [
+        'Category:Architecture',
+        'Category:Buildings',
+        'Category:Churches',
+        'Category:Cathedrals',
+        'Category:Palaces',
+        'Category:Castles',
+        'Category:Museums',
+        'Category:Bridges',
+        'Category:Towers',
+        'Category:Historic buildings'
+      ],
+      searchTerms: ['building', 'architecture', 'church', 'cathedral', 'palace', 'castle', 'bridge', 'tower']
+    },
+    landmarks: {
+      categories: [
+        'Category:Landmarks',
+        'Category:Monuments',
+        'Category:Statues',
+        'Category:Memorial',
+        'Category:World Heritage Sites',
+        'Category:Tourist attractions',
+        'Category:Historic sites',
+        'Category:Archaeological sites'
+      ],
+      searchTerms: ['monument', 'statue', 'memorial', 'landmark', 'heritage', 'historic', 'archaeological']
+    },
+    events: {
+      categories: [
+        'Category:Historical events',
+        'Category:Festivals',
+        'Category:Ceremonies',
+        'Category:Parades',
+        'Category:Celebrations',
+        'Category:Political events',
+        'Category:Cultural events',
+        'Category:Sports events'
+      ],
+      searchTerms: ['event', 'festival', 'ceremony', 'parade', 'celebration', 'gathering', 'commemoration']
+    },
+    all: {
+      categories: [],
+      searchTerms: []
+    }
+  };
+
   constructor(
     private http: HttpClient,
     private cacheService: CacheService,
@@ -92,16 +154,18 @@ export class PhotoService {
    * Fetches random historical photos from Wikimedia Commons using geosearch with retry logic
    * Requirements: 4.4 - Implement loading states while photos are being fetched from API
    * @param count - Number of photos to fetch
+   * @param category - Optional category filter ('architecture', 'landmarks', 'events', or 'all')
+   * @param forceRefresh - Whether to bypass cache and fetch fresh photos
    * @returns Observable of Photo array
    */
-  fetchRandomPhotos(count: number, forceRefresh: boolean = false): Observable<Photo[]> {
+  fetchRandomPhotos(count: number, category: PhotoCategory = 'all', forceRefresh: boolean = false): Observable<Photo[]> {
     let cacheKey: string;
     if (forceRefresh) {
       // Generate unique cache key to ensure fresh photos
-      cacheKey = `random-photos-${count}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      cacheKey = `random-photos-${count}-${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     } else {
       // Use 5-minute cache buckets for normal requests
-      cacheKey = `random-photos-${count}-${Date.now() - (Date.now() % (5 * 60 * 1000))}`;
+      cacheKey = `random-photos-${count}-${category}-${Date.now() - (Date.now() % (5 * 60 * 1000))}`;
     }
     
     // Start loading state
@@ -109,7 +173,7 @@ export class PhotoService {
     
     return this.cacheService.getOrSet(
       cacheKey,
-      () => this.fetchPhotosWithRetry(count, 0),
+      () => this.fetchPhotosWithRetry(count, 0, category),
       { ttl: this.PHOTO_CACHE_TTL }
     ).pipe(
       tap({
@@ -136,7 +200,7 @@ export class PhotoService {
    * @param retryAttempt - Current retry attempt (0-based)
    * @returns Observable of Photo array
    */
-  private fetchPhotosWithRetry(count: number, retryAttempt: number): Observable<Photo[]> {
+  private fetchPhotosWithRetry(count: number, retryAttempt: number, category: PhotoCategory = 'all'): Observable<Photo[]> {
     // Calculate search parameters based on retry attempt
     const searchRadius = this.BASE_SEARCH_RADIUS * Math.pow(this.SEARCH_MULTIPLIER_PER_RETRY, retryAttempt);
     const photosPerLocation = 20 * Math.pow(this.PHOTOS_PER_LOCATION_MULTIPLIER, retryAttempt);
@@ -153,7 +217,7 @@ export class PhotoService {
     const locations = this.getRandomLocations(locationCount);
 
     return forkJoin(
-      locations.map(location => this.searchPhotosByLocation(location, searchRadius, photosPerLocation))
+      locations.map(location => this.searchPhotosByLocation(location, searchRadius, photosPerLocation, category))
     ).pipe(
       map(locationResults => locationResults.flat()),
       switchMap(searchResults => this.getPhotoDetails(searchResults)),
@@ -171,7 +235,7 @@ export class PhotoService {
         } else if (retryAttempt < this.MAX_RETRY_ATTEMPTS) {
           // Retry with expanded search parameters
           console.log(`Insufficient photos found (${validPhotos.length}/${count}). Retrying with expanded search...`);
-          return this.fetchPhotosWithRetry(count, retryAttempt + 1);
+          return this.fetchPhotosWithRetry(count, retryAttempt + 1, category);
         } else {
           // Max retries reached - return what we have or throw error
           if (validPhotos.length > 0) {
@@ -196,7 +260,7 @@ export class PhotoService {
         
         if (retryAttempt < this.MAX_RETRY_ATTEMPTS) {
           console.log(`Retrying due to error...`);
-          return this.fetchPhotosWithRetry(count, retryAttempt + 1);
+          return this.fetchPhotosWithRetry(count, retryAttempt + 1, category);
         } else {
           return throwError(() => new PhotoFetchError(
             `Failed to fetch photos after ${retryAttempt + 1} attempts: ${error.message}`
@@ -622,35 +686,112 @@ export class PhotoService {
   private searchPhotosByLocation(
     location: Coordinates, 
     radius: number = this.BASE_SEARCH_RADIUS, 
-    limit: number = 20
+    limit: number = 20,
+    category: PhotoCategory = 'all'
   ): Observable<any[]> {
-    const cacheKey = `geosearch-${location.latitude}-${location.longitude}-${radius}-${limit}`;
+    const cacheKey = `geosearch-${location.latitude}-${location.longitude}-${radius}-${limit}-${category}`;
     
     return this.cacheService.getOrSet(
       cacheKey,
       () => {
-        const params = new HttpParams()
-          .set('action', 'query')
-          .set('list', 'geosearch')
-          .set('gscoord', `${location.latitude}|${location.longitude}`)
-          .set('gsradius', radius.toString())
-          .set('gslimit', Math.min(limit, 500).toString()) // API limit is 500
-          .set('gsnamespace', '6') // File namespace
-          .set('format', 'json')
-          .set('origin', '*');
+        if (category === 'all') {
+          // Standard geosearch for all categories
+          const params = new HttpParams()
+            .set('action', 'query')
+            .set('list', 'geosearch')
+            .set('gscoord', `${location.latitude}|${location.longitude}`)
+            .set('gsradius', radius.toString())
+            .set('gslimit', Math.min(limit, 500).toString()) // API limit is 500
+            .set('gsnamespace', '6') // File namespace
+            .set('format', 'json')
+            .set('origin', '*');
 
-        return this.http.get<any>(this.API_BASE_URL, { params })
-          .pipe(
-            map(response => response.query?.geosearch || []),
-            filter(results => results.length > 0),
-            catchError(error => {
-              console.error('Geosearch error for location:', location, error);
-              return of([]);
-            })
-          );
+          return this.http.get<any>(this.API_BASE_URL, { params })
+            .pipe(
+              map(response => response.query?.geosearch || []),
+              filter(results => results.length > 0),
+              catchError(error => {
+                console.error('Geosearch error for location:', location, error);
+                return of([]);
+              })
+            );
+        } else {
+          // Category-specific search using search API with category filters
+          return this.searchPhotosByCategory(location, radius, limit, category);
+        }
       },
       { ttl: this.CACHE_TTL }
     );
+  }
+
+  /**
+   * Searches for photos by category near a specific location
+   * @param location - Geographic coordinates to search around
+   * @param radius - Search radius in meters
+   * @param limit - Maximum number of results
+   * @param category - Photo category to filter by
+   */
+  private searchPhotosByCategory(
+    location: Coordinates,
+    radius: number,
+    limit: number,
+    category: PhotoCategory
+  ): Observable<any[]> {
+    const categoryConfig = this.CATEGORY_CONFIGS[category];
+    const searchTerms = categoryConfig.searchTerms.join('|');
+    
+    // Use search API with category-specific terms and location filter
+    const params = new HttpParams()
+      .set('action', 'query')
+      .set('list', 'search')
+      .set('srsearch', `${searchTerms} filetype:bitmap incategory:"Commons images" hascoordinates:yes`)
+      .set('srnamespace', '6') // File namespace
+      .set('srlimit', Math.min(limit * 2, 50).toString()) // Get more results to filter by location
+      .set('srinfo', 'suggestion')
+      .set('srprop', 'size|wordcount|timestamp|snippet')
+      .set('format', 'json')
+      .set('origin', '*');
+
+    return this.http.get<any>(this.API_BASE_URL, { params })
+      .pipe(
+        map(response => response.query?.search || []),
+        // Convert search results to geosearch-like format
+        map(searchResults => searchResults.map((result: any) => ({
+          pageid: result.pageid,
+          title: result.title,
+          lat: 0, // Will be filled in by photo details
+          lon: 0  // Will be filled in by photo details
+        }))),
+        catchError(error => {
+          console.error('Category search error for location:', location, 'category:', category, error);
+          // Fallback to standard geosearch if category search fails
+          return this.performStandardGeosearch(location, radius, limit);
+        })
+      );
+  }
+
+  /**
+   * Fallback method for standard geosearch
+   */
+  private performStandardGeosearch(location: Coordinates, radius: number, limit: number): Observable<any[]> {
+    const params = new HttpParams()
+      .set('action', 'query')
+      .set('list', 'geosearch')
+      .set('gscoord', `${location.latitude}|${location.longitude}`)
+      .set('gsradius', radius.toString())
+      .set('gslimit', Math.min(limit, 500).toString())
+      .set('gsnamespace', '6')
+      .set('format', 'json')
+      .set('origin', '*');
+
+    return this.http.get<any>(this.API_BASE_URL, { params })
+      .pipe(
+        map(response => response.query?.geosearch || []),
+        catchError(error => {
+          console.error('Standard geosearch error:', error);
+          return of([]);
+        })
+      );
   }
 
   /**

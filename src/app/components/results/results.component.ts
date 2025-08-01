@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, Output, EventEmitter } from '@angular/core';
-import { CommonModule, TitleCasePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest, of } from 'rxjs';
 import { takeUntil, map, switchMap } from 'rxjs/operators';
@@ -20,7 +20,7 @@ import { EnhancedFeedbackService } from '../../services/enhanced-feedback.servic
 @Component({
   selector: 'app-results',
   standalone: true,
-  imports: [CommonModule, TitleCasePipe],
+  imports: [CommonModule],
   templateUrl: './results.component.html',
   styleUrls: ['./results.component.scss']
 })

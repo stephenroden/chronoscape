@@ -27,7 +27,7 @@ export class PhotosEffects {
         ofType(PhotosActions.loadPhotos, PhotosActions.loadPhotosWithOptions),
         switchMap((action) => {
           const forceRefresh = 'forceRefresh' in action ? action.forceRefresh : false;
-          return this.photoService.fetchRandomPhotos(5, forceRefresh).pipe(
+          return this.photoService.fetchRandomPhotos(5, 'all', forceRefresh).pipe(
             map(photos => {
               if (photos.length === 0) {
                 return PhotosActions.loadPhotosFailure({

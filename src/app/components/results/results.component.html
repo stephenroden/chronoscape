@@ -4,12 +4,6 @@
     <!-- Combined Performance Summary -->
     <div class="result-section performance-summary">
       <h3 *ngIf="data.photo">{{ data.photo.title }}</h3>
-      <p class="photo-description" *ngIf="data.enhancedFeedback?.photoContext?.detailedDescription">
-        {{ data.enhancedFeedback?.photoContext?.detailedDescription }}
-      </p>
-      <p class="photo-description" *ngIf="!data.enhancedFeedback?.photoContext?.detailedDescription && data.photo.description">
-        {{ data.photo.description }}
-      </p>
       
       <div class="performance-text" *ngIf="data.enhancedFeedback">
         <p>{{ data.enhancedFeedback.performanceSummary }}</p>
@@ -33,23 +27,6 @@
           </span>
           <span *ngIf="!data.enhancedFeedback && data.guess?.coordinates && data.photo?.coordinates">
             {{ formatDistance(calculateDistance(data.guess.coordinates, data.photo.coordinates)) }} away from the correct location
-          </span>
-        </div>
-      </div>
-      
-      <div class="score-summary" *ngIf="data.score">
-        <div class="score-item">
-          <span class="score-label">Year Score:</span>
-          <span class="score-value">{{ data.score.yearScore }}/5,000</span>
-          <span class="performance-badge" [class]="'year-' + getYearPerformance(data.score.yearScore).toLowerCase()">
-            {{ getYearPerformance(data.score.yearScore) }}
-          </span>
-        </div>
-        <div class="score-item">
-          <span class="score-label">Location Score:</span>
-          <span class="score-value">{{ data.score.locationScore }}/5,000</span>
-          <span class="performance-badge" [class]="'location-' + getLocationPerformance(data.score.locationScore).toLowerCase()">
-            {{ getLocationPerformance(data.score.locationScore) }}
           </span>
         </div>
       </div>

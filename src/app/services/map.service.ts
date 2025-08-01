@@ -96,15 +96,16 @@ export class MapService {
         keyboard: true
       }).setView([coords.latitude, coords.longitude], initialZoom);
 
-      // Add OpenStreetMap tile layer with performance optimizations
-      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 18,
+      // Add CartoDB Voyager tile layer with English place names and POIs
+      const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, © <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 19,
         minZoom: 1,
         errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         // Performance optimizations
         keepBuffer: 2, // Keep tiles in buffer for smoother panning
-        maxNativeZoom: 18,
+        maxNativeZoom: 19,
         tileSize: 256,
         zoomOffset: 0,
         updateWhenIdle: false, // Update tiles while panning

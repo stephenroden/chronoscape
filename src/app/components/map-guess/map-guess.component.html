@@ -45,96 +45,13 @@
       [class.map-hidden]="isMapLoading || mapError"
       role="application"
       aria-label="Interactive world map for location guessing. Click to place your location guess."
-      [attr.aria-describedby]="'map-instructions-text accessibility-instructions'"
+      [attr.aria-describedby]="'map-instructions-text'"
       tabindex="0"
       (keydown)="onMapKeyDown($event)"
     ></div>
   </div>
 
-  <!-- Map Controls -->
-  <div class="map-controls" 
-       *ngIf="isMapInitialized && !mapError"
-       role="region"
-       aria-labelledby="map-controls-heading">
-    <h4 id="map-controls-heading" class="sr-only">Map Controls</h4>
-    
-    <!-- Pin Information -->
-    <div class="pin-info" role="status" aria-live="polite">
-      <div class="pin-status" [attr.aria-label]="getPinStatusAriaLabel()">
-        <span class="pin-icon" 
-              [class.pin-active]="hasValidPin"
-              aria-hidden="true">📍</span>
-        <span class="pin-coordinates">{{ pinDisplayText }}</span>
-      </div>
-    </div>
 
-    <!-- Control Buttons -->
-    <div class="control-buttons" role="group" aria-label="Map navigation controls">
-      <button 
-        class="control-button center-button"
-        (click)="onCenterMap()"
-        type="button"
-        aria-label="Reset map to world view"
-        [attr.aria-describedby]="'center-map-help'"
-      >
-        <span aria-hidden="true">🌍</span> Center Map
-      </button>
-      <div id="center-map-help" class="sr-only">Resets the map view to show the entire world</div>
-
-      <button 
-        class="control-button zoom-button"
-        (click)="onZoomToPin()"
-        [disabled]="!hasValidPin"
-        type="button"
-        aria-label="Zoom to your pin location"
-        [attr.aria-describedby]="'zoom-pin-help'"
-      >
-        <span aria-hidden="true">🔍</span> Zoom to Pin
-      </button>
-      <div id="zoom-pin-help" class="sr-only">Zooms the map to focus on your placed pin</div>
-
-      <button 
-        class="control-button remove-button"
-        (click)="onRemovePin()"
-        [disabled]="!hasValidPin"
-        type="button"
-        aria-label="Remove your location guess"
-        [attr.aria-describedby]="'remove-pin-help'"
-      >
-        <span aria-hidden="true">🗑️</span> Remove Pin
-      </button>
-      <div id="remove-pin-help" class="sr-only">Removes your current location guess from the map</div>
-
-      <!-- Reset button for toggle container mode -->
-      <button 
-        *ngIf="isInToggleContainer"
-        class="control-button reset-button"
-        (click)="resetToDefaultView()"
-        type="button"
-        aria-label="Reset map to default view and clear pins"
-        [attr.aria-describedby]="'reset-map-help'"
-      >
-        <span aria-hidden="true">🔄</span> Reset Map
-      </button>
-      <div id="reset-map-help" class="sr-only">Resets the map to world view and clears all pins</div>
-    </div>
-  </div>
-
-  <!-- Accessibility Instructions -->
-  <div class="accessibility-instructions" 
-       id="accessibility-instructions"
-       aria-live="polite"
-       role="status">
-    <p *ngIf="!hasValidPin">
-      Click on the map to place your location guess. 
-      Use the control buttons below to navigate the map. 
-      Keyboard users: Focus the map and use arrow keys to navigate, Enter to place a pin.
-    </p>
-    <p *ngIf="hasValidPin">
-      Location selected at {{ pinDisplayText }}. 
-      Click elsewhere on the map or use keyboard navigation to adjust your guess.
-    </p>
-  </div>
 
   <!-- Additional keyboard instructions for screen readers -->
   <div class="sr-only">
