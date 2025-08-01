@@ -2,26 +2,6 @@
   <!-- Skip to main content link for accessibility -->
   <a href="#main-content" class="skip-link">Skip to main content</a>
   
-  <!-- Game header with progress indicator -->
-  <header class="game-header" role="banner">
-    <h1 id="game-title">Chronoscape</h1>
-    
-    <!-- Progress indicator showing current photo out of total (Requirement 1.1, 1.3) -->
-    <div class="progress-container" 
-         *ngIf="(isGameInProgress$ | async)"
-         role="progressbar"
-         [attr.aria-valuenow]="(gameProgress$ | async)?.current"
-         [attr.aria-valuemin]="1"
-         [attr.aria-valuemax]="(gameProgress$ | async)?.total"
-         [attr.aria-label]="'Game progress: photo ' + (gameProgress$ | async)?.current + ' of ' + (gameProgress$ | async)?.total">
-      <div class="progress-text" aria-hidden="true">
-        Photo {{ (gameProgress$ | async)?.current }} of {{ (gameProgress$ | async)?.total }}
-      </div>
-      <div class="progress-bar">
-        <div class="progress-fill" [style.width.%]="(gameProgress$ | async)?.percentage"></div>
-      </div>
-    </div>
-  </header>
 
   <!-- Game content area -->
   <main class="game-content" id="main-content" role="main">
