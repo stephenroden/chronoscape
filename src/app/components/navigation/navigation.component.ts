@@ -2,7 +2,7 @@ import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, ActivatedRoute } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { Observable, filter, map, startWith } from 'rxjs';
+import { Observable, filter, map, startWith, combineLatest } from 'rxjs';
 import { AppState } from '../../state/app.state';
 import { GameStatus } from '../../models/game-state.model';
 import * as GameSelectors from '../../state/game/game.selectors';
@@ -40,6 +40,7 @@ export class NavigationComponent implements OnInit {
   // Navigation state
   breadcrumbs$: Observable<BreadcrumbItem[]>;
   currentRoute$: Observable<string>;
+  shouldShowProgress$: Observable<boolean>;
   
   // Dropdown state
   isDropdownOpen = false;
@@ -62,6 +63,14 @@ export class NavigationComponent implements OnInit {
     // Generate breadcrumbs based on current route and game state
     this.breadcrumbs$ = this.currentRoute$.pipe(
       map(url => this.generateBreadcrumbs(url))
+    );
+    
+    // Determine when to show progress indicator
+    this.shouldShowProgress$ = combineLatest([
+      this.gameProgress$,
+      this.currentRoute$
+    ]).pipe(
+      map(([progress, route]) => !!progress && route === '/game')
     );
   }
 
@@ -206,6 +215,8 @@ export class NavigationComponent implements OnInit {
     
     this.router.navigate(['/']);
   }
+
+
 
   /**
    * Close dropdown when clicking outside

@@ -28,24 +28,24 @@
   
   <!-- Game progress indicator (shown during game) -->
   <div class="progress-indicator" 
-       *ngIf="gameProgress$ | async as progress; and (currentRoute$ | async) === '/game'"
+       *ngIf="shouldShowProgress$ | async"
        role="status"
        aria-live="polite"
-       [attr.aria-label]="'Game progress: ' + formatGameProgress(progress)">
+       [attr.aria-label]="'Game progress: ' + formatGameProgress(gameProgress$ | async)">
     
     <div class="progress-text">
-      <span class="progress-text-desktop">{{ formatGameProgress(progress) }}</span>
-      <span class="progress-text-mobile">{{ formatGameProgressMobile(progress) }}</span>
+      <span class="progress-text-desktop">{{ formatGameProgress(gameProgress$ | async) }}</span>
+      <span class="progress-text-mobile">{{ formatGameProgressMobile(gameProgress$ | async) }}</span>
     </div>
     
     <div class="progress-bar" 
          role="progressbar"
-         [attr.aria-valuenow]="progress?.current"
+         [attr.aria-valuenow]="(gameProgress$ | async)?.current"
          [attr.aria-valuemin]="1"
-         [attr.aria-valuemax]="progress?.total"
-         [attr.aria-valuetext]="formatGameProgress(progress)">
+         [attr.aria-valuemax]="(gameProgress$ | async)?.total"
+         [attr.aria-valuetext]="formatGameProgress(gameProgress$ | async)">
       <div class="progress-fill" 
-           [style.width.%]="progress?.percentage">
+           [style.width.%]="(gameProgress$ | async)?.percentage">
       </div>
     </div>
   </div>

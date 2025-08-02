@@ -1,5 +1,6 @@
 .photo-display-container {
   width: 100%;
+  height: 100%;
   // max-width: 800px;
   margin: 0 auto;
   position: relative;
@@ -7,6 +8,8 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
 
   // Responsive container sizing
   @media (max-width: 768px) {
@@ -265,6 +268,10 @@
 .photo-content {
   opacity: 0;
   transition: opacity 0.3s ease;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 
   &.loaded {
     opacity: 1;
@@ -274,19 +281,16 @@
 .photo-container {
   position: relative;
   width: 100%;
+  flex: 1;
   background-color: #000;
   overflow: hidden;
-
-  // Maintain aspect ratio while being responsive
-  &::before {
-    content: '';
-    display: block;
-    padding-top: 66.67%; // 3:2 aspect ratio
-
-    @media (max-width: 768px) {
-      padding-top: 75%; // 4:3 aspect ratio on mobile for better fit
-    }
-  }
+  min-height: 200px;
+  
+  // Use height-based containment instead of aspect ratio padding
+  // This ensures the photo always fits within the available height
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   // Zoom-specific styles
   &.zoomable {
@@ -324,9 +328,6 @@
 }
 
 .photo-image {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -336,6 +337,8 @@
   user-select: none;
   -webkit-user-drag: none;
   -webkit-touch-callout: none;
+  max-width: 100%;
+  max-height: 100%;
 
   &.loading {
     opacity: 0;
@@ -355,6 +358,7 @@
   .photo-container.zoomable & {
     transition: transform 0.15s ease-out;
     will-change: transform;
+    position: relative;
   }
 
   .photo-container.dragging & {
@@ -556,56 +560,32 @@
   app-photo-zoom-controls {
     display: none;
   }
-}
 
-.photo-container {
+  .photo-container {
+    &.zoomable {
+      // Improve mobile zoom experience
+      &.zoomed {
+        // More prominent zoom indicator on mobile
+        &::after {
+          width: 12px;
+          height: 12px;
+          background-color: #007bff;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        }
+      }
 
-  // Optimize aspect ratio for mobile
-  &::before {
-    padding-top: 75%; // 4:3 aspect ratio
-  }
-
-  &.zoomable {
-
-    // Improve mobile zoom experience
-    &.zoomed {
-
-      // More prominent zoom indicator on mobile
-      &::after {
-        width: 12px;
-        height: 12px;
-        background-color: #007bff;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      // Better touch feedback
+      &.touch-active .photo-image {
+        filter: brightness(0.9);
       }
     }
-
-    // Better touch feedback
-    &.touch-active .photo-image {
-      filter: brightness(0.9);
-    }
   }
 }
-
 
 @media (max-width: 480px) {
   .photo-display-container {
     margin: 0 4px;
     border-radius: 4px;
-  }
-
-  .photo-container {
-
-    // More mobile-friendly aspect ratio
-    &::before {
-      padding-top: 80%; // Closer to square for small screens
-    }
-  }
-}
-
-// Landscape mobile optimization
-@media (max-height: 500px) and (orientation: landscape) {
-  .photo-container::before {
-    padding-top: 60%; // Wider aspect ratio for landscape
   }
 }
 
