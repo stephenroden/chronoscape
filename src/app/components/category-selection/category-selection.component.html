@@ -1,0 +1,129 @@
+<div class="category-selection-container">
+  <!-- Skip to main content link for accessibility -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  
+  <!-- Header -->
+  <header class="category-header" role="banner">
+    <h1 id="page-title">Choose Your Photo Theme</h1>
+    <p class="page-subtitle">Select a category for a more focused historical experience</p>
+  </header>
+
+  <!-- Main content -->
+  <main class="category-content" id="main-content" role="main">
+    
+    <!-- Category Grid -->
+    <section class="category-grid-section" aria-labelledby="category-grid-heading">
+      <h2 id="category-grid-heading" class="visually-hidden">Available photo categories</h2>
+      
+      <div class="category-grid" role="radiogroup" aria-labelledby="page-title">
+        <div 
+          *ngFor="let category of categories; trackBy: trackByCategory"
+          class="category-card"
+          [class.selected]="selectedCategory === category.id"
+          (click)="selectCategory(category.id)"
+          (keydown.enter)="selectCategory(category.id)"
+          (keydown.space)="selectCategory(category.id)"
+          role="radio"
+          [attr.aria-checked]="selectedCategory === category.id"
+          [attr.aria-describedby]="'category-desc-' + category.id"
+          tabindex="0">
+          
+          <div class="category-icon" aria-hidden="true">{{ category.icon }}</div>
+          <h3 class="category-name">{{ category.name }}</h3>
+          <p class="category-desc" [id]="'category-desc-' + category.id">{{ category.description }}</p>
+          
+          <div class="category-selection-indicator" aria-hidden="true">
+            <span *ngIf="selectedCategory === category.id">✓</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Selected Category Details -->
+    <section class="selected-category-section desktop-only" *ngIf="getSelectedCategoryInfo() as selectedInfo" aria-labelledby="selected-heading">
+      <h2 id="selected-heading">{{ selectedInfo.name }}</h2>
+      <div class="selected-category-details">
+        <p class="detailed-description">{{ selectedInfo.detailedDescription }}</p>
+        
+        <div class="category-examples">
+          <h3>What to expect:</h3>
+          <ul class="examples-list">
+            <li *ngFor="let example of selectedInfo.examples">{{ example }}</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Loading state for game initialization -->
+    <div class="loading-container" 
+         *ngIf="(gameLoading$ | async) || (photosLoading$ | async)"
+         role="status"
+         aria-live="polite"
+         aria-label="Loading game">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p>Preparing your {{ getSelectedCategoryInfo()?.name?.toLowerCase() || 'curated' }} photos...</p>
+    </div>
+    
+    <!-- Start Game Button -->
+    <div class="start-actions">
+      <button 
+        class="primary-button start-button" 
+        (click)="startGameWithCategory()"
+        [disabled]="(gameLoading$ | async) || (photosLoading$ | async)"
+        [attr.aria-describedby]="(gameLoading$ | async) || (photosLoading$ | async) ? 'loading-status' : null"
+        type="button">
+        <span *ngIf="!(gameLoading$ | async) && !(photosLoading$ | async)" class="button-text">
+          <span class="full-text">Start Game with {{ getSelectedCategoryInfo()?.name }}</span>
+          <span class="short-text">Start Game</span>
+        </span>
+        <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)" id="loading-status">Loading...</span>
+      </button>
+    </div>
+
+    <!-- Error states -->
+    <section class="error-section" 
+             *ngIf="(photosError$ | async) || (gameError$ | async)"
+             role="alert"
+             aria-labelledby="error-heading">
+      <div class="error-icon" aria-hidden="true">⚠️</div>
+      <h2 id="error-heading">Unable to start game</h2>
+      
+      <!-- Photos error -->
+      <div *ngIf="photosError$ | async as photosError" class="error-message">
+        <p>{{ getErrorMessage(photosError) }}</p>
+        <div class="error-actions">
+          <button 
+            class="primary-button" 
+            (click)="retryLoadPhotos()"
+            *ngIf="isRetryableError(photosError)"
+            type="button"
+            aria-label="Retry loading photos from the server">
+            Try Again
+          </button>
+          <button 
+            class="secondary-button" 
+            (click)="fallbackToRandomPhotos()"
+            type="button"
+            aria-label="Use random photos instead of curated selection">
+            Use Random Photos
+          </button>
+        </div>
+      </div>
+      
+      <!-- Game error -->
+      <div *ngIf="gameError$ | async as gameError" class="error-message">
+        <p>{{ getErrorMessage(gameError) }}</p>
+        <div class="error-actions">
+          <button 
+            class="primary-button" 
+            (click)="clearGameError()"
+            *ngIf="isRetryableError(gameError)"
+            type="button"
+            aria-label="Try to resolve the game error">
+            Try Again
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>

@@ -21,38 +21,7 @@
         </ul>
       </div>
 
-      <!-- Category selection -->
-      <section class="category-selection" aria-labelledby="category-heading">
-        <h3 id="category-heading">Choose Your Photo Theme</h3>
-        <p class="category-description">Select a category for a more focused historical experience:</p>
-        
-        <div class="category-grid" role="radiogroup" aria-labelledby="category-heading">
-          <div 
-            *ngFor="let category of categories; trackBy: trackByCategory"
-            class="category-card"
-            [class.selected]="selectedCategory === category.id"
-            (click)="selectCategory(category.id)"
-            (keydown.enter)="selectCategory(category.id)"
-            (keydown.space)="selectCategory(category.id)"
-            role="radio"
-            [attr.aria-checked]="selectedCategory === category.id"
-            [attr.aria-describedby]="'category-desc-' + category.id"
-            tabindex="0">
-            
-            <div class="category-icon" aria-hidden="true">{{ category.icon }}</div>
-            <h4 class="category-name">{{ category.name }}</h4>
-            <p class="category-desc" [id]="'category-desc-' + category.id">{{ category.description }}</p>
-            
-            <div class="category-selection-indicator" aria-hidden="true">
-              <span *ngIf="selectedCategory === category.id">✓</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="selected-category-info" *ngIf="getSelectedCategoryInfo() as selectedInfo">
-          <p><strong>Selected:</strong> {{ selectedInfo.name }} - {{ selectedInfo.description }}</p>
-        </div>
-      </section>
+
       
       <!-- Loading state for game initialization -->
       <div class="loading-container" 
