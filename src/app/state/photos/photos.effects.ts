@@ -24,27 +24,54 @@ export class PhotosEffects {
      */
     this.loadPhotos$ = createEffect(() =>
       this.actions$.pipe(
-        ofType(PhotosActions.loadPhotos, PhotosActions.loadPhotosWithOptions),
+        ofType(PhotosActions.loadPhotos, PhotosActions.loadPhotosWithOptions, PhotosActions.loadCuratedPhotos),
         switchMap((action) => {
           const forceRefresh = 'forceRefresh' in action ? action.forceRefresh : false;
-          return this.photoService.fetchRandomPhotos(5, 'all', forceRefresh).pipe(
-            map(photos => {
-              if (photos.length === 0) {
-                return PhotosActions.loadPhotosFailure({
-                  error: 'No suitable photos found. Please try again.'
-                });
-              }
-              if (photos.length < 5) {
-                console.warn(`Only ${photos.length} photos found, expected 5`);
-              }
-              return PhotosActions.loadPhotosSuccess({ photos });
-            }),
-            catchError(error => {
-              console.error('Error loading photos:', error);
-              const errorMessage = this.getErrorMessage(error);
-              return of(PhotosActions.loadPhotosFailure({ error: errorMessage }));
-            })
-          );
+          
+          // Determine which method to use based on action type
+          if (action.type === PhotosActions.loadCuratedPhotos.type) {
+            const category = 'category' in action ? action.category || 'all' : 'all';
+            console.log(`Loading curated photos with category: ${category}`);
+            return this.photoService.fetchCuratedPhotos(5, category, forceRefresh).pipe(
+              map(photos => {
+                if (photos.length === 0) {
+                  return PhotosActions.loadPhotosFailure({
+                    error: 'No suitable curated photos found. Please try again.'
+                  });
+                }
+                if (photos.length < 5) {
+                  console.warn(`Only ${photos.length} curated photos found, expected 5`);
+                }
+                console.log(`Successfully loaded ${photos.length} curated photos`);
+                return PhotosActions.loadPhotosSuccess({ photos });
+              }),
+              catchError(error => {
+                console.error('Error loading curated photos:', error);
+                const errorMessage = this.getErrorMessage(error);
+                return of(PhotosActions.loadPhotosFailure({ error: errorMessage }));
+              })
+            );
+          } else {
+            // Use regular random photos for backward compatibility
+            return this.photoService.fetchRandomPhotos(5, 'all', forceRefresh).pipe(
+              map(photos => {
+                if (photos.length === 0) {
+                  return PhotosActions.loadPhotosFailure({
+                    error: 'No suitable photos found. Please try again.'
+                  });
+                }
+                if (photos.length < 5) {
+                  console.warn(`Only ${photos.length} photos found, expected 5`);
+                }
+                return PhotosActions.loadPhotosSuccess({ photos });
+              }),
+              catchError(error => {
+                console.error('Error loading photos:', error);
+                const errorMessage = this.getErrorMessage(error);
+                return of(PhotosActions.loadPhotosFailure({ error: errorMessage }));
+              })
+            );
+          }
         })
       )
     );

@@ -237,6 +237,14 @@ export class GameComponent implements OnInit, OnDestroy {
    * Requirement 6.5: Reset all interface elements to default states
    */
   startGame(): void {
+    this.startGameWithCategory('all');
+  }
+
+  /**
+   * Starts a new game with a specific photo category
+   * @param category - The photo category to use ('architecture', 'landmarks', 'events', or 'all')
+   */
+  startGameWithCategory(category: 'architecture' | 'landmarks' | 'events' | 'all' = 'all'): void {
     // Reset all game state for new game
     this.store.dispatch(GameActions.resetGame());
     this.store.dispatch(ScoringActions.resetScores());
@@ -244,8 +252,8 @@ export class GameComponent implements OnInit, OnDestroy {
     this.store.dispatch(PhotosActions.clearPhotos()); // Clear all photos to force fresh fetch
     this.store.dispatch(InterfaceActions.resetInterfaceState());
     
-    // First load photos from the API with fresh photos (forceRefresh: true)
-    this.store.dispatch(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
+    // Load curated photos from high-quality Wikipedia categories with fresh photos
+    this.store.dispatch(PhotosActions.loadCuratedPhotos({ category, forceRefresh: true }));
     
     // Then start the game which will set status to IN_PROGRESS
     this.store.dispatch(GameActions.startGame());
@@ -340,7 +348,15 @@ export class GameComponent implements OnInit, OnDestroy {
    * Retries loading photos when there's an error
    */
   retryLoadPhotos(): void {
-    this.store.dispatch(PhotosActions.loadPhotos());
+    // Try curated photos first, fallback to regular photos if needed
+    this.store.dispatch(PhotosActions.loadCuratedPhotos({ category: 'all', forceRefresh: true }));
+  }
+
+  /**
+   * Fallback to regular random photos if curated photos fail
+   */
+  fallbackToRandomPhotos(): void {
+    this.store.dispatch(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
   }
 
   /**

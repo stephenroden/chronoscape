@@ -94,48 +94,46 @@ export class PhotoService {
   private readonly SEARCH_MULTIPLIER_PER_RETRY = 1.5; // Expand search by 50% each retry
   private readonly PHOTOS_PER_LOCATION_MULTIPLIER = 2; // Double photos per location on retry
 
-  // Category configurations for filtering
+  // Enhanced category configurations with well-populated Wikipedia categories
   private readonly CATEGORY_CONFIGS: Record<PhotoCategory, CategoryConfig> = {
     architecture: {
       categories: [
         'Category:Architecture',
         'Category:Buildings',
         'Category:Churches',
-        'Category:Cathedrals',
-        'Category:Palaces',
-        'Category:Castles',
-        'Category:Museums',
         'Category:Bridges',
-        'Category:Towers',
-        'Category:Historic buildings'
+        'Category:Castles',
+        'Category:Cathedrals',
+        'Category:Historic buildings',
+        'Category:Railway stations',
+        'Category:Towers'
       ],
-      searchTerms: ['building', 'architecture', 'church', 'cathedral', 'palace', 'castle', 'bridge', 'tower']
+      searchTerms: ['building', 'architecture', 'church', 'cathedral', 'palace', 'castle', 'bridge', 'tower', 'station', 'historic building']
     },
     landmarks: {
       categories: [
-        'Category:Landmarks',
-        'Category:Monuments',
-        'Category:Statues',
-        'Category:Memorial',
+        'Category:Monuments and memorials',
         'Category:World Heritage Sites',
         'Category:Tourist attractions',
         'Category:Historic sites',
-        'Category:Archaeological sites'
+        'Category:Archaeological sites',
+        'Category:Statues',
+        'Category:Fountains',
+        'Category:Parks'
       ],
-      searchTerms: ['monument', 'statue', 'memorial', 'landmark', 'heritage', 'historic', 'archaeological']
+      searchTerms: ['monument', 'statue', 'memorial', 'landmark', 'heritage', 'historic', 'archaeological', 'fountain', 'park', 'tourist attraction']
     },
     events: {
       categories: [
-        'Category:Historical events',
+        'Category:Historical photographs',
         'Category:Festivals',
-        'Category:Ceremonies',
         'Category:Parades',
-        'Category:Celebrations',
-        'Category:Political events',
-        'Category:Cultural events',
-        'Category:Sports events'
+        'Category:Ceremonies',
+        'Category:Street scenes',
+        'Category:Transportation',
+        'Category:People'
       ],
-      searchTerms: ['event', 'festival', 'ceremony', 'parade', 'celebration', 'gathering', 'commemoration']
+      searchTerms: ['historical photograph', 'festival', 'ceremony', 'parade', 'celebration', 'street scene', 'transportation', 'people', 'crowd']
     },
     all: {
       categories: [],
@@ -149,6 +147,50 @@ export class PhotoService {
     private formatValidationService: FormatValidationService,
     private loadingStateService: LoadingStateService
   ) { }
+
+  /**
+   * Fetches curated historical photos from high-quality Wikipedia categories
+   * @param count - Number of photos to fetch
+   * @param category - Optional category filter ('architecture', 'landmarks', 'events', or 'all')
+   * @param forceRefresh - Whether to bypass cache and fetch fresh photos
+   * @returns Observable of Photo array
+   */
+  fetchCuratedPhotos(count: number, category: PhotoCategory = 'all', forceRefresh: boolean = false): Observable<Photo[]> {
+    let cacheKey: string;
+    if (forceRefresh) {
+      // Always use unique cache key for fresh photos to ensure randomness
+      cacheKey = `curated-photos-${count}-${category}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    } else {
+      // Use shorter cache intervals (1 minute) to allow for more variety
+      const cacheInterval = 1 * 60 * 1000; // 1 minute
+      const cacheTimestamp = Date.now() - (Date.now() % cacheInterval);
+      // Add random component even for cached requests to ensure variety
+      const randomComponent = Math.floor(Math.random() * 10);
+      cacheKey = `curated-photos-${count}-${category}-${cacheTimestamp}-${randomComponent}`;
+    }
+    
+    this.loadingStateService.startPhotosFetch(count);
+    
+    return this.cacheService.getOrSet(
+      cacheKey,
+      () => this.fetchCuratedPhotosWithRetry(count, 0, category),
+      { ttl: forceRefresh ? 0 : Math.min(this.PHOTO_CACHE_TTL, 2 * 60 * 1000) } // Shorter cache for variety
+    ).pipe(
+      tap({
+        next: (photos) => {
+          this.loadingStateService.completePhotosFetch();
+          console.log(`Successfully fetched ${photos.length} curated photos`);
+        },
+        error: (error) => {
+          this.loadingStateService.setError(
+            LoadingStateService.LOADING_KEYS.PHOTOS_FETCH,
+            `Failed to fetch curated photos: ${error.message}`
+          );
+          console.error('Curated photo fetch failed:', error);
+        }
+      })
+    );
+  }
 
   /**
    * Fetches random historical photos from Wikimedia Commons using geosearch with retry logic
@@ -192,6 +234,208 @@ export class PhotoService {
         }
       })
     );
+  }
+
+  /**
+   * Fetches curated photos with retry logic, focusing on high-quality categories
+   * @param count - Number of photos needed
+   * @param retryAttempt - Current retry attempt (0-based)
+   * @param category - Photo category to filter by
+   * @returns Observable of Photo array
+   */
+  private fetchCuratedPhotosWithRetry(count: number, retryAttempt: number, category: PhotoCategory = 'all'): Observable<Photo[]> {
+    console.log(`Fetching curated photos - Attempt ${retryAttempt + 1}/${this.MAX_RETRY_ATTEMPTS + 1}`, {
+      count,
+      category,
+      retryAttempt
+    });
+
+    // Use a hybrid approach: category-based search + selective geosearch
+    return this.fetchFromCuratedCategories(count, category, retryAttempt).pipe(
+      switchMap(photos => {
+        console.log(`Curated photos after filtering - Attempt ${retryAttempt + 1}`, {
+          requested: count,
+          found: photos.length,
+          retryAttempt
+        });
+
+        if (photos.length >= count) {
+          return of(this.selectDiversePhotos(photos, count));
+        } else if (retryAttempt < this.MAX_RETRY_ATTEMPTS) {
+          console.log(`Insufficient curated photos found (${photos.length}/${count}). Retrying with expanded search...`);
+          return this.fetchCuratedPhotosWithRetry(count, retryAttempt + 1, category);
+        } else {
+          if (photos.length > 0) {
+            console.warn(`Max retries reached for curated search. Returning ${photos.length} photos instead of requested ${count}`);
+            return of(this.selectDiversePhotos(photos, photos.length));
+          } else {
+            // Fallback to regular random photos if curated approach fails completely
+            console.log('Curated approach failed, falling back to random photos');
+            return this.fetchPhotosWithRetry(count, 0, category);
+          }
+        }
+      }),
+      catchError(error => {
+        console.error(`Error fetching curated photos on attempt ${retryAttempt + 1}:`, error);
+        
+        if (retryAttempt < this.MAX_RETRY_ATTEMPTS) {
+          console.log(`Retrying curated search due to error...`);
+          return this.fetchCuratedPhotosWithRetry(count, retryAttempt + 1, category);
+        } else {
+          // Final fallback to regular random photos
+          console.log('Curated search failed completely, falling back to random photos');
+          return this.fetchPhotosWithRetry(count, 0, category);
+        }
+      })
+    );
+  }
+
+  /**
+   * Fetches photos from curated high-quality categories
+   * @param count - Number of photos needed
+   * @param category - Photo category to filter by
+   * @param retryAttempt - Current retry attempt for expanding search
+   * @returns Observable of Photo array
+   */
+  private fetchFromCuratedCategories(count: number, category: PhotoCategory, retryAttempt: number): Observable<Photo[]> {
+    const categoryConfig = this.CATEGORY_CONFIGS[category];
+    
+    if (category === 'all') {
+      // For 'all' category, use a mixed approach with broader search terms
+      return this.fetchMixedCuratedPhotos(count, retryAttempt);
+    }
+
+    // Use a progressive approach: start with targeted search, expand if needed
+    const searchStrategies: Observable<any[]>[] = [];
+    
+    // Strategy 1: Search with category-specific terms
+    if (categoryConfig.searchTerms.length > 0) {
+      searchStrategies.push(this.searchByTermsWithCoordinates(categoryConfig.searchTerms, count * 2));
+    }
+    
+    // Strategy 2: Try category member search (but don't rely on it heavily)
+    if (categoryConfig.categories.length > 0) {
+      searchStrategies.push(this.searchCategoryMembers(categoryConfig.categories, Math.floor(count / 2)));
+    }
+    
+    // Strategy 3: Fallback to geosearch with category filter (on retries)
+    if (retryAttempt > 0) {
+      const majorCities = this.getMajorCities(Math.min(5 + retryAttempt * 3, 15));
+      const geoSearches = majorCities.map(city => 
+        this.searchPhotosByLocation(city, this.BASE_SEARCH_RADIUS * (1 + retryAttempt * 0.5), 5, category)
+      );
+      searchStrategies.push(...geoSearches);
+    }
+
+    if (searchStrategies.length === 0) {
+      // Ultimate fallback: use regular geosearch
+      const cities = this.getMajorCities(10);
+      return forkJoin(
+        cities.map(city => this.searchPhotosByLocation(city, this.BASE_SEARCH_RADIUS, 10, 'all'))
+      ).pipe(
+        map(results => results.flat()),
+        map(searchResults => this.deduplicateResults(searchResults)),
+        switchMap(searchResults => this.getPhotoDetails(searchResults)),
+        map(photos => this.filterValidPhotos(photos))
+      );
+    }
+
+    return forkJoin(searchStrategies).pipe(
+      map(results => results.flat()),
+      map(searchResults => this.deduplicateResults(searchResults)),
+      switchMap(searchResults => {
+        if (searchResults.length === 0) {
+          console.log('No search results found, falling back to geosearch');
+          // Fallback to regular geosearch if no curated results
+          const cities = this.getMajorCities(5);
+          return forkJoin(
+            cities.map(city => this.searchPhotosByLocation(city, this.BASE_SEARCH_RADIUS, 10, 'all'))
+          ).pipe(
+            map(geoResults => geoResults.flat()),
+            switchMap(geoSearchResults => this.getPhotoDetails(geoSearchResults))
+          );
+        }
+        return this.getPhotoDetails(searchResults);
+      }),
+      map(photos => this.filterValidPhotos(photos))
+    );
+  }
+
+  /**
+   * Fetches mixed curated photos for the 'all' category
+   * @param count - Number of photos needed
+   * @param retryAttempt - Current retry attempt
+   * @returns Observable of Photo array
+   */
+  private fetchMixedCuratedPhotos(count: number, retryAttempt: number): Observable<Photo[]> {
+    // Use a mix of search terms from all categories
+    const allSearchTerms = [
+      ...this.CATEGORY_CONFIGS.architecture.searchTerms.slice(0, 3),
+      ...this.CATEGORY_CONFIGS.landmarks.searchTerms.slice(0, 3),
+      ...this.CATEGORY_CONFIGS.events.searchTerms.slice(0, 2)
+    ];
+
+    const searchStrategies: Observable<any[]>[] = [];
+    
+    // Strategy 1: Mixed search terms
+    searchStrategies.push(this.searchByTermsWithCoordinates(allSearchTerms, count));
+    
+    // Strategy 2: Geosearch in major cities
+    const majorCities = this.getMajorCities(Math.min(8 + retryAttempt * 2, 15));
+    const geoSearches = majorCities.map(city => 
+      this.searchPhotosByLocation(city, this.BASE_SEARCH_RADIUS * (1 + retryAttempt * 0.3), 8, 'all')
+    );
+    searchStrategies.push(...geoSearches);
+
+    return forkJoin(searchStrategies).pipe(
+      map(results => results.flat()),
+      map(searchResults => this.deduplicateResults(searchResults)),
+      switchMap(searchResults => this.getPhotoDetails(searchResults)),
+      map(photos => this.filterValidPhotos(photos))
+    );
+  }
+
+  /**
+   * Gets a randomized selection of major cities for geosearch fallback
+   * @param count - Number of cities to return
+   * @returns Array of major city coordinates
+   */
+  private getMajorCities(count: number): Coordinates[] {
+    const majorCities: Coordinates[] = [
+      { latitude: 51.5074, longitude: -0.1278 },   // London
+      { latitude: 48.8566, longitude: 2.3522 },    // Paris
+      { latitude: 52.5200, longitude: 13.4050 },   // Berlin
+      { latitude: 41.9028, longitude: 12.4964 },   // Rome
+      { latitude: 40.4168, longitude: -3.7038 },   // Madrid
+      { latitude: 55.7558, longitude: 37.6176 },   // Moscow
+      { latitude: 39.9042, longitude: 116.4074 },  // Beijing
+      { latitude: 35.6762, longitude: 139.6503 },  // Tokyo
+      { latitude: 40.7128, longitude: -74.0060 },  // New York
+      { latitude: 34.0522, longitude: -118.2437 }, // Los Angeles
+      { latitude: -33.8688, longitude: 151.2093 }, // Sydney
+      { latitude: -22.9068, longitude: -43.1729 }, // Rio de Janeiro
+      { latitude: 19.4326, longitude: -99.1332 },  // Mexico City
+      { latitude: 30.0444, longitude: 31.2357 },   // Cairo
+      { latitude: -26.2041, longitude: 28.0473 },  // Johannesburg
+      { latitude: 28.6139, longitude: 77.2090 },   // New Delhi
+      { latitude: 1.3521, longitude: 103.8198 },   // Singapore
+      { latitude: -34.6037, longitude: -58.3816 }, // Buenos Aires
+      { latitude: 55.6761, longitude: 12.5683 },   // Copenhagen
+      { latitude: 59.3293, longitude: 18.0686 },   // Stockholm
+      { latitude: 37.7749, longitude: -122.4194 }, // San Francisco
+      { latitude: 43.6532, longitude: -79.3832 },  // Toronto
+      { latitude: -37.8136, longitude: 144.9631 }, // Melbourne
+      { latitude: 25.2048, longitude: 55.2708 },   // Dubai
+      { latitude: 22.3193, longitude: 114.1694 },  // Hong Kong
+      { latitude: 31.2304, longitude: 121.4737 },  // Shanghai
+      { latitude: 19.0760, longitude: 72.8777 },   // Mumbai
+      { latitude: -1.2921, longitude: 36.8219 },   // Nairobi
+      { latitude: 4.7110, longitude: -74.0721 },   // Bogotá
+      { latitude: -33.4489, longitude: -70.6693 }  // Santiago
+    ];
+
+    // Randomize the selection
+    return this.shuffleArray(majorCities).slice(0, count);
   }
 
   /**
@@ -413,7 +657,7 @@ export class PhotoService {
   }
 
   /**
-   * Gets diverse geographic locations for photo searching
+   * Gets diverse geographic locations for photo searching with randomization
    */
   private getRandomLocations(count: number): Coordinates[] {
     const allLocations: Coordinates[] = [
@@ -672,8 +916,8 @@ export class PhotoService {
       { latitude: 15.3694, longitude: 44.1910 },  // Sana'a, Yemen
     ];
 
-    // Shuffle and take the requested count
-    const shuffled = [...allLocations].sort(() => Math.random() - 0.5);
+    // Use proper Fisher-Yates shuffle and take the requested count
+    const shuffled = this.shuffleArray([...allLocations]);
     return shuffled.slice(0, count);
   }
 
@@ -725,7 +969,7 @@ export class PhotoService {
   }
 
   /**
-   * Searches for photos by category near a specific location
+   * Searches for photos by category near a specific location using enhanced category-based approach
    * @param location - Geographic coordinates to search around
    * @param radius - Search radius in meters
    * @param limit - Maximum number of results
@@ -738,36 +982,256 @@ export class PhotoService {
     category: PhotoCategory
   ): Observable<any[]> {
     const categoryConfig = this.CATEGORY_CONFIGS[category];
-    const searchTerms = categoryConfig.searchTerms.join('|');
     
-    // Use search API with category-specific terms and location filter
-    const params = new HttpParams()
+    // Try multiple approaches: category members + geosearch combination
+    return forkJoin([
+      this.searchCategoryMembers(categoryConfig.categories, limit),
+      this.searchByTermsWithCoordinates(categoryConfig.searchTerms, limit),
+      this.performStandardGeosearch(location, radius, Math.floor(limit / 2))
+    ]).pipe(
+      map(([categoryResults, termResults, geoResults]) => {
+        // Combine and deduplicate results
+        const allResults = [...categoryResults, ...termResults, ...geoResults];
+        const uniqueResults = this.deduplicateResults(allResults);
+        
+        // Filter by proximity to location if we have coordinates
+        return this.filterByProximity(uniqueResults, location, radius * 2); // Use larger radius for category results
+      }),
+      catchError(error => {
+        console.error('Enhanced category search error for location:', location, 'category:', category, error);
+        // Fallback to standard geosearch if category search fails
+        return this.performStandardGeosearch(location, radius, limit);
+      })
+    );
+  }
+
+  /**
+   * Searches for photos that are members of specific Wikipedia categories with randomization
+   * @param categories - Array of category names to search
+   * @param limit - Maximum number of results per category
+   */
+  private searchCategoryMembers(categories: string[], limit: number): Observable<any[]> {
+    if (!categories.length) return of([]);
+
+    // Try different category search strategies with randomization
+    const categorySearches: Observable<any[]>[] = [];
+    
+    // Strategy 1: Direct category member search with random starting points
+    const selectedCategories = this.shuffleArray([...categories]).slice(0, 2);
+    
+    selectedCategories.forEach(category => {
+      // Use random starting offset to get different results each time
+      const randomOffset = Math.floor(Math.random() * 100);
+      
+      const params = new HttpParams()
+        .set('action', 'query')
+        .set('list', 'categorymembers')
+        .set('cmtitle', category)
+        .set('cmnamespace', '6') // File namespace
+        .set('cmlimit', Math.min(Math.floor(limit / 2) + 20, 50).toString()) // Get more to allow for randomization
+        .set('cmtype', 'file')
+        .set('cmstartsortkeyprefix', this.getRandomSortKey()) // Random starting point
+        .set('format', 'json')
+        .set('origin', '*');
+
+      categorySearches.push(
+        this.http.get<any>(this.API_BASE_URL, { params }).pipe(
+          map(response => response.query?.categorymembers || []),
+          map(members => {
+            // Shuffle the results and take a random subset
+            const shuffled = this.shuffleArray(members);
+            return shuffled.slice(0, Math.floor(limit / 2)).map((member: any) => ({
+              pageid: member.pageid,
+              title: member.title,
+              lat: 0,
+              lon: 0
+            }));
+          }),
+          catchError(error => {
+            console.error(`Error searching category ${category}:`, error);
+            return of([]);
+          })
+        )
+      );
+    });
+
+    // Strategy 2: Search for files in category using search API with random terms
+    const categoryKeywords = this.shuffleArray(
+      categories.map(cat => cat.replace('Category:', '').toLowerCase())
+    ).slice(0, 2).join(' OR ');
+    
+    if (categoryKeywords) {
+      // Add some randomization to the search query
+      const randomSearchModifier = this.getRandomSearchModifier();
+      
+      const searchParams = new HttpParams()
+        .set('action', 'query')
+        .set('list', 'search')
+        .set('srsearch', `${categoryKeywords} ${randomSearchModifier}`)
+        .set('srnamespace', '6')
+        .set('srlimit', Math.min(limit + 10, 30).toString()) // Get extra for randomization
+        .set('sroffset', Math.floor(Math.random() * 50).toString()) // Random offset
+        .set('format', 'json')
+        .set('origin', '*');
+
+      categorySearches.push(
+        this.http.get<any>(this.API_BASE_URL, { params: searchParams }).pipe(
+          map(response => response.query?.search || []),
+          map(results => {
+            // Shuffle and take random subset
+            const shuffled = this.shuffleArray(results);
+            return shuffled.slice(0, limit).map((result: any) => ({
+              pageid: result.pageid,
+              title: result.title,
+              lat: 0,
+              lon: 0
+            }));
+          }),
+          catchError(error => {
+            console.error('Error in category keyword search:', error);
+            return of([]);
+          })
+        )
+      );
+    }
+
+    if (categorySearches.length === 0) {
+      return of([]);
+    }
+
+    return forkJoin(categorySearches).pipe(
+      map(results => {
+        const combined = results.flat();
+        const deduplicated = this.deduplicateResults(combined);
+        // Final shuffle to ensure randomness
+        return this.shuffleArray(deduplicated);
+      })
+    );
+  }
+
+  /**
+   * Searches for photos using search terms with randomization
+   * @param searchTerms - Array of search terms
+   * @param limit - Maximum number of results
+   */
+  private searchByTermsWithCoordinates(searchTerms: string[], limit: number): Observable<any[]> {
+    if (!searchTerms.length) return of([]);
+
+    // Randomize search approach for variety
+    const searches: Observable<any[]>[] = [];
+    const shuffledTerms = this.shuffleArray([...searchTerms]);
+    
+    // Strategy 1: Broad search with random term combinations
+    const mainSearchQuery = shuffledTerms.slice(0, 2).join(' ');
+    const randomModifier = this.getRandomSearchModifier();
+    const mainParams = new HttpParams()
       .set('action', 'query')
       .set('list', 'search')
-      .set('srsearch', `${searchTerms} filetype:bitmap incategory:"Commons images" hascoordinates:yes`)
-      .set('srnamespace', '6') // File namespace
-      .set('srlimit', Math.min(limit * 2, 50).toString()) // Get more results to filter by location
-      .set('srinfo', 'suggestion')
-      .set('srprop', 'size|wordcount|timestamp|snippet')
+      .set('srsearch', `${mainSearchQuery} ${randomModifier}`)
+      .set('srnamespace', '6')
+      .set('srlimit', Math.min(limit + 10, 40).toString()) // Get extra for randomization
+      .set('sroffset', Math.floor(Math.random() * 100).toString()) // Random starting point
       .set('format', 'json')
       .set('origin', '*');
 
-    return this.http.get<any>(this.API_BASE_URL, { params })
-      .pipe(
+    searches.push(
+      this.http.get<any>(this.API_BASE_URL, { params: mainParams }).pipe(
         map(response => response.query?.search || []),
-        // Convert search results to geosearch-like format
-        map(searchResults => searchResults.map((result: any) => ({
+        map(results => this.shuffleArray(results)), // Shuffle results
+        catchError(() => of([]))
+      )
+    );
+
+    // Strategy 2: Try different individual terms with randomization
+    if (shuffledTerms.length > 1) {
+      // Pick a random term instead of always the first one
+      const randomTerm = shuffledTerms[Math.floor(Math.random() * Math.min(shuffledTerms.length, 3))];
+      const individualParams = new HttpParams()
+        .set('action', 'query')
+        .set('list', 'search')
+        .set('srsearch', `${randomTerm} ${this.getRandomSearchModifier()}`)
+        .set('srnamespace', '6')
+        .set('srlimit', Math.min(Math.floor(limit / 2) + 5, 25).toString())
+        .set('sroffset', Math.floor(Math.random() * 50).toString()) // Random offset
+        .set('format', 'json')
+        .set('origin', '*');
+
+      searches.push(
+        this.http.get<any>(this.API_BASE_URL, { params: individualParams }).pipe(
+          map(response => response.query?.search || []),
+          map(results => this.shuffleArray(results)), // Shuffle results
+          catchError(() => of([]))
+        )
+      );
+    }
+
+    // Strategy 3: Try a completely different random term combination
+    if (shuffledTerms.length > 2) {
+      const altTerms = shuffledTerms.slice(1, 3).join(' OR ');
+      const altParams = new HttpParams()
+        .set('action', 'query')
+        .set('list', 'search')
+        .set('srsearch', `${altTerms}`)
+        .set('srnamespace', '6')
+        .set('srlimit', Math.min(Math.floor(limit / 3), 15).toString())
+        .set('sroffset', Math.floor(Math.random() * 75).toString())
+        .set('format', 'json')
+        .set('origin', '*');
+
+      searches.push(
+        this.http.get<any>(this.API_BASE_URL, { params: altParams }).pipe(
+          map(response => response.query?.search || []),
+          map(results => this.shuffleArray(results)),
+          catchError(() => of([]))
+        )
+      );
+    }
+
+    return forkJoin(searches).pipe(
+      map(results => {
+        const combined = results.flat();
+        const unique = this.deduplicateResults(combined);
+        const shuffled = this.shuffleArray(unique);
+        
+        return shuffled.map((result: any) => ({
           pageid: result.pageid,
           title: result.title,
           lat: 0, // Will be filled in by photo details
-          lon: 0  // Will be filled in by photo details
-        }))),
-        catchError(error => {
-          console.error('Category search error for location:', location, 'category:', category, error);
-          // Fallback to standard geosearch if category search fails
-          return this.performStandardGeosearch(location, radius, limit);
-        })
-      );
+          lon: 0
+        }));
+      }),
+      catchError(error => {
+        console.error('Terms search error:', error);
+        return of([]);
+      })
+    );
+  }
+
+  /**
+   * Removes duplicate results based on page ID
+   * @param results - Array of search results
+   */
+  private deduplicateResults(results: any[]): any[] {
+    const seen = new Set<number>();
+    return results.filter(result => {
+      if (seen.has(result.pageid)) {
+        return false;
+      }
+      seen.add(result.pageid);
+      return true;
+    });
+  }
+
+  /**
+   * Filters results by proximity to a location (placeholder - will be refined when we get actual coordinates)
+   * @param results - Search results
+   * @param location - Target location
+   * @param maxRadius - Maximum distance in meters
+   */
+  private filterByProximity(results: any[], location: Coordinates, maxRadius: number): any[] {
+    // For now, return all results since we'll filter by actual coordinates later
+    // This method can be enhanced once we have the actual photo coordinates
+    return results;
   }
 
   /**
@@ -955,34 +1419,151 @@ export class PhotoService {
   }
 
   /**
-   * Selects diverse photos from the filtered results
+   * Selects diverse photos from the filtered results with randomization
    */
   private selectDiversePhotos(photos: Photo[], count: number): Photo[] {
-    if (photos.length <= count) return photos;
+    if (photos.length <= count) return this.shuffleArray(photos);
 
-    // Sort by year to get temporal diversity
-    const sortedPhotos = [...photos].sort((a, b) => a.year - b.year);
+    // Create multiple selection strategies and pick randomly
+    const strategies = [
+      () => this.selectByTemporalDiversity(photos, count),
+      () => this.selectByGeographicDiversity(photos, count),
+      () => this.selectRandomly(photos, count),
+      () => this.selectMixed(photos, count)
+    ];
 
-    // Select photos with good temporal and spatial distribution
+    // Randomly choose a selection strategy
+    const selectedStrategy = strategies[Math.floor(Math.random() * strategies.length)];
+    return selectedStrategy();
+  }
+
+  /**
+   * Selects photos with temporal diversity
+   */
+  private selectByTemporalDiversity(photos: Photo[], count: number): Photo[] {
+    const sortedPhotos = this.shuffleArray([...photos]).sort((a, b) => a.year - b.year);
     const selected: Photo[] = [];
     const step = Math.floor(sortedPhotos.length / count);
 
     for (let i = 0; i < count && i * step < sortedPhotos.length; i++) {
-      const index = i * step;
+      const baseIndex = i * step;
+      // Add some randomness within the step range
+      const randomOffset = Math.floor(Math.random() * Math.min(step, 3));
+      const index = Math.min(baseIndex + randomOffset, sortedPhotos.length - 1);
       selected.push(sortedPhotos[index]);
     }
 
-    // If we don't have enough, fill with remaining photos
+    // Fill remaining slots randomly
     while (selected.length < count && selected.length < photos.length) {
       const remaining = photos.filter(p => !selected.includes(p));
       if (remaining.length > 0) {
-        selected.push(remaining[0]);
+        const randomIndex = Math.floor(Math.random() * remaining.length);
+        selected.push(remaining[randomIndex]);
       } else {
         break;
       }
     }
 
-    return selected;
+    return this.shuffleArray(selected);
+  }
+
+  /**
+   * Selects photos with geographic diversity
+   */
+  private selectByGeographicDiversity(photos: Photo[], count: number): Photo[] {
+    const selected: Photo[] = [];
+    const remaining = [...photos];
+
+    // First photo is random
+    if (remaining.length > 0) {
+      const firstIndex = Math.floor(Math.random() * remaining.length);
+      selected.push(remaining.splice(firstIndex, 1)[0]);
+    }
+
+    // Select subsequent photos that are geographically diverse
+    while (selected.length < count && remaining.length > 0) {
+      let bestPhoto = remaining[0];
+      let maxMinDistance = 0;
+
+      // Find photo with maximum minimum distance to already selected photos
+      for (const candidate of remaining) {
+        let minDistance = Infinity;
+        for (const selectedPhoto of selected) {
+          const distance = this.calculateDistance(
+            candidate.coordinates,
+            selectedPhoto.coordinates
+          );
+          minDistance = Math.min(minDistance, distance);
+        }
+        
+        // Add some randomness to avoid always picking the most distant
+        const randomFactor = 0.7 + Math.random() * 0.6; // 0.7 to 1.3
+        const adjustedDistance = minDistance * randomFactor;
+        
+        if (adjustedDistance > maxMinDistance) {
+          maxMinDistance = adjustedDistance;
+          bestPhoto = candidate;
+        }
+      }
+
+      selected.push(bestPhoto);
+      remaining.splice(remaining.indexOf(bestPhoto), 1);
+    }
+
+    return this.shuffleArray(selected);
+  }
+
+  /**
+   * Selects photos completely randomly
+   */
+  private selectRandomly(photos: Photo[], count: number): Photo[] {
+    const shuffled = this.shuffleArray([...photos]);
+    return shuffled.slice(0, count);
+  }
+
+  /**
+   * Selects photos using a mixed approach
+   */
+  private selectMixed(photos: Photo[], count: number): Photo[] {
+    const selected: Photo[] = [];
+    const shuffled = this.shuffleArray([...photos]);
+    
+    // Take some from different parts of the shuffled array
+    const segments = Math.min(count, 4);
+    const segmentSize = Math.floor(shuffled.length / segments);
+    
+    for (let i = 0; i < segments && selected.length < count; i++) {
+      const segmentStart = i * segmentSize;
+      const segmentEnd = Math.min(segmentStart + segmentSize, shuffled.length);
+      const segmentPhotos = shuffled.slice(segmentStart, segmentEnd);
+      
+      if (segmentPhotos.length > 0) {
+        const randomIndex = Math.floor(Math.random() * segmentPhotos.length);
+        selected.push(segmentPhotos[randomIndex]);
+      }
+    }
+
+    // Fill remaining slots randomly
+    while (selected.length < count && selected.length < photos.length) {
+      const remaining = photos.filter(p => !selected.includes(p));
+      if (remaining.length > 0) {
+        const randomIndex = Math.floor(Math.random() * remaining.length);
+        selected.push(remaining[randomIndex]);
+      } else {
+        break;
+      }
+    }
+
+    return this.shuffleArray(selected);
+  }
+
+  /**
+   * Calculates distance between two coordinates (simple Euclidean distance)
+   */
+  private calculateDistance(coord1: Coordinates, coord2: Coordinates): number {
+    const latDiff = coord1.latitude - coord2.latitude;
+    const lonDiff = coord1.longitude - coord2.longitude;
+    return Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
   }
 
   /**
@@ -1147,5 +1728,50 @@ export class PhotoService {
     }
     
     return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Shuffles an array using Fisher-Yates algorithm
+   * @param array - Array to shuffle
+   * @returns Shuffled copy of the array
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  /**
+   * Gets a random sort key for category member searches
+   * @returns Random sort key string
+   */
+  private getRandomSortKey(): string {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const length = Math.floor(Math.random() * 3) + 1; // 1-3 characters
+    let result = '';
+    for (let i = 0; i < length; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+
+  /**
+   * Gets a random search modifier to vary search results
+   * @returns Random search modifier string
+   */
+  private getRandomSearchModifier(): string {
+    const modifiers = [
+      'filetype:bitmap',
+      'historic',
+      'old',
+      'vintage',
+      'photograph',
+      'image',
+      ''
+    ];
+    return modifiers[Math.floor(Math.random() * modifiers.length)];
   }
 }

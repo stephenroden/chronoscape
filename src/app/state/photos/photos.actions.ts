@@ -9,6 +9,11 @@ export const loadPhotosWithOptions = createAction(
   props<{ forceRefresh?: boolean }>()
 );
 
+export const loadCuratedPhotos = createAction(
+  '[Photos] Load Curated Photos',
+  props<{ category?: 'architecture' | 'landmarks' | 'events' | 'all'; forceRefresh?: boolean }>()
+);
+
 export const loadPhotosSuccess = createAction(
   '[Photos] Load Photos Success',
   props<{ photos: Photo[] }>()

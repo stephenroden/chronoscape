@@ -12,6 +12,7 @@ import * as GameSelectors from '../../state/game/game.selectors';
 /**
  * Start screen component that displays the welcome message and game start button.
  * Handles game initialization and navigation to the game play screen.
+ * Now includes category selection for curated photo experiences.
  */
 @Component({
   selector: 'app-start-screen',
@@ -27,6 +28,37 @@ export class StartScreenComponent {
   photosError$: Observable<string | null>;
   gameError$: Observable<string | null>;
 
+  // Category selection
+  selectedCategory: 'architecture' | 'landmarks' | 'events' | 'all' = 'all';
+  
+  // Available categories with descriptions
+  categories = [
+    {
+      id: 'all' as const,
+      name: 'Mixed Collection',
+      description: 'A diverse mix of historical photos from all categories',
+      icon: '🌍'
+    },
+    {
+      id: 'architecture' as const,
+      name: 'Architecture',
+      description: 'Historic buildings, bridges, and architectural landmarks',
+      icon: '🏛️'
+    },
+    {
+      id: 'landmarks' as const,
+      name: 'Landmarks',
+      description: 'Famous monuments, statues, and tourist attractions',
+      icon: '🗽'
+    },
+    {
+      id: 'events' as const,
+      name: 'Historical Events',
+      description: 'Street scenes, festivals, and historical moments',
+      icon: '📸'
+    }
+  ];
+
   constructor(
     private store: Store<AppState>,
     private router: Router
@@ -38,12 +70,15 @@ export class StartScreenComponent {
   }
 
   /**
-   * Starts a new game by loading photos and navigating to game screen.
+   * Starts a new game by loading curated photos and navigating to game screen.
    * Requirement 1.1: Display the first of five photographs when game starts.
    */
   startGame(): void {
-    // First load photos from the API with fresh photos (forceRefresh: true)
-    this.store.dispatch(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
+    // Load curated photos from high-quality Wikipedia categories with fresh photos
+    this.store.dispatch(PhotosActions.loadCuratedPhotos({ 
+      category: this.selectedCategory, 
+      forceRefresh: true 
+    }));
     
     // Start the game which will set status to IN_PROGRESS
     this.store.dispatch(GameActions.startGame());
@@ -53,10 +88,42 @@ export class StartScreenComponent {
   }
 
   /**
+   * Selects a photo category for the game
+   */
+  selectCategory(category: 'architecture' | 'landmarks' | 'events' | 'all'): void {
+    this.selectedCategory = category;
+  }
+
+  /**
+   * Gets the currently selected category info
+   */
+  getSelectedCategoryInfo() {
+    return this.categories.find(cat => cat.id === this.selectedCategory);
+  }
+
+  /**
    * Retries loading photos when there's an error
    */
   retryLoadPhotos(): void {
-    this.store.dispatch(PhotosActions.loadPhotos());
+    // Try curated photos first
+    this.store.dispatch(PhotosActions.loadCuratedPhotos({ 
+      category: this.selectedCategory, 
+      forceRefresh: true 
+    }));
+  }
+
+  /**
+   * Fallback to regular random photos if curated photos fail
+   */
+  fallbackToRandomPhotos(): void {
+    this.store.dispatch(PhotosActions.loadPhotosWithOptions({ forceRefresh: true }));
+  }
+
+  /**
+   * TrackBy function for category list performance
+   */
+  trackByCategory(index: number, category: any): string {
+    return category.id;
   }
 
   /**
