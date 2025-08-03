@@ -1,21 +1,8 @@
-<div class="map-guess-container" 
-     [class.in-toggle-container]="isInToggleContainer"
-     role="region" 
-     aria-labelledby="map-guess-heading">
-  <!-- Map Instructions (hidden when in toggle container) -->
-  <div class="map-instructions" *ngIf="!isInToggleContainer">
-    <h3 id="map-guess-heading">Where was this photo taken?</h3>
-    <p class="instruction-text" id="map-instructions-text">{{ mapInstructions }}</p>
-  </div>
-
+<div class="map-guess-container" [class.in-toggle-container]="isInToggleContainer">
   <!-- Map Container -->
   <div class="map-wrapper">
     <!-- Loading State -->
-    <div *ngIf="isMapLoading" 
-         class="map-loading"
-         role="status"
-         aria-live="polite"
-         aria-label="Loading interactive map">
+    <div *ngIf="isMapLoading" class="map-loading" role="status" aria-live="polite" aria-label="Loading interactive map">
       <div class="loading-spinner" aria-hidden="true"></div>
       <p>Loading map...</p>
       <p *ngIf="retryCount > 0" class="retry-info">
@@ -24,44 +11,18 @@
     </div>
 
     <!-- Error State -->
-    <div *ngIf="mapError" 
-         class="map-error"
-         role="alert"
-         aria-live="assertive">
+    <div *ngIf="mapError" class="map-error" role="alert" aria-live="assertive">
       <div class="error-icon" aria-hidden="true">⚠️</div>
       <p>{{ mapError }}</p>
-      <button class="retry-button" 
-              (click)="retryMapInitialization()"
-              type="button"
-              aria-label="Retry loading the interactive map">
+      <button class="retry-button" (click)="retryMapInitialization()" type="button"
+        aria-label="Retry loading the interactive map">
         Retry
       </button>
     </div>
 
     <!-- Map Container -->
-    <div 
-      #mapContainer 
-      class="map-container"
-      [class.map-hidden]="isMapLoading || mapError"
-      role="application"
+    <div #mapContainer class="leaflet-map-container" [class.map-hidden]="isMapLoading || mapError" role="application"
       aria-label="Interactive world map for location guessing. Click to place your location guess."
-      [attr.aria-describedby]="'map-instructions-text'"
-      tabindex="0"
-      (keydown)="onMapKeyDown($event)"
-    ></div>
-  </div>
-
-
-
-  <!-- Additional keyboard instructions for screen readers -->
-  <div class="sr-only">
-    <h4>Keyboard Navigation Instructions</h4>
-    <ul>
-      <li>Focus the map and use arrow keys to move the crosshair cursor</li>
-      <li>Press Enter or Space to place a pin at the cursor location</li>
-      <li>Use + and - keys to zoom in and out</li>
-      <li>Press Escape to remove the current pin</li>
-      <li>Use Tab to navigate between map controls</li>
-    </ul>
+      tabindex="0" (keydown)="onMapKeyDown($event)"></div>
   </div>
 </div>

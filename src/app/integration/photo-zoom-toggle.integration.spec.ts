@@ -175,7 +175,7 @@ class MockPhotoDisplayComponent {
 @Component({
   selector: 'app-map-guess',
   template: `
-    <div class="map-container">
+    <div class="leaflet-map-container">
       <div class="map-placeholder">Map View</div>
     </div>
   `,

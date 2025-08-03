@@ -43,7 +43,7 @@ class MockPhotoDisplayComponent {
 @Component({
   selector: 'app-map-guess',
   template: `
-    <div class="map-container" 
+    <div class="leaflet-map-container" 
          [class.has-pins]="hasPins"
          [style.zoom]="mapZoom">
       <div class="map-pins">

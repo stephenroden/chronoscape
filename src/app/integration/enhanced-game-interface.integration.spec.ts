@@ -51,7 +51,7 @@ class MockPhotoDisplayComponent {
   selector: 'app-map-guess',
   template: `
     <div class="map-guess">
-      <div class="map-container" [class.has-pin]="hasPin">
+      <div class="leaflet-map-container" [class.has-pin]="hasPin">
         <button class="map-reset" (click)="onMapReset()">Reset Map</button>
       </div>
     </div>

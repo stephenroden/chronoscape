@@ -152,6 +152,12 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       containerElement.style.width = '100%';
       containerElement.style.height = '100%';
       containerElement.style.position = 'relative';
+      
+      // Force explicit height if percentage height doesn't work
+      const parentRect = containerElement.parentElement?.getBoundingClientRect();
+      if (parentRect && parentRect.height > 0) {
+        containerElement.style.height = `${parentRect.height}px`;
+      }
 
       // Initialize the map with world view
       this.mapService.initializeMap(this.mapId, { latitude: 20, longitude: 0 }, 2);
@@ -172,7 +178,10 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
         this.updateMapPin();
       }
 
-      // Force map resize after ini
+      // Force map resize after initialization
+      setTimeout(() => {
+        this.mapService.invalidateSize();
+      }, 100);
 
     } catch (error) {
       console.error('Failed to initialize map:', error);
@@ -335,6 +344,8 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       console.error('Failed to center map:', error);
     }
   }
+
+
 
   onZoomToPin(): void {
     if (!this.isMapInteractive() || !this.userPin) {

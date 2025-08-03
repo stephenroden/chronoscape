@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, EventEmitter, HostListener, ElementRef, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, Input, Output, EventEmitter, HostListener, ElementRef, ViewChild, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest } from 'rxjs';
@@ -36,7 +36,7 @@ import { setCurrentGuess } from '../../state/scoring/scoring.actions';
   styleUrls: ['./photo-map-toggle.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class PhotoMapToggleComponent implements OnInit, OnDestroy {
+export class PhotoMapToggleComponent implements OnInit, OnDestroy, AfterViewInit {
   private _photo: Photo | null = null;
   
   @Input() 
@@ -182,6 +182,16 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
       } : null,
       timestamp: new Date().toISOString()
     });
+  }
+
+  ngAfterViewInit(): void {
+    // If map view is initially active, trigger resize after view initialization
+    if (this.currentActiveView === 'map' && this.mapGuess) {
+      // Give the view time to fully render
+      setTimeout(() => {
+        this.mapGuess.resizeMap();
+      }, 100);
+    }
   }
 
   ngOnDestroy(): void {
@@ -475,6 +485,14 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
           // Toggle completed successfully
           this.performanceMonitor.endTiming(operationId, 'Component Toggle (Success)');
           this.generateThumbnails();
+          
+          // Resize map when toggling to map view
+          if (newActiveView === 'map' && this.mapGuess) {
+            // Wait for transition to complete before resizing
+            setTimeout(() => {
+              this.mapGuess.resizeMap();
+            }, this.transitionDuration + 50);
+          }
         },
         error: (error) => {
           // Error already handled in catchError, but log for completeness
@@ -658,6 +676,14 @@ export class PhotoMapToggleComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         this.generateThumbnails();
+        
+        // Resize map when switching to map view
+        if (view === 'map' && this.mapGuess) {
+          // Wait for transition to complete before resizing
+          setTimeout(() => {
+            this.mapGuess.resizeMap();
+          }, this.transitionDuration + 50);
+        }
       });
   }
 
