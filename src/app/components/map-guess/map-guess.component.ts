@@ -153,12 +153,6 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       containerElement.style.height = '100%';
       containerElement.style.position = 'relative';
       
-      // Force explicit height if percentage height doesn't work
-      const parentRect = containerElement.parentElement?.getBoundingClientRect();
-      if (parentRect && parentRect.height > 0) {
-        containerElement.style.height = `${parentRect.height}px`;
-      }
-
       // Initialize the map with world view
       this.mapService.initializeMap(this.mapId, { latitude: 20, longitude: 0 }, 2);
 
