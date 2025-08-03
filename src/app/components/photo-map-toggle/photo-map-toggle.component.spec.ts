@@ -363,7 +363,7 @@ describe('PhotoMapToggleComponent', () => {
     });
 
     it('should set aria-hidden correctly for inactive views', () => {
-      const photoContainer = fixture.debugElement.query(By.css('.photo-container'));
+      const photoContainer = fixture.debugElement.query(By.css('.photo-map-view-container'));
       const mapContainer = fixture.debugElement.query(By.css('.map-container'));
 
       expect(photoContainer.nativeElement.getAttribute('aria-hidden')).toBe('false');
@@ -374,7 +374,7 @@ describe('PhotoMapToggleComponent', () => {
       activeViewSubject.next('map');
       fixture.detectChanges();
 
-      const photoContainer = fixture.debugElement.query(By.css('.photo-container'));
+      const photoContainer = fixture.debugElement.query(By.css('.photo-map-view-container'));
       const mapContainer = fixture.debugElement.query(By.css('.map-container'));
 
       expect(photoContainer.nativeElement.getAttribute('aria-hidden')).toBe('true');

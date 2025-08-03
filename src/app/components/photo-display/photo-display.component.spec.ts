@@ -304,9 +304,9 @@ describe('PhotoDisplayComponent', () => {
     });
 
     it('should have responsive image container', () => {
-      const containerElement = fixture.nativeElement.querySelector('.photo-container');
+      const containerElement = fixture.nativeElement.querySelector('.photo-display-image-container');
       expect(containerElement).toBeTruthy();
-      expect(containerElement.classList.contains('photo-container')).toBeTrue();
+      expect(containerElement.classList.contains('photo-display-image-container')).toBeTrue();
     });
   });
 
@@ -455,9 +455,9 @@ describe('PhotoDisplayComponent', () => {
       currentPhotoSubject.next(mockPhoto);
       fixture.detectChanges();
 
-      const containerElement = fixture.nativeElement.querySelector('.photo-container');
+      const containerElement = fixture.nativeElement.querySelector('.photo-display-image-container');
       expect(containerElement).toBeTruthy();
-      expect(containerElement.classList.contains('photo-container')).toBeTrue();
+      expect(containerElement.classList.contains('photo-display-image-container')).toBeTrue();
     });
   });
 

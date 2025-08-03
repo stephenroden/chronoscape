@@ -52,28 +52,16 @@ export class ScoringService {
   calculateLocationScore(guessCoords: Coordinates, actualCoords: Coordinates): number {
     const distance = this.calculateDistance(guessCoords, actualCoords);
 
-    // Within 1km: 5000 points
-    if (distance <= 1) {
-      return 5000;
-    }
-
-    // Within 10km: 4000 points
-    if (distance <= 10) {
-      return 4000;
-    }
-
-    // Within 50km: 2500 points
-    if (distance <= 50) {
-      return 2500;
-    }
-
-    // Within 200km: 1000 points
-    if (distance <= 200) {
-      return 1000;
-    }
-
-    // More than 200km: 0 points
-    return 0;
+    // Start with maximum points
+    const maxPoints = 5000;
+    
+    // Deduct 10 points for every 2km away
+    const pointsDeducted = Math.floor(distance / 2) * 10;
+    
+    // Calculate final score, ensuring it doesn't go below 0
+    const score = Math.max(0, maxPoints - pointsDeducted);
+    
+    return score;
   }
 
   /**

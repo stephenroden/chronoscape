@@ -278,7 +278,7 @@
   }
 }
 
-.photo-container {
+.photo-display-image-container {
   position: relative;
   width: 100%;
   flex: 1;
@@ -355,18 +355,18 @@
   }
 
   // Zoom-specific styles
-  .photo-container.zoomable & {
+  .photo-display-image-container.zoomable & {
     transition: transform 0.15s ease-out;
     will-change: transform;
     position: relative;
   }
 
-  .photo-container.dragging & {
+  .photo-display-image-container.dragging & {
     transition: none;
     will-change: transform;
   }
 
-  .photo-container.zoomed & {
+  .photo-display-image-container.zoomed & {
     // Improve image quality when zoomed
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
@@ -561,7 +561,7 @@
     display: none;
   }
 
-  .photo-container {
+  .photo-display-image-container {
     &.zoomable {
       // Improve mobile zoom experience
       &.zoomed {

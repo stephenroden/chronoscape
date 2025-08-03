@@ -122,7 +122,7 @@ describe('PhotoMapToggleComponent - Accessibility', () => {
     });
 
     it('should have proper aria-hidden attributes on inactive views', () => {
-      const photoContainer = debugElement.query(By.css('.photo-container'));
+      const photoContainer = debugElement.query(By.css('.photo-map-view-container'));
       const mapContainer = debugElement.query(By.css('.map-container'));
       
       // Photo is active, map should be hidden

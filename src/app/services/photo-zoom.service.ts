@@ -429,16 +429,21 @@ export class PhotoZoomService {
       Math.min(zoomLevel, currentState.maxZoom)
     );
 
-    // Calculate position to center zoom on the specified point
+    // Calculate the zoom ratio
+    const zoomRatio = clampedZoom / currentState.zoomLevel;
+    
+    // Calculate the current position of the zoom center point in image space
     const containerCenterX = currentState.containerWidth / 2;
     const containerCenterY = currentState.containerHeight / 2;
     
-    const offsetX = centerX - containerCenterX;
-    const offsetY = centerY - containerCenterY;
+    // Convert mouse position to image space coordinates considering current zoom and position
+    const imageSpaceX = (centerX - containerCenterX - currentState.position.x) / currentState.zoomLevel;
+    const imageSpaceY = (centerY - containerCenterY - currentState.position.y) / currentState.zoomLevel;
     
+    // Calculate new position to keep the mouse point fixed during zoom
     const newPosition = {
-      x: -offsetX * (clampedZoom - 1),
-      y: -offsetY * (clampedZoom - 1)
+      x: centerX - containerCenterX - imageSpaceX * clampedZoom,
+      y: centerY - containerCenterY - imageSpaceY * clampedZoom
     };
 
     const constrainedPosition = this.constrainPosition(newPosition, clampedZoom);
