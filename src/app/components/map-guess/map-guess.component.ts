@@ -40,7 +40,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     private mapService: MapService,
     private interfaceToggleService: InterfaceToggleService,
     private loadingStateService: LoadingStateService
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     // Subscribe to current guess to sync with year component
@@ -48,15 +48,15 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       .pipe(takeUntil(this.destroy$))
       .subscribe(guess => {
         this.currentGuess = guess;
-        
+
         // If there's a valid location guess, update the pin
-        if (guess?.coordinates && 
-            guess.coordinates.latitude !== 0 && 
-            guess.coordinates.longitude !== 0) {
+        if (guess?.coordinates &&
+          guess.coordinates.latitude !== 0 &&
+          guess.coordinates.longitude !== 0) {
           this.userPin = guess.coordinates;
           this.updateMapPin();
         }
-        
+
       });
 
     // Subscribe to current photo to detect photo changes for reset
@@ -64,12 +64,12 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       .pipe(takeUntil(this.destroy$))
       .subscribe(photo => {
         const newPhotoId = photo?.id || null;
-        
+
         // If photo changed, reset map state
         if (this.currentPhotoId !== null && this.currentPhotoId !== newPhotoId) {
           this.resetMapForNewPhoto();
         }
-        
+
         this.currentPhotoId = newPhotoId;
       });
 
@@ -98,11 +98,11 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
 
     const containerElement = this.mapContainer.nativeElement;
     const containerRect = containerElement.getBoundingClientRect();
-    
+
     // In test environment, getBoundingClientRect may return 0, so check if element has an ID (test setup)
     const isTestEnvironment = containerRect.width === 0 && containerRect.height === 0 && containerElement.id;
     const hasValidDimensions = containerRect.width > 0 && containerRect.height > 0;
-    
+
     if (!hasValidDimensions && !isTestEnvironment) {
       // Container not sized yet, wait a bit more
       setTimeout(() => this.waitForContainerAndInitialize(), 100);
@@ -116,7 +116,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    
+
     // Clean up map resources
     this.mapService.destroy();
   }
@@ -135,12 +135,12 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       }
 
       const containerElement = this.mapContainer.nativeElement;
-      
+
       // Check if container has proper dimensions
       const containerRect = containerElement.getBoundingClientRect();
       const isTestEnvironment = containerRect.width === 0 && containerRect.height === 0 && containerElement.id;
       const hasValidDimensions = containerRect.width > 0 && containerRect.height > 0;
-      
+
       if (!hasValidDimensions && !isTestEnvironment) {
         throw new Error('Map container has no dimensions - container may not be visible');
       }
@@ -152,7 +152,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       containerElement.style.width = '100%';
       containerElement.style.height = '100%';
       containerElement.style.position = 'relative';
-      
+
       // Initialize the map with world view
       this.mapService.initializeMap(this.mapId, { latitude: 20, longitude: 0 }, 2);
 
@@ -180,13 +180,13 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     } catch (error) {
       console.error('Failed to initialize map:', error);
       this.isMapLoading = false;
-      
+
       // Set error state in loading service
       this.loadingStateService.setError(
         LoadingStateService.LOADING_KEYS.MAP_INIT,
         error instanceof Error ? error.message : 'Unknown map initialization error'
       );
-      
+
       // Provide specific error messages based on error type
       if (error instanceof Error) {
         if (error.message.includes('container')) {
@@ -214,14 +214,14 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   retryMapInitialization(): void {
     this.mapError = null;
     this.isMapInitialized = false;
-    
+
     // Clean up any existing map instance
     try {
       this.mapService.destroy();
     } catch (error) {
       console.warn('Error cleaning up map during retry:', error);
     }
-    
+
     // Retry initialization after a short delay
     setTimeout(() => {
       this.initializeMap();
@@ -236,7 +236,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     if (!this.retryCount) {
       this.retryCount = 0;
     }
-    
+
     if (this.retryCount < 3) {
       this.retryCount++;
       setTimeout(() => {
@@ -258,10 +258,10 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Update local pin state
     this.userPin = coordinates;
-    
+
     // Place pin on map
     this.updateMapPin();
-    
+
     // Update the store with the new location guess
     this.updateCurrentGuess(coordinates);
   }
@@ -315,10 +315,10 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       // Remove pin from map
       this.mapService.removePin();
-      
+
       // Clear local state
       this.userPin = null;
-      
+
       // Update store with placeholder coordinates
       this.updateCurrentGuess({ latitude: 0, longitude: 0 });
     } catch (error) {
@@ -349,7 +349,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       // Zoom to user's pin location
       this.mapService.setMapView(this.userPin, 8);
-      
+
       // Update toggle service if in toggle container
       if (this.isInToggleContainer) {
         this.interfaceToggleService.setMapZoom(8);
@@ -361,9 +361,9 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get hasValidPin(): boolean {
-    return this.userPin !== null && 
-           this.userPin.latitude !== 0 && 
-           this.userPin.longitude !== 0;
+    return this.userPin !== null &&
+      this.userPin.latitude !== 0 &&
+      this.userPin.longitude !== 0;
   }
 
   get pinDisplayText(): string {
@@ -414,7 +414,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
           handled = true;
         }
         break;
-        
+
       case 'Escape':
         // Remove current pin
         if (this.hasValidPin) {
@@ -422,44 +422,44 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
           handled = true;
         }
         break;
-        
+
       case 'ArrowUp':
         // Pan map up
         this.mapService.panMap('up');
         handled = true;
         break;
-        
+
       case 'ArrowDown':
         // Pan map down
         this.mapService.panMap('down');
         handled = true;
         break;
-        
+
       case 'ArrowLeft':
         // Pan map left
         this.mapService.panMap('left');
         handled = true;
         break;
-        
+
       case 'ArrowRight':
         // Pan map right
         this.mapService.panMap('right');
         handled = true;
         break;
-        
+
       case '+':
       case '=':
         // Zoom in
         this.mapService.zoomIn();
         handled = true;
         break;
-        
+
       case '-':
         // Zoom out
         this.mapService.zoomOut();
         handled = true;
         break;
-        
+
       case 'Home':
         // Center map to world view
         this.onCenterMap();
@@ -499,19 +499,19 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       // Reset retry counter for new photo
       this.retryCount = 0;
-      
+
       // Clear all pins from the map
       this.clearAllPins();
-      
+
       // Reset to default view
       this.resetToDefaultView();
-      
+
       // Clear local state
       this.userPin = null;
-      
+
       // Update store with placeholder coordinates (requirement 5.3)
       this.updateCurrentGuess({ latitude: 0, longitude: 0 });
-      
+
       // If in toggle container, reset toggle service map state (requirement 5.2)
       if (this.isInToggleContainer) {
         this.interfaceToggleService.resetMapState();
@@ -534,7 +534,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       // Remove current user pin
       this.mapService.removePin();
-      
+
       // Clear any additional markers (from results, etc.)
       this.mapService.clearAdditionalMarkers();
     } catch (error) {
@@ -553,7 +553,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
     try {
       // Reset to world view
       this.mapService.setMapView({ latitude: 20, longitude: 0 }, 2);
-      
+
       // If in toggle container, update toggle service
       if (this.isInToggleContainer) {
         this.interfaceToggleService.setMapCenter({ latitude: 20, longitude: 0 });
@@ -613,7 +613,7 @@ export class MapGuessComponent implements OnInit, OnDestroy, AfterViewInit {
       // In test environment, getBoundingClientRect may return 0, so we check if element exists
       const hasValidDimensions = containerRect.width > 0 && containerRect.height > 0;
       const isTestEnvironment = containerRect.width === 0 && containerRect.height === 0 && this.mapContainer.nativeElement.id;
-      
+
       return hasValidDimensions || isTestEnvironment;
     }
 

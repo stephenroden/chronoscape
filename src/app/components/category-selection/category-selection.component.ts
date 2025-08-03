@@ -28,8 +28,8 @@ export class CategorySelectionComponent {
   gameError$: Observable<string | null>;
 
   // Category selection
-  selectedCategory: 'architecture' | 'landmarks' | 'events' | 'all' = 'all';
-  
+  selectedCategory: 'architecture' | 'landmarks' | 'events' | 'all' | null = null;
+
   // Available categories with detailed descriptions
   categories = [
     {
@@ -77,17 +77,18 @@ export class CategorySelectionComponent {
   }
 
   /**
-   * Selects a photo category for the game
+   * Selects a photo category and immediately starts the game
    */
   selectCategory(category: 'architecture' | 'landmarks' | 'events' | 'all'): void {
     this.selectedCategory = category;
+    this.startGameWithCategory();
   }
 
   /**
    * Gets the currently selected category info
    */
   getSelectedCategoryInfo() {
-    return this.categories.find(cat => cat.id === this.selectedCategory);
+    return this.selectedCategory ? this.categories.find(cat => cat.id === this.selectedCategory) : null;
   }
 
   /**
@@ -95,16 +96,18 @@ export class CategorySelectionComponent {
    */
   startGameWithCategory(): void {
     // Load curated photos from high-quality Wikipedia categories with fresh photos
-    this.store.dispatch(PhotosActions.loadCuratedPhotos({ 
-      category: this.selectedCategory, 
-      forceRefresh: true 
-    }));
-    
-    // Start the game which will set status to IN_PROGRESS
-    this.store.dispatch(GameActions.startGame());
-    
-    // Navigate to the game play screen
-    this.router.navigate(['/game']);
+    if (this.selectedCategory !== null) {
+      this.store.dispatch(PhotosActions.loadCuratedPhotos({
+        category: this.selectedCategory,
+        forceRefresh: true
+      }));
+
+      // Start the game which will set status to IN_PROGRESS
+      this.store.dispatch(GameActions.startGame());
+
+      // Navigate to the game play screen
+      this.router.navigate(['/game']);
+    }
   }
 
 
@@ -113,11 +116,13 @@ export class CategorySelectionComponent {
    * Retries loading photos when there's an error
    */
   retryLoadPhotos(): void {
-    // Try curated photos first
-    this.store.dispatch(PhotosActions.loadCuratedPhotos({ 
-      category: this.selectedCategory, 
-      forceRefresh: true 
-    }));
+    if (this.selectedCategory !== null) {
+        // Try curated photos first
+      this.store.dispatch(PhotosActions.loadCuratedPhotos({
+        category: this.selectedCategory,
+        forceRefresh: true
+      }));
+    }
   }
 
   /**
@@ -139,7 +144,7 @@ export class CategorySelectionComponent {
    */
   getErrorMessage(error: string | null): string {
     if (!error) return '';
-    
+
     // Provide more user-friendly messages for common errors
     if (error.includes('Network connection failed')) {
       return 'Unable to connect to the internet. Please check your connection and try again.';
@@ -150,7 +155,7 @@ export class CategorySelectionComponent {
     if (error.includes('Too many requests')) {
       return 'Please wait a moment before trying again.';
     }
-    
+
     return error;
   }
 
@@ -159,12 +164,12 @@ export class CategorySelectionComponent {
    */
   isRetryableError(error: string | null): boolean {
     if (!error) return false;
-    
+
     // Network and temporary errors are retryable
     return error.includes('Network connection failed') ||
-           error.includes('Server error occurred') ||
-           error.includes('Too many requests') ||
-           error.includes('No suitable photos found');
+      error.includes('Server error occurred') ||
+      error.includes('Too many requests') ||
+      error.includes('No suitable photos found');
   }
 
   /**

@@ -7,10 +7,8 @@
     <h1 id="page-title">Choose Your Photo Theme</h1>
     <p class="page-subtitle">Select a category for a more focused historical experience</p>
   </header>
-
   <!-- Main content -->
   <main class="category-content" id="main-content" role="main">
-    
     <!-- Category Grid -->
     <section class="category-grid-section" aria-labelledby="category-grid-heading">
       <h2 id="category-grid-heading" class="visually-hidden">Available photo categories</h2>
@@ -39,20 +37,7 @@
       </div>
     </section>
 
-    <!-- Selected Category Details -->
-    <section class="selected-category-section desktop-only" *ngIf="getSelectedCategoryInfo() as selectedInfo" aria-labelledby="selected-heading">
-      <h2 id="selected-heading">{{ selectedInfo.name }}</h2>
-      <div class="selected-category-details">
-        <p class="detailed-description">{{ selectedInfo.detailedDescription }}</p>
-        
-        <div class="category-examples">
-          <h3>What to expect:</h3>
-          <ul class="examples-list">
-            <li *ngFor="let example of selectedInfo.examples">{{ example }}</li>
-          </ul>
-        </div>
-      </div>
-    </section>
+
 
     <!-- Loading state for game initialization -->
     <div class="loading-container" 
@@ -64,22 +49,6 @@
       <p>Preparing your {{ getSelectedCategoryInfo()?.name?.toLowerCase() || 'curated' }} photos...</p>
     </div>
     
-    <!-- Start Game Button -->
-    <div class="start-actions">
-      <button 
-        class="primary-button start-button" 
-        (click)="startGameWithCategory()"
-        [disabled]="(gameLoading$ | async) || (photosLoading$ | async)"
-        [attr.aria-describedby]="(gameLoading$ | async) || (photosLoading$ | async) ? 'loading-status' : null"
-        type="button">
-        <span *ngIf="!(gameLoading$ | async) && !(photosLoading$ | async)" class="button-text">
-          <span class="full-text">Start Game with {{ getSelectedCategoryInfo()?.name }}</span>
-          <span class="short-text">Start Game</span>
-        </span>
-        <span *ngIf="(gameLoading$ | async) || (photosLoading$ | async)" id="loading-status">Loading...</span>
-      </button>
-    </div>
-
     <!-- Error states -->
     <section class="error-section" 
              *ngIf="(photosError$ | async) || (gameError$ | async)"

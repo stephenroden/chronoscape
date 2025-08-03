@@ -43,6 +43,7 @@
       
       <app-error-boundary 
         componentName="Map Display"
+        class="app-error-boundary-map-guess"
         [enableRetry]="true"
         [enableFallback]="true"
         [isLoading]="(mapLoadingState$ | async)?.isLoading || false"
